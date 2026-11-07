@@ -1,125 +1,202 @@
-# Tether — Claude Code from your phone
+<p align="center">
+  <img src="docs/assets/logo.jpg" alt="tether-bot" width="220" />
+</p>
 
-**telegram-claude-tether** connects the [Claude Code](https://docs.claude.com/en/docs/claude-code) CLI running on *your own machine* to:
+<h1 align="center">tether-bot</h1>
 
-- a **web dashboard**: sessions, chat with attachments, slash commands, context and rate-limit charts, model and effort switching, permission prompts, a live terminal view;
-- a **Telegram bot**: talk to any session, switch between them, get answers and questions with buttons, approve permissions, send photos and files. It speaks English, Português and Español.
+<p align="center">
+  <b>Leave your computer on. Keep working with Claude Code from your phone.</b><br/>
+  A Telegram bot and a web dashboard for the Claude Code sessions running on your own machine.
+</p>
 
-It uses your local `claude` login. It doesn't proxy your account anywhere, and it doesn't need an API key. Each session is a normal `claude` process inside `tmux`. You can still `tmux attach` to any of them.
+---
 
-```
-Telegram ⇄ Tether (Node, one process, port 4100) ⇄ tmux ⇄ claude
-              ⇵
-        Web dashboard
-```
+Tether connects the [Claude Code](https://docs.claude.com/en/docs/claude-code) CLI on **your** computer to:
 
-> Tether is not affiliated with Anthropic. "Claude" and "Claude Code" are trademarks of Anthropic.
-
-## Features
-
-- **Sessions:** create them in any folder, adopt `tmux` sessions that are already running, restart, rename, remove.
-- **Chat:** the full conversation is read from Claude Code's own transcript. Messages show where they came from (Telegram, dashboard or terminal), tool calls collapse, and you can attach files.
-- **Commands:** `/model`, `/effort`, `/clear`, `/compact`, `/usage`, or any slash command, from the dashboard or Telegram.
-- **Usage:** context per session and the 5-hour and 7-day plan limits, with history charts.
-- **Two permission modes, chosen per session:**
-  - **ask:** Claude's permission prompts show up in the dashboard and in Telegram with buttons.
-  - **bypass:** runs with `--dangerously-skip-permissions`.
 - **Telegram:**
-  - phone allow list, password unlock, auto-lock after idle time;
-  - answers from sessions you're not looking at are kept in a 📬 inbox;
-  - photos and documents become attachments;
-  - per-user language.
-- **Dynamic configuration in SQLite:** rotate the bot token, change the password, edit the allow list, and restart the bot from the dashboard.
-- **Security first:** a password and at least one allowed number are always required. See [SECURITY.md](SECURITY.md).
+  - talk to any session and switch between them;
+  - receive Claude's answers;
+  - answer its questions and approve permissions with buttons;
+  - send photos and files;
+  - resume old conversations.
+- **A web dashboard:**
+  - sessions and a full chat with attachments;
+  - slash commands and model/effort switching;
+  - context and plan-limit charts;
+  - a live terminal view.
 
-## Requirements
+It uses your local `claude` login. Nothing is proxied to a third party, and there's no API key to configure. Each session is a normal `claude` process inside `tmux`, so you can still `tmux attach` to it at any time.
 
+```
+ Telegram ─┐                        ┌─ tmux ─ claude (project A)
+           ├─ Tether (127.0.0.1) ───┼─ tmux ─ claude (project B)
+ Browser ──┘                        └─ tmux ─ claude (…)
+```
+
+> Tether is a community project, not affiliated with Anthropic. "Claude" and "Claude Code" are trademarks of Anthropic.
+
+## Quick start
+
+**Requirements:**
 - Linux or macOS
-- Node.js **22.13+**
-- `tmux`, `curl`
-- Claude Code (`claude`), installed and logged in
-
-## Install
+- [Node.js 22.13+](https://nodejs.org)
+- `tmux` and `curl`
+- Claude Code, installed and logged in (`claude`)
 
 ```bash
-npm install -g telegram-claude-tether
-tether setup        # installs the Claude Code hooks and the status line forwarder
-tether              # starts the server on http://127.0.0.1:4100
+git clone https://github.com/pablobelmiro/thether-bot.git
+cd thether-bot
+./install.sh
 ```
 
-Open <http://127.0.0.1:4100>. The first-run wizard asks for:
+The installer:
+1. checks the requirements;
+2. builds the project;
+3. links the `tether` command into `~/.local/bin`;
+4. adds Tether's hooks to `~/.claude/settings.json` (keeping a backup);
+5. on Linux, offers to run Tether as a background service.
 
-1. a language;
-2. a password (8+ characters);
-3. at least one phone number allowed to use the bot (with country code);
-4. a Telegram bot token (optional, can be added later). Create a bot with [@BotFather](https://t.me/BotFather) and paste the token.
+Then open **<http://127.0.0.1:4100>**. The first-run wizard asks for:
 
-Then, on Telegram, open your bot, send `/start`, share your contact, and unlock with `/password <your password>`.
+1. **a language**: English, Português or Español;
+2. **a password**, 8+ characters. It's used for the dashboard and to unlock the bot;
+3. **the phone numbers allowed to use the bot**, with country code, e.g. `5511999998888`;
+4. **a Telegram bot token**. You can add it later; see below.
 
-### Run it as a service (Linux)
+### Create your Telegram bot (2 minutes)
 
-```bash
-tether service install         # systemd user service, restarts automatically
-loginctl enable-linger $USER   # optional: keep it running after logout/reboot
-journalctl --user -u telegram-claude-tether -f
-```
+1. In Telegram, open [@BotFather](https://t.me/BotFather) and send `/newbot`.
+2. Pick a name and a username. BotFather replies with a token like `123456789:AAH…`.
+3. Paste it in the wizard, or later in **Settings → Telegram**.
+4. Open your bot, send `/start` and tap **📱 Share my contact**. Tether checks that the number is on your allow list.
+5. Unlock with `/password <your password>`. The bot deletes that message right away.
 
-### From source
+Then just type. Your message goes to the active session, and Claude's answer comes back to the chat.
 
-```bash
-git clone <this repo> && cd telegram-claude-tether
-npm install
-npm run build
-node bin/tether.mjs setup
-node bin/tether.mjs
-```
-
-For development, `npm run dev` runs the server with reload on :4100 and the dashboard dev server on :5173.
-
-## Telegram commands
+## Using the bot
 
 | Command | What it does |
 |---|---|
-| `/password <pwd>` (`/senha`, `/clave`) | Unlock. The bot deletes your message right away. |
-| `/change [name]` | Switch the active session. Shows 📬 unread counts. |
-| `/repos` | Recent projects; open a new session in one. |
-| `/status` | Active session, model, effort, context, limits. |
-| `/screen` (`/tela`, `/pantalla`) | Terminal snapshot. |
-| `/cancel` | Interrupt Claude. |
-| `/model`, `/effort` | Change model or effort (buttons, or pass a value). |
-| `/usage` | Plan usage panel. |
-| `/clear` | Clear the context (asks for confirmation). |
-| `/lock` | Lock the bot now. |
-| `/lang` | Choose your language. |
-| `/help` | Everything above. |
+| *any text* | Send it to the active session |
+| *photo / file* | Attach it (the caption becomes the message) |
+| `/change [name]` | Switch the active session. 📬 shows answers you haven't read yet. |
+| `/resume` | Resume any recent Claude Code conversation from this machine |
+| `/repos` | Open a new session in a recent project |
+| `/status` | Model, effort, context and plan limits of the active session |
+| `/usage` | Plan limits (5h / 7d) with bars, context per session, money spent |
+| `/screen` | Snapshot of the terminal |
+| `/model`, `/effort` | Change model or effort (buttons, or pass a value) |
+| `/clear` | Clear the session's context (asks for confirmation) |
+| `/cancel` | Interrupt Claude |
+| `/lock` | Lock the bot now |
+| `/lang` | Change your language |
+| `/help` | Show everything |
 
-Any other text goes to the active session. Messages sent from Telegram reach Claude with a `[telegram]` prefix. Add [docs/TELEGRAM_AGENT.md](docs/TELEGRAM_AGENT.md) to your `~/.claude/CLAUDE.md` (or run `tether setup --claude-md`) so Claude formats answers for a phone screen.
+Localized aliases also work, e.g. `/senha`, `/ajuda`, `/tela` in Portuguese and `/clave`, `/ayuda`, `/pantalla` in Spanish.
+
+**Answers from other sessions** don't get lost. While you're in session A, answers from session B go to an inbox (📬), and you receive them when you `/change` to B.
+
+## Using the dashboard
+
+- **Overview:** sessions, account limits with reset times, context per session, usage over 24 h, recent activity, bot status.
+- **Session:**
+  - full conversation (read from Claude Code's own transcript, so messages from Telegram and the terminal show up too);
+  - attachments by button or drag & drop;
+  - type `/` for commands;
+  - model and effort selectors;
+  - live terminal;
+  - restart, clear and remove.
+- **Sidebar:**
+  - **+** new session;
+  - **🕘** resume a past conversation;
+  - **⇄** adopt a tmux session you started yourself.
+- **Settings:**
+  - language and default permission mode;
+  - idle lock;
+  - Telegram token and bot restart;
+  - verified users;
+  - password and allow list;
+  - audit log.
+
+## Permission modes
+
+Each session runs in one of two modes, chosen when you create or resume it:
+
+| Mode | Behavior |
+|---|---|
+| **Ask** (default) | Claude's permission prompts appear in the dashboard and on Telegram with buttons. Answer from anywhere; the other places update. |
+| **Bypass** | Claude runs with `--dangerously-skip-permissions` and never asks. Convenient, but only use it for folders and work you trust. |
+
+The mode applies when the session starts. A conversation that began in one mode can be resumed in the other.
+
+## Security
+
+Tether can make Claude run commands on your computer, so access is locked down:
+
+- **Bot access:** Telegram users need **their own phone number on your allow list** *and* **the password**. The bot locks again after a configurable idle time (default 12 h) and on every restart.
+- **Can't run unprotected:** the bot refuses to start without a password and at least one allowed number, and the last number can't be removed.
+- **Network:** the dashboard listens on **127.0.0.1 only** and needs the same password.
+- **Storage:**
+  - the password is stored with scrypt;
+  - the bot token is encrypted with AES-256-GCM using a local key (mode 600);
+  - only token hashes are stored for dashboard logins.
+- **Process execution:** no shell strings are built from input; `tmux` and `claude` are called with argument lists.
+- **Audit log:** every login, unlock, configuration change and permission answer is recorded.
+
+Read [SECURITY.md](SECURITY.md) for the full model and recommendations. Don't expose port 4100 to the internet.
 
 ## Configuration
 
-Everything user-facing is in the dashboard (stored in `~/.tether/tether.db`). Process-level options:
+Everything user-facing lives in the dashboard (stored in `~/.tether/tether.db`). Process options:
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `TETHER_PORT` | `4100` | HTTP port |
-| `TETHER_HOST` | `127.0.0.1` | Bind address. Keep it local unless you add an authenticated proxy. |
+| `TETHER_HOST` | `127.0.0.1` | Bind address. Keep it local. |
 | `TETHER_HOME` | `~/.tether` | Database, keys, uploads |
 | `TETHER_CLAUDE_BIN` | `claude` | Claude Code executable |
-| `CLAUDE_CONFIG_DIR` | `~/.claude` | Where Claude Code keeps settings and transcripts |
-| `TETHER_DEBUG` | — | `1` for verbose logs |
+| `CLAUDE_CONFIG_DIR` | `~/.claude` | Claude Code settings and transcripts |
+| `TETHER_DEBUG` | | `1` for verbose logs |
 
-`tether import-env <file>` seeds settings from `KEY=VALUE` lines: `TETHER_PASSWORD`, `TETHER_PHONES`, `TETHER_TELEGRAM_TOKEN`, `TETHER_LOCALE`, `TETHER_PERMISSION_MODE`. It's handy for scripted installs. Delete the file afterwards.
+### CLI
 
-## Coming from Vibecraft?
+```bash
+tether                     # start the server (foreground)
+tether setup [--claude-md] # (re)install hooks + status line; optionally add the phone formatting guide to ~/.claude/CLAUDE.md
+tether doctor              # check Node, tmux, claude, hooks, password, phones, token
+tether passwd              # set a new password from the terminal (if you forgot it)
+tether import-env <file>   # seed settings from KEY=VALUE lines (see .env.example)
+tether service install     # systemd user service (Linux)
+tether service uninstall
+tether uninstall-hooks     # remove Tether from ~/.claude/settings.json
+```
 
-Tether reads Vibecraft's event log (`~/.vibecraft/data/events.jsonl`), so sessions started by Vibecraft keep working without a restart. Use **Adopt → Import from Vibecraft** in the dashboard. You can turn compatibility off in Settings once you've moved over.
+## Troubleshooting
 
-## Docs
+| Problem | Fix |
+|---|---|
+| The bot doesn't answer at all | It only answers allowed numbers. Send `/start` and share your contact. If it still ignores you, check the number in Settings → Security (digits with country code) and the server log. |
+| "Conflict: terminated by other getUpdates request" | Two programs are using the same bot token. Stop the other one (only one Tether per token). |
+| Sessions show "unknown model" / no context % | The status line forwarder isn't active for that session yet. Run `tether setup`, then restart the session. |
+| A session I started myself isn't listed | Start it inside tmux, then use **Adopt** in the dashboard. Or use **Resume** to reopen its conversation. |
+| Answers don't arrive after `/clear` | They should. If not, check that the hooks are installed (`tether doctor`). |
+| Forgot the password | Run `tether passwd` on the machine. |
+| Logs | `journalctl --user -u telegram-claude-tether -f` (service), or the terminal running `tether`. |
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [Security model](SECURITY.md)
-- [Contributing and translations](CONTRIBUTING.md)
+## Uninstall
+
+```bash
+tether service uninstall      # if you installed the service
+tether uninstall-hooks
+rm -rf ~/.tether ~/.local/bin/tether
+```
+
+Then delete the cloned folder.
+
+## Contributing
+
+Issues and pull requests are welcome. Translations especially: adding a language is copying one folder. See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Parts are adapted from [Vibecraft](https://github.com/nearcyan/vibecraft) (MIT), see [NOTICE](NOTICE).
+[MIT](LICENSE). Some parts are adapted from Vibecraft (MIT); see [NOTICE](NOTICE).

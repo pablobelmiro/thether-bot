@@ -16,6 +16,7 @@
     "hooks",
     "locales",
     "docs/TELEGRAM_AGENT.md",
+    "install.sh",
     "README.md",
     "SECURITY.md",
     "LICENSE",
@@ -33,6 +34,12 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p web/tsconfig.json --noEmit",
     "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pablobelmiro/thether-bot.git"
+  },
+  "homepage": "https://github.com/pablobelmiro/thether-bot#readme",
+  "bugs": "https://github.com/pablobelmiro/thether-bot/issues",
   "keywords": [
     "claude",
     "claude-code",

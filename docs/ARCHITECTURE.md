@@ -8,7 +8,6 @@
                                      │                        ├─▶ SessionManager ──▶ tmux ──▶ claude (one per session)
  Claude Code hooks ── POST ────────▶ │ /api/hook/event ───────┤        ▲   │                                         │
  status line ──────── POST ────────▶ │ /api/hook/statusline ──┘        │   └─▶ hub (events) ─▶ WS clients, bot       │
- ~/.vibecraft/events.jsonl ─ tail ─▶ │ (optional compatibility)        │                                             │
  ~/.claude/projects/**.jsonl ─ read ─────────────────────────────────┘ transcripts → chat                           │
                                      │ SQLite (~/.tether/tether.db): settings, phones, users, sessions, usage, audit │
                                      └──────────────────────────────────────────────────────────────────────────────┘
@@ -22,7 +21,7 @@
 | **Transcript** (`~/.claude/projects/<dir>/<id>.jsonl`) | the chat: user messages, assistant text, tool calls and results | Read incrementally by byte offset and polled every 1.5 s, so the chat stays live even when hooks are missing. The final answer of a turn is taken from here. |
 | **Status line** (`hooks/tether-statusline.sh`) | model, effort, context %, 5h/7d limits, cost | Chains to your own status line command, so you keep it. Sampled into `usage_points` once per minute per session. |
 | **Terminal** (`tmux capture-pane`) | permission prompts (ask mode), first-run dialogs, `/screen`, panel output of slash commands | Polled every second, only for ask-mode sessions and for sessions that just started. |
-| **Vibecraft log** | the same events for sessions still on Vibecraft's hook | Ignored for a Claude session once it sends native events. |
+| **Transcript list** (`~/.claude/projects/*/*.jsonl`) | recent conversations to resume | Only the head and tail of each file are read (title, working directory, first prompt). Resuming runs `claude --resume <id>` in a new tmux session, in the permission mode you pick. |
 
 ## Sending input
 
