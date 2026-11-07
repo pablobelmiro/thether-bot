@@ -1,0 +1,420 @@
+{
+  "brand": {
+    "subtitle": "para Claude Code"
+  },
+  "common": {
+    "actions": "Acciones",
+    "back": "Atrás",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "copied": "Copiado",
+    "copy": "Copiar",
+    "copyFailed": "No se pudo copiar al portapapeles",
+    "loading": "Cargando…",
+    "next": "Siguiente",
+    "notifications": "Notificaciones",
+    "refresh": "Actualizar",
+    "remove": "Quitar",
+    "save": "Guardar"
+  },
+  "nav": {
+    "backToOverview": "Volver al resumen",
+    "menu": "Menú",
+    "overview": "Resumen",
+    "sessions": "Sesiones",
+    "settings": "Ajustes"
+  },
+  "theme": {
+    "toDark": "Cambiar al modo oscuro",
+    "toLight": "Cambiar al modo claro"
+  },
+  "connection": {
+    "idle": "Desconectado",
+    "connecting": "Conectando",
+    "open": "En vivo",
+    "closed": "Reconectando",
+    "hint": {
+      "idle": "Las actualizaciones en tiempo real están desactivadas",
+      "connecting": "Conectando con Tether para recibir actualizaciones…",
+      "open": "Conectado: las actualizaciones llegan en tiempo real",
+      "closed": "Se perdió la conexión. Reintentando automáticamente…"
+    }
+  },
+  "status": {
+    "idle": "Inactiva",
+    "working": "Trabajando",
+    "waiting": "Esperando",
+    "offline": "Sin conexión"
+  },
+  "auth": {
+    "password": "Contraseña",
+    "logout": "Cerrar sesión",
+    "login": {
+      "eyebrow": "Hola de nuevo",
+      "title": "Iniciar sesión",
+      "submit": "Entrar",
+      "wrong": "Contraseña incorrecta. Inténtalo de nuevo.",
+      "forgot": "¿Olvidaste la contraseña? Restablécela desde la terminal en el equipo donde se ejecuta Tether."
+    }
+  },
+  "setup": {
+    "eyebrow": "Primer inicio",
+    "title": "Configurar Tether",
+    "intro": "Unos pocos pasos y podrás acceder a tus sesiones de Claude Code desde este panel y desde Telegram.",
+    "stepOf": "Paso {{current}} de {{total}}",
+    "steps": {
+      "language": "Idioma",
+      "password": "Contraseña",
+      "phones": "Teléfonos",
+      "telegram": "Telegram"
+    },
+    "language": {
+      "title": "Elige tu idioma",
+      "description": "Lo usan el panel y, por defecto, el bot de Telegram. Puedes cambiarlo más adelante."
+    },
+    "password": {
+      "title": "Crea una contraseña",
+      "description": "Protege este panel, y el bot de Telegram la pide antes de dar acceso a cualquier persona.",
+      "hint": "Al menos 8 caracteres.",
+      "confirm": "Confirma la contraseña",
+      "tooShort": "Usa al menos 8 caracteres.",
+      "mismatch": "Las contraseñas no coinciden."
+    },
+    "phones": {
+      "title": "Teléfonos permitidos",
+      "description": "Solo las cuentas de Telegram con uno de estos números pueden usar el bot.",
+      "howVerified": "Telegram verifica tu número: el bot te pedirá que compartas tu contacto, lo que demuestra que la cuenta es dueña de ese número. Escribir el número nunca es suficiente.",
+      "label": "Número de teléfono",
+      "add": "Añadir otro número",
+      "hint": "Incluye el código de país. Solo dígitos, con un + opcional al principio.",
+      "invalid": "Introduce un número válido: de 6 a 15 dígitos, + opcional.",
+      "required": "Añade al menos un número de teléfono."
+    },
+    "telegram": {
+      "title": "Conecta un bot de Telegram",
+      "description": "Opcional. Puedes saltarte este paso y añadir el token más tarde en Ajustes.",
+      "step1": "Abre un chat con",
+      "step2": "Envía /newbot y sigue las indicaciones.",
+      "step3": "Pega abajo el token que te dé.",
+      "token": "Token del bot",
+      "optional": "Opcional: déjalo vacío para configurarlo más tarde.",
+      "invalid": "Eso no parece un token de bot (123456789:ABC…).",
+      "later": "Puedes hacerlo más tarde"
+    },
+    "finish": "Terminar la configuración",
+    "done": "Todo listo. Te damos la bienvenida a Tether."
+  },
+  "overview": {
+    "eyebrow": "Panel",
+    "title": "Resumen",
+    "description": "Todas las sesiones de Claude Code de este equipo, de un vistazo.",
+    "kpi": {
+      "total": "Sesiones",
+      "working": "Trabajando",
+      "waiting": "Esperándote",
+      "offline": "Sin conexión"
+    },
+    "limits": {
+      "title": "Límites de la cuenta",
+      "fiveHour": "5 horas",
+      "sevenDay": "7 días",
+      "resetsIn": "se restablece en {{duration}}",
+      "resetsSoon": "restableciéndose ahora",
+      "updated": "Actualizado {{time}}",
+      "unknown": "Aún no hay datos de límites. Llegan con la línea de estado de Claude Code."
+    },
+    "context": {
+      "title": "Contexto por sesión",
+      "empty": "Aún no hay sesiones",
+      "emptyHint": "Crea una sesión o adopta una que ya se esté ejecutando en tmux."
+    },
+    "usage": {
+      "title": "Uso a lo largo del tiempo · 24 h",
+      "empty": "Aún no hay uso registrado",
+      "emptyHint": "Los puntos aparecen a medida que las sesiones envían su línea de estado.",
+      "fiveHourLimit": "Límite de 5 horas",
+      "removedSession": "Sesión eliminada"
+    },
+    "activity": {
+      "title": "Actividad reciente"
+    }
+  },
+  "activity": {
+    "empty": "Nada por aquí todavía",
+    "emptyHint": "Aquí aparecen los prompts, las llamadas a herramientas y las solicitudes de permiso.",
+    "kind": {
+      "prompt": "Prompt",
+      "tool": "Herramienta",
+      "response": "Respuesta",
+      "permission": "Permiso",
+      "session": "Sesión",
+      "notification": "Notificación"
+    }
+  },
+  "bot": {
+    "title": "Bot de Telegram",
+    "noUsername": "No hay ningún bot conectado",
+    "runningSince": "Iniciado {{time}}",
+    "restart": "Reiniciar",
+    "start": "Iniciar",
+    "stop": "Detener",
+    "restarted": "Bot reiniciado",
+    "stopped": "Bot detenido",
+    "state": {
+      "disabled": "Desactivado",
+      "misconfigured": "Falta configurar",
+      "stopped": "Detenido",
+      "starting": "Iniciando",
+      "running": "En marcha",
+      "error": "Error"
+    }
+  },
+  "sessions": {
+    "emptySidebar": "Aún no hay sesiones.",
+    "modelUnknown": "Modelo desconocido",
+    "needsPermission": "Esperando tu permiso",
+    "needsAnswer": "Claude te está preguntando algo",
+    "notFound": "No se encontró la sesión",
+    "new": {
+      "title": "Nueva sesión",
+      "description": "Inicia Claude Code en una nueva sesión de tmux.",
+      "name": "Nombre",
+      "nameHint": "Opcional. Por defecto, el nombre de la carpeta.",
+      "namePlaceholder": "mi-proyecto",
+      "cwd": "Directorio de trabajo",
+      "cwdHint": "Escribe una ruta; las sugerencias vienen de este equipo. Tab autocompleta.",
+      "recent": "Proyectos recientes",
+      "permissionMode": "Permisos",
+      "model": "Modelo",
+      "continue": "Continuar la última conversación",
+      "continueHint": "Retoma la conversación más reciente en esta carpeta (claude -c).",
+      "submit": "Crear sesión",
+      "created": "Sesión «{{name}}» creada"
+    },
+    "adopt": {
+      "title": "Adoptar una sesión de tmux",
+      "description": "Toma el control de una sesión de Claude Code que ya se está ejecutando en tmux.",
+      "permissionMode": "¿Cómo se inició?",
+      "permissionModeHint": "Le indica a Tether si este Claude pide permiso o se ejecuta sin supervisión.",
+      "found": "Sesiones de tmux aún no gestionadas",
+      "none": "No hay nada que adoptar",
+      "noneHint": "Todas las sesiones de tmux de este equipo ya están gestionadas, o no hay ninguna en ejecución.",
+      "claude": "Claude Code",
+      "attached": "Conectada",
+      "createdAt": "Iniciada {{time}}",
+      "adopt": "Adoptar",
+      "adopted": "«{{name}}» adoptada",
+      "vibecraftHint": "¿Usas Vibecraft? Trae sus sesiones de una sola vez.",
+      "importVibecraft": "Importar desde Vibecraft",
+      "imported_one": "{{count}} sesión importada",
+      "imported_other": "{{count}} sesiones importadas",
+      "imported_many": "{{count}} sesiones importadas"
+    }
+  },
+  "permissionMode": {
+    "ask": {
+      "label": "Preguntar",
+      "badge": "Pide permiso",
+      "description": "Las solicitudes de permiso se te reenvían aquí y en Telegram."
+    },
+    "bypass": {
+      "label": "Omitir",
+      "badge": "Sin permisos",
+      "description": "Claude ejecuta cualquier herramienta sin preguntar (--dangerously-skip-permissions).",
+      "warning": "Claude editará archivos y ejecutará comandos en este equipo sin preguntar. Úsalo solo en carpetas de confianza y con trabajo que puedas deshacer."
+    }
+  },
+  "models": {
+    "opus": "Opus",
+    "sonnet": "Sonnet",
+    "haiku": "Haiku",
+    "fable": "Fable",
+    "default": "Predeterminado"
+  },
+  "effort": {
+    "low": "Bajo",
+    "medium": "Medio",
+    "high": "Alto",
+    "xhigh": "Muy alto",
+    "max": "Máximo"
+  },
+  "commands": {
+    "title": "Comandos",
+    "keys": "↑↓ para moverte · Enter para ejecutar · Esc para cerrar",
+    "custom": "Ejecutar este comando",
+    "model": "Cambiar de modelo",
+    "effort": "Ajustar el esfuerzo de razonamiento",
+    "clear": "Borrar el contexto de la conversación",
+    "compact": "Resumir y compactar el contexto",
+    "usage": "Mostrar el uso y los límites del plan",
+    "cost": "Mostrar el coste de esta sesión"
+  },
+  "chat": {
+    "assistant": "Claude",
+    "tool": "Herramienta",
+    "toolError": "Error",
+    "systemNote": "Comando",
+    "via": {
+      "telegram": "desde Telegram",
+      "dashboard": "desde el panel",
+      "terminal": "desde la terminal"
+    },
+    "empty": "Aún no hay mensajes",
+    "emptyHint": "Envía un prompt abajo. Escribe / para ver los comandos.",
+    "loadFailed": "No se pudo cargar la conversación",
+    "jump": "Ir al final",
+    "jumpNew_one": "{{count}} nuevo · ir al final",
+    "jumpNew_other": "{{count}} nuevos · ir al final",
+    "jumpNew_many": "{{count}} nuevos · ir al final",
+    "placeholder": "Escribe a Claude… (/ para comandos)",
+    "placeholderOffline": "Esta sesión está sin conexión. Reiníciala para enviar mensajes.",
+    "keysHint": "Enter envía · Mayús+Enter añade una línea",
+    "runningCommand": "Ejecutando {{command}}…",
+    "attach": "Adjuntar archivos",
+    "removeAttachment": "Quitar {{name}}",
+    "dropFiles": "Suelta los archivos para adjuntarlos",
+    "uploadFailed": "No se pudo subir {{name}}",
+    "send": "Enviar",
+    "sendFailed": "No se pudo enviar el mensaje",
+    "cancel": "Cancelar",
+    "cancelSent": "Cancelación enviada",
+    "commandSent": "{{command}} enviado",
+    "commandFailed": "{{command}} falló"
+  },
+  "permission": {
+    "title": "Se necesita permiso"
+  },
+  "question": {
+    "title": "Claude pregunta",
+    "other": "Otra respuesta",
+    "otherPlaceholder": "Otra respuesta…",
+    "send": "Responder"
+  },
+  "panel": {
+    "details": "Detalles",
+    "session": "Sesión",
+    "name": "Nombre de la sesión",
+    "rename": "Renombrar",
+    "adopted": "Adoptada",
+    "runningTool": "Ejecutando",
+    "cwd": "Directorio de trabajo",
+    "tmux": "tmux",
+    "lastActivity": "Última actividad",
+    "modelAndEffort": "Modelo y esfuerzo",
+    "model": "Modelo",
+    "effort": "Esfuerzo",
+    "context": "Contexto",
+    "tokens": "{{used}} / {{size}} tokens",
+    "cost": "Coste {{cost}}",
+    "updated": "Actualizado {{time}}",
+    "noUsage": "Aún no hay datos de la línea de estado",
+    "noHistory": "Aún no hay historial suficiente para un gráfico.",
+    "actions": "Acciones",
+    "terminal": "Terminal",
+    "clear": "Borrar contexto",
+    "restart": "Reiniciar",
+    "remove": "Quitar",
+    "activity": "Actividad",
+    "restarted": "Sesión reiniciada",
+    "removed": "«{{name}}» quitada",
+    "confirmClear": {
+      "title": "¿Borrar el contexto?",
+      "description": "Ejecuta /clear. Claude empieza una conversación nueva; la actual queda en el historial de transcripciones."
+    },
+    "confirmRestart": {
+      "title": "¿Reiniciar esta sesión?",
+      "description": "Detiene Claude Code en esta sesión de tmux y lo vuelve a iniciar en la misma carpeta. Lo que esté en curso se interrumpirá."
+    },
+    "confirmRemove": {
+      "title": "¿Quitar «{{name}}»?",
+      "description": "Tether deja de gestionar esta sesión. Sus transcripciones en disco no se borran.",
+      "kill": "Cerrar también la sesión de tmux",
+      "killHint": "Termina la sesión de tmux «{{tmux}}» y el proceso de Claude Code que contiene."
+    }
+  },
+  "terminal": {
+    "title": "Terminal",
+    "readOnly": "Solo lectura · se actualiza cada 1,5 s"
+  },
+  "settings": {
+    "eyebrow": "Preferencias",
+    "title": "Ajustes",
+    "saved": "Guardado",
+    "tabs": {
+      "general": "General",
+      "telegram": "Telegram",
+      "security": "Seguridad",
+      "audit": "Registro de auditoría"
+    },
+    "general": {
+      "language": "Idioma",
+      "languageHint": "Del panel y, por defecto, del bot de Telegram.",
+      "defaultPermission": "Modo de permisos predeterminado",
+      "defaultPermissionHint": "Aparece preseleccionado al crear o adoptar una sesión.",
+      "idleLock": "Bloqueo por inactividad",
+      "idleLockHint": "El bot de Telegram vuelve a pedir la contraseña tras este tiempo sin uso.",
+      "hours": "horas",
+      "vibecraft": "Compatibilidad con Vibecraft",
+      "vibecraftHint": "Lee el registro de eventos de Vibecraft para que sus sesiones en marcha aparezcan aquí."
+    },
+    "telegram": {
+      "enabled": "Bot de Telegram",
+      "enabledHint": "Activa o desactiva el bot sin quitar su token.",
+      "token": "Token del bot",
+      "tokenHint": "Crea un bot y obtén su token con",
+      "tokenSet": "Token configurado (…{{hint}}). Pega uno nuevo para reemplazarlo.",
+      "saveToken": "Guardar token",
+      "replaceToken": "Reemplazar token",
+      "tokenSaved": "Conectado como @{{username}}",
+      "users": "Usuarios verificados",
+      "usersHint": "Cuentas de Telegram que compartieron un número permitido e introdujeron la contraseña.",
+      "noUsers": "No hay usuarios verificados",
+      "noUsersHint": "Abre tu bot en Telegram y envía /start para verificarte.",
+      "col": {
+        "phone": "Teléfono",
+        "userId": "ID de usuario",
+        "verified": "Verificado",
+        "session": "Sesión activa"
+      },
+      "revoke": "Revocar",
+      "revoked": "Acceso revocado",
+      "revokeTitle": "¿Revocar el acceso?",
+      "revokeDescription": "{{phone}} tendrá que verificarse de nuevo (contacto y contraseña) para usar el bot."
+    },
+    "security": {
+      "modelTitle": "Cómo funciona el acceso",
+      "model": "El bot de Telegram siempre exige dos cosas: la contraseña del panel y una cuenta de Telegram cuyo número verificado esté en la lista de permitidos. Por eso debe quedar al menos un número en la lista.",
+      "changePassword": "Cambiar la contraseña",
+      "current": "Contraseña actual",
+      "new": "Nueva contraseña",
+      "updatePassword": "Actualizar contraseña",
+      "passwordChanged": "Contraseña actualizada",
+      "phones": "Teléfonos permitidos",
+      "phonesHint": "Las cuentas de Telegram deben compartir uno de estos números como contacto para usar el bot.",
+      "phone": "Número de teléfono",
+      "label": "Etiqueta",
+      "labelPlaceholder": "p. ej., Personal",
+      "addPhone": "Añadir",
+      "phoneAdded": "Número añadido",
+      "phoneRemoved": "Número quitado",
+      "addedAt": "Añadido {{time}}",
+      "lastPhone": "El último número no se puede quitar: el bot necesita al menos un número permitido. Añade otro primero."
+    },
+    "audit": {
+      "description": "Acciones relevantes para la seguridad, de la más reciente a la más antigua.",
+      "empty": "Aún no hay registros",
+      "col": {
+        "time": "Hora",
+        "actor": "Origen",
+        "action": "Acción",
+        "detail": "Detalle"
+      },
+      "actor": {
+        "dashboard": "Panel",
+        "telegram": "Telegram",
+        "system": "Sistema",
+        "cli": "CLI"
+      }
+    }
+  }
+}

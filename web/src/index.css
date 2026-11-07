@@ -1,0 +1,182 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 45 25% 95%;
+    --foreground: 60 6% 8%;
+    --card: 48 33% 98%;
+    --card-foreground: 60 6% 8%;
+    --popover: 48 33% 98%;
+    --popover-foreground: 60 6% 8%;
+    --primary: 210 70% 18%;
+    --primary-foreground: 48 33% 97%;
+    --secondary: 45 18% 90%;
+    --secondary-foreground: 60 6% 10%;
+    --muted: 45 16% 91%;
+    --muted-foreground: 50 5% 40%;
+    --accent: 45 18% 89%;
+    --accent-foreground: 60 6% 8%;
+    --destructive: 8 62% 42%;
+    --destructive-foreground: 48 33% 97%;
+    --success: 105 20% 38%;
+    --success-foreground: 48 33% 97%;
+    --warning: 36 72% 40%;
+    --warning-foreground: 48 33% 97%;
+    --info: 210 50% 38%;
+    --info-foreground: 48 33% 97%;
+    --border: 40 12% 83%;
+    --input: 40 12% 80%;
+    --ring: 210 70% 18%;
+    --radius: 0px;
+
+    --status-idle: 105 20% 42%;
+    --status-working: 210 55% 32%;
+    --status-waiting: 36 75% 44%;
+    --status-offline: 8 38% 50%;
+
+    --chart-1: 210 55% 30%;
+    --chart-2: 105 22% 40%;
+    --chart-3: 28 55% 46%;
+    --chart-4: 280 18% 45%;
+    --chart-5: 180 25% 35%;
+    --chart-6: 350 35% 45%;
+    --chart-limit: 36 75% 44%;
+
+    --terminal: 60 4% 7%;
+    --terminal-foreground: 48 16% 88%;
+  }
+
+  .dark {
+    --background: 60 4% 6%;
+    --foreground: 48 16% 92%;
+    --card: 60 4% 9%;
+    --card-foreground: 48 16% 92%;
+    --popover: 60 4% 10%;
+    --popover-foreground: 48 16% 92%;
+    --primary: 210 30% 82%;
+    --primary-foreground: 60 4% 8%;
+    --secondary: 60 3% 14%;
+    --secondary-foreground: 48 16% 92%;
+    --muted: 60 3% 13%;
+    --muted-foreground: 48 6% 62%;
+    --accent: 60 3% 15%;
+    --accent-foreground: 48 16% 92%;
+    --destructive: 8 55% 56%;
+    --destructive-foreground: 60 4% 6%;
+    --success: 105 20% 58%;
+    --success-foreground: 60 4% 6%;
+    --warning: 38 65% 58%;
+    --warning-foreground: 60 4% 6%;
+    --info: 210 40% 66%;
+    --info-foreground: 60 4% 6%;
+    --border: 60 3% 18%;
+    --input: 60 3% 22%;
+    --ring: 210 30% 82%;
+
+    --status-idle: 105 18% 56%;
+    --status-working: 210 45% 66%;
+    --status-waiting: 38 65% 58%;
+    --status-offline: 8 40% 58%;
+
+    --chart-1: 210 45% 68%;
+    --chart-2: 105 20% 58%;
+    --chart-3: 28 50% 60%;
+    --chart-4: 280 18% 66%;
+    --chart-5: 180 22% 55%;
+    --chart-6: 350 32% 64%;
+    --chart-limit: 38 65% 58%;
+
+    --terminal: 60 4% 4%;
+    --terminal-foreground: 48 16% 88%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.18);
+  }
+}
+
+@layer components {
+  /* Small uppercase mono label, e.g. SESSIONS, CONTEXT */
+  .label-mono {
+    @apply font-mono text-[11px] font-medium uppercase tracking-label text-muted-foreground;
+  }
+
+  .page-title {
+    @apply font-serif text-3xl font-normal tracking-tight sm:text-4xl;
+  }
+
+  .big-number {
+    @apply font-serif font-light tabular-nums tracking-tight;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+}
+
+/* Markdown inside the chat */
+.chat-markdown :where(pre) {
+  @apply font-mono;
+}
+
+.prose.chat-markdown {
+  --tw-prose-body: hsl(var(--foreground));
+  --tw-prose-headings: hsl(var(--foreground));
+  --tw-prose-lead: hsl(var(--muted-foreground));
+  --tw-prose-links: hsl(var(--primary));
+  --tw-prose-bold: hsl(var(--foreground));
+  --tw-prose-counters: hsl(var(--muted-foreground));
+  --tw-prose-bullets: hsl(var(--muted-foreground));
+  --tw-prose-hr: hsl(var(--border));
+  --tw-prose-quotes: hsl(var(--foreground));
+  --tw-prose-quote-borders: hsl(var(--border));
+  --tw-prose-captions: hsl(var(--muted-foreground));
+  --tw-prose-code: hsl(var(--foreground));
+  --tw-prose-pre-code: hsl(var(--foreground));
+  --tw-prose-pre-bg: transparent;
+  --tw-prose-th-borders: hsl(var(--border));
+  --tw-prose-td-borders: hsl(var(--border));
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+.prose.chat-markdown :where(h1, h2, h3, h4) {
+  font-family: Fraunces, ui-serif, Georgia, serif;
+  font-weight: 400;
+}
+.prose.chat-markdown :where(code)::before,
+.prose.chat-markdown :where(code)::after {
+  content: none;
+}
+.prose.chat-markdown :where(th) {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 500;
+}
+.prose.chat-markdown > :first-child {
+  margin-top: 0;
+}
+.prose.chat-markdown > :last-child {
+  margin-bottom: 0;
+}

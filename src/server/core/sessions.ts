@@ -1,0 +1,656 @@
+/**
+ * Session manager: owns the list of Claude Code sessions (each one a tmux
+ * session), keeps their live state from hook events, transcripts and the
+ * status line, and performs actions on them.
+ */
+
+import { randomUUID, randomBytes } from 'node:crypto'
+import { existsSync, readFileSync, statSync } from 'node:fs'
+import { basename, resolve } from 'node:path'
+import type {
+  ActivityEvent,
+  ChatMessage,
+  CreateSessionRequest,
+  DiscoveredTmuxSession,
+  PermissionMode,
+  PendingQuestion,
+  PermissionPrompt,
+  Session,
+  SessionStatus,
+  SessionUsage,
+} from '../../shared/api.js'
+import type { Repo, StoredSession } from '../db/repo.js'
+import { env, log, debug } from '../env.js'
+import { hub } from './hub.js'
+import { tmux, validateTmuxName } from './tmux.js'
+import { detectBypassWarning, detectPermissionPrompt, detectTrustDialog } from './permissions.js'
+import { TranscriptReader, findTranscript, lastAssistantText, TELEGRAM_PREFIX, DASHBOARD_PREFIX } from './transcript.js'
+import type { HookEvent } from './events.js'
+
+interface Live {
+  status: SessionStatus
+  currentTool?: string
+  pendingPermission?: PermissionPrompt
+  pendingQuestion?: PendingQuestion
+  reader?: TranscriptReader
+  /** Started by us recently: auto-accept first-run dialogs */
+  bootUntil?: number
+  lastUsagePoint?: number
+}
+
+const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
+const MODEL_ARG = /^[A-Za-z0-9._[\]-]{1,60}$/
+/** No event for this long while "working" → assume idle (long tools still send pre/post events) */
+const WORKING_TIMEOUT_MS = 10 * 60 * 1000
+
+export class SessionManager {
+  private readonly sessions = new Map<string, StoredSession>()
+  private readonly live = new Map<string, Live>()
+  /** Claude session ids that already sent native hook events */
+  private readonly nativeIds = new Set<string>()
+  private timers: NodeJS.Timeout[] = []
+
+  constructor(private readonly repo: Repo) {
+    for (const s of repo.listSessions()) {
+      this.sessions.set(s.id, s)
+      this.live.set(s.id, { status: 'offline' })
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Lifecycle
+  // -------------------------------------------------------------------------
+
+  start(): void {
+    void this.healthCheck()
+    this.timers.push(setInterval(() => void this.healthCheck(), 5000))
+    this.timers.push(setInterval(() => void this.pollTerminals(), 1000))
+    this.timers.push(setInterval(() => this.pollTranscripts(), 1500))
+  }
+
+  stop(): void {
+    this.timers.forEach(clearInterval)
+    this.timers = []
+  }
+
+  // -------------------------------------------------------------------------
+  // Queries
+  // -------------------------------------------------------------------------
+
+  list(): Session[] {
+    return [...this.sessions.values()].map(s => this.toApi(s))
+  }
+
+  get(id: string): Session | undefined {
+    const s = this.sessions.get(id)
+    return s ? this.toApi(s) : undefined
+  }
+
+  require(id: string): StoredSession {
+    const s = this.sessions.get(id)
+    if (!s) throw new HttpError(404, 'Session not found')
+    return s
+  }
+
+  findByName(query: string): Session | undefined {
+    const q = query.trim().toLowerCase()
+    if (!q) return undefined
+    const all = this.list()
+    return (
+      all.find(s => s.name.toLowerCase() === q) ??
+      all.find(s => s.name.toLowerCase().startsWith(q)) ??
+      all.find(s => s.name.toLowerCase().includes(q))
+    )
+  }
+
+  private toApi(s: StoredSession): Session {
+    const l = this.live.get(s.id) ?? { status: 'offline' as const }
+    return {
+      id: s.id,
+      name: s.name,
+      tmuxSession: s.tmuxSession,
+      cwd: s.cwd,
+      status: l.status,
+      permissionMode: s.permissionMode,
+      claudeSessionId: s.claudeSessionId,
+      createdAt: s.createdAt,
+      lastActivity: s.lastActivity,
+      currentTool: l.currentTool,
+      usage: s.usage,
+      pendingPermission: l.pendingPermission,
+      pendingQuestion: l.pendingQuestion,
+      origin: s.origin,
+    }
+  }
+
+  private changed(s: StoredSession, persist = true): void {
+    if (persist) this.repo.saveSession(s)
+    hub.emit('session', this.toApi(s))
+  }
+
+  private setStatus(s: StoredSession, status: SessionStatus, tool?: string): void {
+    const l = this.liveOf(s.id)
+    if (l.status === status && l.currentTool === tool) return
+    l.status = status
+    l.currentTool = tool
+    this.changed(s, false)
+  }
+
+  private liveOf(id: string): Live {
+    let l = this.live.get(id)
+    if (!l) {
+      l = { status: 'offline' }
+      this.live.set(id, l)
+    }
+    return l
+  }
+
+  // -------------------------------------------------------------------------
+  // Create / adopt / import
+  // -------------------------------------------------------------------------
+
+  async create(req: CreateSessionRequest, defaultMode: PermissionMode): Promise<Session> {
+    const cwd = validateDirectory(req.cwd)
+    const mode = req.permissionMode ?? defaultMode
+    if (req.model && !MODEL_ARG.test(req.model)) throw new HttpError(400, 'Invalid model name')
+    const name = (req.name?.trim() || basename(cwd) || 'claude').slice(0, 60)
+    const tmuxSession = `tether-${randomBytes(4).toString('hex')}`
+
+    await tmux.newSession(tmuxSession, cwd, claudeCommand(mode, !!req.continueConversation, req.model))
+
+    const now = Date.now()
+    const s: StoredSession = {
+      id: randomUUID(),
+      name,
+      tmuxSession,
+      cwd,
+      permissionMode: mode,
+      origin: 'tether',
+      createdAt: now,
+      lastActivity: now,
+    }
+    this.sessions.set(s.id, s)
+    this.live.set(s.id, { status: 'idle', bootUntil: now + 60_000 })
+    this.repo.touchProject(cwd, basename(cwd))
+    this.changed(s)
+    this.activity(s, 'session', `Session started in ${cwd}`)
+    log(`Session created: ${name} → tmux ${tmuxSession} (${mode})`)
+    return this.toApi(s)
+  }
+
+  async discover(): Promise<DiscoveredTmuxSession[]> {
+    const managed = new Set([...this.sessions.values()].map(s => s.tmuxSession))
+    const all = await tmux.list()
+    return all.filter(t => !managed.has(t.tmuxSession)).sort((a, b) => Number(b.looksLikeClaude) - Number(a.looksLikeClaude))
+  }
+
+  async adopt(tmuxSession: string, name: string | undefined, mode: PermissionMode, claudeSessionId?: string): Promise<Session> {
+    validateTmuxName(tmuxSession)
+    if ([...this.sessions.values()].some(s => s.tmuxSession === tmuxSession)) throw new HttpError(409, 'That tmux session is already managed')
+    const found = (await tmux.list()).find(t => t.tmuxSession === tmuxSession)
+    if (!found) throw new HttpError(404, 'tmux session not found')
+    const now = Date.now()
+    const s: StoredSession = {
+      id: randomUUID(),
+      name: (name?.trim() || basename(found.cwd) || tmuxSession).slice(0, 60),
+      tmuxSession,
+      cwd: found.cwd,
+      permissionMode: mode,
+      origin: 'adopted',
+      claudeSessionId,
+      createdAt: now,
+      lastActivity: now,
+    }
+    if (claudeSessionId) s.transcriptPath = findTranscript(env.claudeHome, claudeSessionId, s.cwd)
+    this.sessions.set(s.id, s)
+    this.live.set(s.id, { status: 'idle' })
+    if (found.cwd) this.repo.touchProject(found.cwd, basename(found.cwd))
+    this.changed(s)
+    this.activity(s, 'session', `Adopted tmux session ${tmuxSession}`)
+    log(`Session adopted: ${s.name} ← tmux ${tmuxSession}`)
+    return this.toApi(s)
+  }
+
+  /** Adopt every live session listed in Vibecraft's sessions.json */
+  async importVibecraft(): Promise<number> {
+    if (!existsSync(env.vibecraftSessions)) throw new HttpError(404, `Vibecraft sessions not found at ${env.vibecraftSessions}`)
+    const data = JSON.parse(readFileSync(env.vibecraftSessions, 'utf-8')) as {
+      sessions?: Array<{ name?: string; tmuxSession?: string; claudeSessionId?: string }>
+    }
+    const live = new Set((await tmux.list()).map(t => t.tmuxSession))
+    let count = 0
+    for (const v of data.sessions ?? []) {
+      if (!v.tmuxSession || !live.has(v.tmuxSession)) continue
+      if ([...this.sessions.values()].some(s => s.tmuxSession === v.tmuxSession)) continue
+      // Vibecraft starts Claude with --dangerously-skip-permissions
+      await this.adopt(v.tmuxSession, v.name, 'bypass', v.claudeSessionId)
+      count++
+    }
+    return count
+  }
+
+  // -------------------------------------------------------------------------
+  // Actions
+  // -------------------------------------------------------------------------
+
+  rename(id: string, name: string): Session {
+    const s = this.require(id)
+    const n = name.trim().slice(0, 60)
+    if (!n) throw new HttpError(400, 'Name is required')
+    s.name = n
+    this.changed(s)
+    return this.toApi(s)
+  }
+
+  async remove(id: string, killTmux: boolean): Promise<void> {
+    const s = this.require(id)
+    if (killTmux) await tmux.kill(s.tmuxSession)
+    this.sessions.delete(id)
+    this.live.delete(id)
+    this.repo.deleteSession(id)
+    hub.emit('session_removed', id)
+    log(`Session removed: ${s.name}${killTmux ? ' (tmux killed)' : ''}`)
+  }
+
+  async restart(id: string): Promise<Session> {
+    const s = this.require(id)
+    await tmux.kill(s.tmuxSession)
+    await tmux.newSession(s.tmuxSession, s.cwd, claudeCommand(s.permissionMode, true))
+    s.claudeSessionId = undefined
+    s.transcriptPath = undefined
+    s.lastActivity = Date.now()
+    const l = this.liveOf(s.id)
+    l.reader = undefined
+    l.pendingPermission = undefined
+    l.bootUntil = Date.now() + 60_000
+    l.status = 'idle'
+    this.changed(s)
+    this.activity(s, 'session', 'Session restarted')
+    return this.toApi(s)
+  }
+
+  /** Send a user message. `prefix` tags where it came from (shown in the chat). */
+  async prompt(id: string, text: string, prefix: string, attachments: string[] = []): Promise<void> {
+    const s = this.require(id)
+    if (this.liveOf(id).status === 'offline') throw new HttpError(409, 'Session is offline')
+    let body = text.trim()
+    if (attachments.length) {
+      const list = attachments.map(p => `- ${p}`).join('\n')
+      body = `${body}\n\nAttached files (read them from disk):\n${list}`.trim()
+    }
+    if (!body) throw new HttpError(400, 'Message is empty')
+    await tmux.paste(s.tmuxSession, prefix + body)
+    s.lastActivity = Date.now()
+    this.changed(s)
+  }
+
+  /**
+   * Run a Claude Code slash command and return what it printed.
+   * Interactive panels (e.g. /usage) are captured and then closed with Escape.
+   */
+  async command(id: string, command: string): Promise<string> {
+    const s = this.require(id)
+    const cmd = command.trim()
+    if (!/^\/[A-Za-z][\w:-]*( [^\r\n]{0,200})?$/.test(cmd)) throw new HttpError(400, 'Invalid command')
+    if (this.liveOf(id).status === 'offline') throw new HttpError(409, 'Session is offline')
+    await tmux.type(s.tmuxSession, cmd)
+    await new Promise(r => setTimeout(r, 2500))
+    const screen = await tmux.capture(s.tmuxSession)
+    const lines = screen.split('\n')
+    const tail = lines.slice(-8).join('\n')
+    if (/Esc to (cancel|close|exit)|Esc to go back/i.test(tail)) {
+      await tmux.keys(s.tmuxSession, 'Escape')
+      return trimScreen(screen)
+    }
+    const idx = lines.map(l => l.includes(cmd)).lastIndexOf(true)
+    if (idx === -1) return ''
+    const out: string[] = []
+    for (const l of lines.slice(idx + 1)) {
+      if (/^\s*─{10,}/.test(l)) break
+      if (l.trim()) out.push(l.replace(/^\s*⎿\s?/, '').trimEnd())
+    }
+    return out.join('\n')
+  }
+
+  /** Interrupt Claude (Escape is Claude Code's interrupt key) */
+  async cancel(id: string): Promise<void> {
+    const s = this.require(id)
+    await tmux.keys(s.tmuxSession, 'Escape')
+  }
+
+  async respondPermission(id: string, option: string): Promise<void> {
+    const s = this.require(id)
+    if (!/^\d{1,2}$/.test(option)) throw new HttpError(400, 'Invalid option')
+    await tmux.keys(s.tmuxSession, option)
+    const l = this.liveOf(id)
+    if (l.pendingPermission) {
+      l.pendingPermission = undefined
+      this.setStatus(s, 'working')
+      hub.emit('permission', this.toApi(s), null)
+    }
+  }
+
+  /** Answer an AskUserQuestion menu: option number (1-based) or free text */
+  async answerQuestion(id: string, answer: { option?: number; text?: string }): Promise<void> {
+    const s = this.require(id)
+    const l = this.liveOf(id)
+    if (answer.option !== undefined) {
+      if (!Number.isInteger(answer.option) || answer.option < 1 || answer.option > 9) throw new HttpError(400, 'Invalid option')
+      // Number keys select a menu entry immediately
+      await tmux.keys(s.tmuxSession, String(answer.option))
+    } else if (answer.text?.trim()) {
+      // Free text: pick "Type something" (the entry after the listed options), then type
+      const otherIdx = (l.pendingQuestion?.options.length ?? 0) + 1
+      if (l.pendingQuestion && otherIdx <= 9) {
+        await tmux.keys(s.tmuxSession, String(otherIdx))
+        await new Promise(r => setTimeout(r, 300))
+      }
+      await tmux.paste(s.tmuxSession, answer.text.trim())
+    } else {
+      throw new HttpError(400, 'Answer is empty')
+    }
+    this.clearQuestion(s)
+  }
+
+  private clearQuestion(s: StoredSession): void {
+    const l = this.liveOf(s.id)
+    if (!l.pendingQuestion) return
+    l.pendingQuestion = undefined
+    this.changed(s, false)
+  }
+
+  async terminal(id: string, lines = 0): Promise<string> {
+    const s = this.require(id)
+    return trimScreen(await tmux.capture(s.tmuxSession, lines))
+  }
+
+  messages(id: string, limit = 200): ChatMessage[] {
+    const s = this.require(id)
+    const reader = this.readerFor(s)
+    return reader ? reader.messages(limit) : []
+  }
+
+  // -------------------------------------------------------------------------
+  // Inputs: hook events, status line
+  // -------------------------------------------------------------------------
+
+  handleEvent(e: HookEvent): void {
+    if (e.source === 'native') this.nativeIds.add(e.claudeSessionId)
+    else if (this.nativeIds.has(e.claudeSessionId)) return
+
+    const s = this.link(e)
+    if (!s) return
+    const l = this.liveOf(s.id)
+    s.lastActivity = Date.now()
+    if (l.status === 'offline') l.status = 'idle'
+
+    switch (e.type) {
+      case 'user_prompt_submit':
+        this.setStatus(s, 'working')
+        if (e.prompt) this.activity(s, 'prompt', stripSourcePrefix(e.prompt).slice(0, 160))
+        break
+      case 'pre_tool_use':
+        if (e.tool === 'AskUserQuestion') this.emitQuestion(s, e)
+        else this.setStatus(s, l.pendingPermission ? 'waiting' : 'working', e.tool)
+        if (e.tool) this.activity(s, 'tool', toolSummary(e), e.tool)
+        break
+      case 'post_tool_use':
+        if (e.tool === 'AskUserQuestion') this.clearQuestion(s)
+        this.setStatus(s, l.pendingPermission ? 'waiting' : 'working')
+        break
+      case 'stop':
+        this.clearQuestion(s)
+        this.setStatus(s, 'idle')
+        void this.finishTurn(s, e)
+        break
+      case 'session_start':
+        // New conversation id (startup, /clear, resume) → new transcript
+        l.reader = undefined
+        this.setStatus(s, 'idle')
+        this.activity(s, 'session', `Conversation ${e.startSource ?? 'started'}`)
+        break
+      case 'session_end':
+        this.setStatus(s, 'idle')
+        break
+      case 'notification':
+        if (e.message) this.activity(s, 'notification', e.message.slice(0, 160))
+        break
+      default:
+        break
+    }
+    this.repo.saveSession(s)
+  }
+
+  /** Find the managed session for an event and keep ids/paths linked */
+  private link(e: HookEvent): StoredSession | undefined {
+    let s: StoredSession | undefined
+    if (e.tmuxSession) s = [...this.sessions.values()].find(x => x.tmuxSession === e.tmuxSession)
+    if (!s) s = [...this.sessions.values()].find(x => x.claudeSessionId === e.claudeSessionId)
+    if (!s) return undefined
+    if (s.claudeSessionId !== e.claudeSessionId) {
+      debug(`Linking ${s.name} → claude ${e.claudeSessionId.slice(0, 8)}`)
+      s.claudeSessionId = e.claudeSessionId
+      s.transcriptPath = e.transcriptPath ?? findTranscript(env.claudeHome, e.claudeSessionId, e.cwd ?? s.cwd)
+      this.liveOf(s.id).reader = undefined
+      this.changed(s)
+    } else if (e.transcriptPath && s.transcriptPath !== e.transcriptPath) {
+      s.transcriptPath = e.transcriptPath
+      this.liveOf(s.id).reader = undefined
+    }
+    return s
+  }
+
+  private readerFor(s: StoredSession): TranscriptReader | undefined {
+    const l = this.liveOf(s.id)
+    if (!s.transcriptPath && s.claudeSessionId) s.transcriptPath = findTranscript(env.claudeHome, s.claudeSessionId, s.cwd)
+    if (!s.transcriptPath) return undefined
+    if (!l.reader || l.reader.path !== s.transcriptPath) {
+      l.reader = new TranscriptReader(s.transcriptPath)
+      l.reader.readNew() // load history without emitting it as "new"
+    }
+    return l.reader
+  }
+
+  private async finishTurn(s: StoredSession, e: HookEvent): Promise<void> {
+    let response = e.response ?? ''
+    if (!response) {
+      // Give Claude Code a moment to flush the transcript
+      await new Promise(r => setTimeout(r, 600))
+      const reader = this.readerFor(s)
+      if (reader) {
+        this.pushMessages(s, reader.readNew())
+        response = lastAssistantText(reader.messages(400))
+      }
+    }
+    if (response) this.activity(s, 'response', response.replace(/\s+/g, ' ').slice(0, 160))
+    hub.emit('turn_complete', this.toApi(s), response)
+  }
+
+  private emitQuestion(s: StoredSession, e: HookEvent): void {
+    const questions = Array.isArray(e.toolInput?.questions) ? (e.toolInput!.questions as Array<Record<string, unknown>>) : []
+    const q = questions[0]
+    if (!q || typeof q.question !== 'string') return
+    const options = Array.isArray(q.options)
+      ? (q.options as Array<Record<string, unknown>>).map(o => ({ label: String(o.label ?? ''), description: typeof o.description === 'string' ? o.description : undefined }))
+      : []
+    const pending: PendingQuestion = { question: q.question, header: typeof q.header === 'string' ? q.header : undefined, options, askedAt: Date.now() }
+    this.liveOf(s.id).pendingQuestion = pending
+    this.setStatus(s, 'waiting', 'AskUserQuestion')
+    this.changed(s, false)
+    hub.emit('question', this.toApi(s), pending)
+  }
+
+  /** Payload Claude Code passes to the status line command */
+  handleStatusLine(d: Record<string, unknown>): boolean {
+    const claudeId = typeof d.session_id === 'string' ? d.session_id : undefined
+    if (!claudeId) return false
+    let s = [...this.sessions.values()].find(x => x.claudeSessionId === claudeId)
+    const ws = (d.workspace as Record<string, unknown> | undefined)?.current_dir
+    if (!s && typeof d.transcript_path === 'string') s = [...this.sessions.values()].find(x => x.transcriptPath === d.transcript_path)
+    if (!s) return false
+
+    const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
+    const cw = (d.context_window ?? {}) as Record<string, unknown>
+    const rl = (d.rate_limits ?? {}) as Record<string, Record<string, unknown> | undefined>
+    const model = (d.model ?? {}) as Record<string, unknown>
+    const effort = (d.effort as Record<string, unknown> | undefined)?.level
+    const limit = (x: Record<string, unknown> | undefined) =>
+      n(x?.used_percentage) === undefined ? undefined : { pct: Math.round(n(x!.used_percentage)!), resetsAt: n(x!.resets_at) }
+
+    const usage: SessionUsage = {
+      model: typeof model.display_name === 'string' ? model.display_name.slice(0, 40) : undefined,
+      modelId: typeof model.id === 'string' ? model.id.slice(0, 60) : undefined,
+      effort: EFFORTS.find(e => e === effort),
+      contextPct: Math.round(n(cw.used_percentage) ?? 0),
+      contextUsed: n(cw.total_input_tokens),
+      contextSize: n(cw.context_window_size),
+      costUsd: n((d.cost as Record<string, unknown> | undefined)?.total_cost_usd),
+      fiveHour: limit(rl.five_hour),
+      sevenDay: limit(rl.seven_day),
+      updatedAt: Date.now(),
+    }
+    s.usage = usage
+    if (typeof ws === 'string' && ws && ws !== s.cwd) s.cwd = ws
+    this.changed(s)
+
+    const l = this.liveOf(s.id)
+    if (!l.lastUsagePoint || Date.now() - l.lastUsagePoint > 60_000) {
+      l.lastUsagePoint = Date.now()
+      const point = { ts: Date.now(), sessionId: s.id, contextPct: usage.contextPct, fiveHourPct: usage.fiveHour?.pct, sevenDayPct: usage.sevenDay?.pct }
+      this.repo.addUsagePoint(point)
+      hub.emit('usage', point)
+    }
+    return true
+  }
+
+  // -------------------------------------------------------------------------
+  // Background loops
+  // -------------------------------------------------------------------------
+
+  private async healthCheck(): Promise<void> {
+    const alive = new Set((await tmux.list()).map(t => t.tmuxSession))
+    for (const s of this.sessions.values()) {
+      const l = this.liveOf(s.id)
+      if (!alive.has(s.tmuxSession)) {
+        if (l.status !== 'offline') {
+          l.pendingPermission = undefined
+          this.setStatus(s, 'offline')
+        }
+      } else if (l.status === 'offline') {
+        this.setStatus(s, 'idle')
+      } else if (l.status === 'working' && Date.now() - s.lastActivity > WORKING_TIMEOUT_MS) {
+        this.setStatus(s, 'idle')
+      }
+    }
+  }
+
+  /** Permission prompts (ask mode) and first-run dialogs of sessions we started */
+  private async pollTerminals(): Promise<void> {
+    for (const s of this.sessions.values()) {
+      const l = this.liveOf(s.id)
+      if (l.status === 'offline') continue
+      const booting = !!l.bootUntil && Date.now() < l.bootUntil
+      if (s.permissionMode !== 'ask' && !booting) continue
+      let screen: string
+      try {
+        screen = await tmux.capture(s.tmuxSession, 50)
+      } catch {
+        continue
+      }
+      if (booting) {
+        if (detectTrustDialog(screen)) {
+          await tmux.keys(s.tmuxSession, 'Enter') // default option is "Yes, proceed"
+          continue
+        }
+        if (s.permissionMode === 'bypass' && detectBypassWarning(screen)) {
+          await tmux.keys(s.tmuxSession, '2')
+          l.bootUntil = undefined
+          continue
+        }
+      }
+      if (s.permissionMode !== 'ask') continue
+      const prompt = detectPermissionPrompt(screen)
+      if (prompt && !l.pendingPermission) {
+        l.pendingPermission = { ...prompt, detectedAt: Date.now() }
+        this.setStatus(s, 'waiting', prompt.tool)
+        this.activity(s, 'permission', `${prompt.tool} needs approval`, prompt.tool)
+        hub.emit('permission', this.toApi(s), l.pendingPermission)
+      } else if (!prompt && l.pendingPermission) {
+        l.pendingPermission = undefined
+        this.setStatus(s, 'working')
+        hub.emit('permission', this.toApi(s), null)
+      }
+    }
+  }
+
+  /** Push new transcript entries to subscribers, even without hook events */
+  private pollTranscripts(): void {
+    for (const s of this.sessions.values()) {
+      if (this.liveOf(s.id).status === 'offline') continue
+      const reader = this.readerFor(s)
+      if (reader) this.pushMessages(s, reader.readNew())
+    }
+  }
+
+  private pushMessages(s: StoredSession, messages: ChatMessage[]): void {
+    if (messages.length) hub.emit('messages', s.id, messages)
+  }
+
+  private activity(s: StoredSession, kind: ActivityEvent['kind'], summary: string, tool?: string): void {
+    const e: ActivityEvent = { id: randomUUID(), sessionId: s.id, ts: Date.now(), kind, tool, summary }
+    this.repo.addActivity(e)
+    hub.emit('activity', e)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+export class HttpError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message)
+  }
+}
+
+export function claudeCommand(mode: PermissionMode, continueConversation: boolean, model?: string): string {
+  const args = [env.claudeBin]
+  if (continueConversation) args.push('-c')
+  if (mode === 'bypass') args.push('--permission-mode=bypassPermissions', '--dangerously-skip-permissions')
+  // "ask" must really ask, even if the user's own default is auto/acceptEdits
+  else args.push('--permission-mode=default')
+  if (model) args.push('--model', model)
+  // tmux runs this through the default shell; keep our PATH so `claude` resolves
+  const path = (process.env.PATH ?? '').replace(/'/g, '')
+  return `PATH='${path}' ${args.join(' ')}`
+}
+
+export function validateDirectory(p: string): string {
+  if (!p || typeof p !== 'string') throw new HttpError(400, 'Directory is required')
+  const abs = resolve(p.replace(/^~(?=$|\/)/, process.env.HOME ?? ''))
+  if (/[\0\n\r]/.test(abs)) throw new HttpError(400, 'Invalid directory')
+  try {
+    if (!statSync(abs).isDirectory()) throw new Error()
+  } catch {
+    throw new HttpError(400, `Directory not found: ${abs}`)
+  }
+  return abs
+}
+
+function toolSummary(e: HookEvent): string {
+  const i = e.toolInput ?? {}
+  const pick = [i.command, i.file_path, i.path, i.pattern, i.url, i.query, i.description].find(v => typeof v === 'string' && v)
+  return `${e.tool}${pick ? `: ${String(pick).split('\n')[0].slice(0, 120)}` : ''}`
+}
+
+function stripSourcePrefix(text: string): string {
+  for (const p of [TELEGRAM_PREFIX, DASHBOARD_PREFIX]) if (text.startsWith(p)) return text.slice(p.length)
+  return text
+}
+
+function trimScreen(screen: string): string {
+  return screen.replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim()
+}

@@ -1,0 +1,16 @@
+telegram-claude-tether includes code and ideas adapted from Vibecraft:
+
+  Vibecraft — https://github.com/nearcyan/vibecraft
+  Copyright (c) 2025 nearcyan
+  Licensed under the MIT License
+
+Adapted parts:
+  - src/server/core/permissions.ts — permission prompt detection from the terminal
+  - hooks/tether-hook.sh — the approach of forwarding Claude Code hook events to a
+    local server (rewritten to depend only on bash and curl)
+  - the tmux session model (one Claude Code process per tmux session) and the
+    status-line forwarding idea
+
+The dashboard's visual style is original work. It is inspired by editorial
+storefront designs. No third-party design code is included. UI primitives follow
+the open patterns of shadcn/ui (MIT) and Radix UI (MIT).

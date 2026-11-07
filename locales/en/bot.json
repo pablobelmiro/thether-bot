@@ -1,0 +1,130 @@
+{
+  "contact": {
+    "request": "To continue, share your contact so I can check your number.",
+    "button": "📱 Share my contact",
+    "verified": "✅ Number verified.\nNow unlock with <code>/{{password}} your-password</code>.\nSee all commands with /{{help}}."
+  },
+  "lock": {
+    "locked": "🔒 The bot is locked. Use <code>/{{password}} your-password</code>.",
+    "lockedAlert": "🔒 Locked — use /{{password}}",
+    "usage": "Use <code>/{{password}} your-password</code>.",
+    "unlocked": "🔓 Unlocked.\nActive session: <b>{{name}}</b> · {{status}}",
+    "unlockedNoSession": "🔓 Unlocked.\nNo active session — use /{{change}} or /{{repos}}.",
+    "wrong": "❌ Wrong password.",
+    "blocked": "⛔ Too many attempts. Try again in {{minutes}} min.",
+    "done": "🔒 Locked."
+  },
+  "online": "🟢 Bot online — active session: {{session}}\nUse /{{password}} to unlock.",
+  "onlineNoSession": "🟢 Bot online — no active session (use /{{change}}).\nUse /{{password}} to unlock.",
+  "status": {
+    "idle": "🟢 idle",
+    "working": "🔵 working",
+    "waiting": "🟡 waiting for you",
+    "offline": "🔴 offline",
+    "lastActivity": "🕒 Last activity {{when}}",
+    "model": "🧠 {{model}}",
+    "effort": " · effort {{effort}}",
+    "context": "📊 Context {{pct}}%",
+    "limits": "⏱️ Limits: {{limits}}",
+    "mode_bypass": "⚠️ Runs without asking permission",
+    "mode_ask": "🛡️ Asks permission through the bot"
+  },
+  "session": {
+    "none": "No active session. Use /{{change}} or /{{repos}}.",
+    "offline": "🔴 <b>{{name}}</b> is offline.",
+    "restartButton": "🔄 Restart session",
+    "restarting": "Restarting…",
+    "restarted": "🔄 Session restarted. You can send your message again.",
+    "restartFailed": "Couldn't restart: {{error}}",
+    "switched": "💬 Now talking to <b>{{name}}</b> · {{status}}\n<i>{{cwd}}</i>",
+    "notFound": "Session \"{{query}}\" not found. Use /{{change}} to see the list.",
+    "choose": "Choose a session:",
+    "empty": "No sessions yet. Use /{{repos}} to open one.",
+    "gone": "That session no longer exists.",
+    "unread_one": "📬 1 answer arrived while you were in another session:",
+    "unread_other": "📬 {{count}} answers arrived while you were in another session:",
+    "finished_one": "✅ <b>{{name}}</b> finished · 📬 1 unread — <code>/{{change}} {{name}}</code> to read it.",
+    "finished_other": "✅ <b>{{name}}</b> finished · 📬 {{count}} unread — <code>/{{change}} {{name}}</code> to read them.",
+    "emptyAnswer": "✅ Done (no text in the answer).",
+    "sendFailed": "Couldn't send to {{name}}: {{error}}"
+  },
+  "repos": {
+    "title": "📁 Projects",
+    "empty": "No known projects yet. Open a session from the dashboard first.",
+    "use": "💬 {{name}}",
+    "new": "➕ New: {{name}}",
+    "opening": "⏳ Opening a session in <b>{{name}}</b>…",
+    "failed": "Couldn't create the session: {{error}}",
+    "stale": "This list is out of date — run /{{repos}} again."
+  },
+  "screen": {
+    "failed": "Couldn't capture the screen: {{error}}",
+    "empty": "(empty screen)"
+  },
+  "cancel": {
+    "done": "⛔ Interrupt sent."
+  },
+  "cmd": {
+    "sent": "<code>{{command}}</code> → <b>{{name}}</b>",
+    "working": "<i>The session is working; the command may be queued.</i>",
+    "failed": "Couldn't send {{command}}: {{error}}",
+    "invalid": "Invalid value.",
+    "modelCurrent": "Current model: <b>{{model}}</b>\nChoose:",
+    "effortCurrent": "Current effort: <b>{{effort}}</b>\nChoose:",
+    "defaultsNote": "<i>/model and /effort also become the default for new sessions, like in the terminal.</i>"
+  },
+  "clear": {
+    "confirm": "Clear the context of <b>{{name}}</b>?",
+    "yes": "🧹 Yes, clear it",
+    "no": "Cancel",
+    "cancelled": "OK, nothing was cleared.",
+    "done": "🧹 Context of <b>{{name}}</b> cleared."
+  },
+  "question": {
+    "title": "❓ {{who}}{{header}}{{question}}",
+    "other": "✍️ Other answer",
+    "write": "✍️ Type your answer:",
+    "answered": "→ {{answer}}",
+    "gone": "This question was already answered.",
+    "failed": "Couldn't answer: {{error}}"
+  },
+  "permission": {
+    "title": "🛡️ <b>{{name}}</b> wants to use <b>{{tool}}</b>",
+    "answered": "→ {{answer}}",
+    "resolved": "✔️ Resolved in another place.",
+    "gone": "This request is no longer pending."
+  },
+  "attachment": {
+    "saved": "📎 Received {{name}}.",
+    "tooBig": "File too large (Telegram limits bots to 20 MB).",
+    "failed": "Couldn't save the file: {{error}}"
+  },
+  "lang": {
+    "choose": "Choose your language:",
+    "set": "✅ Language set to English."
+  },
+  "unknownCommand": "Unknown command. See /{{help}}.",
+  "unsupported": "I can't handle this kind of message yet. Send text, a photo or a file.",
+  "help": "<b>🤖 Claude on Telegram</b>\nAny text goes to the <b>active session</b>. Photos and files are attached to it.\n\n<b>Access</b>\n/{{password}} &lt;password&gt; — unlock the bot\n/{{lock}} — lock it now\n\n<b>Sessions</b>\n/{{change}} — choose the session (or <code>/{{change}} name</code>)\n<i>  Answers from other sessions are kept (📬) and delivered when you switch.</i>\n/{{repos}} — projects; open a new session\n/{{status}} — active session, model and context\n/{{screen}} — show the terminal now\n/{{cancel}} — interrupt Claude\n\n<b>Claude Code</b>\n/model — change model (or <code>/model opus</code>)\n/effort — effort level (or <code>/effort high</code>)\n/usage — plan usage\n/clear — clear the session context\n\n/{{lang}} — language\n\n<i>The bot locks itself after {{hours}} h without use and whenever it restarts.</i>",
+  "commands": {
+    "help": "Show the commands",
+    "password": "Unlock the bot: /password <password>",
+    "change": "Switch session",
+    "repos": "Projects / new session",
+    "status": "Active session, model and context",
+    "screen": "Show the terminal now",
+    "cancel": "Interrupt Claude",
+    "model": "Change model",
+    "effort": "Effort level",
+    "usage": "Plan usage",
+    "clear": "Clear the context",
+    "lock": "Lock the bot",
+    "lang": "Language"
+  },
+  "time": {
+    "now": "just now",
+    "minutes": "{{count}} min ago",
+    "hours": "{{count}} h ago",
+    "days": "{{count}} days ago"
+  }
+}

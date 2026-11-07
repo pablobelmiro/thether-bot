@@ -1,0 +1,130 @@
+{
+  "contact": {
+    "request": "Para continuar, comparte tu contacto para que verifique tu número.",
+    "button": "📱 Compartir mi contacto",
+    "verified": "✅ Número verificado.\nAhora desbloquea con <code>/{{password}} tu-contraseña</code>.\nMira los comandos con /{{help}}."
+  },
+  "lock": {
+    "locked": "🔒 El bot está bloqueado. Usa <code>/{{password}} tu-contraseña</code>.",
+    "lockedAlert": "🔒 Bloqueado — usa /{{password}}",
+    "usage": "Usa <code>/{{password}} tu-contraseña</code>.",
+    "unlocked": "🔓 Desbloqueado.\nSesión activa: <b>{{name}}</b> · {{status}}",
+    "unlockedNoSession": "🔓 Desbloqueado.\nNinguna sesión activa — usa /{{change}} o /{{repos}}.",
+    "wrong": "❌ Contraseña incorrecta.",
+    "blocked": "⛔ Demasiados intentos. Inténtalo de nuevo en {{minutes}} min.",
+    "done": "🔒 Bloqueado."
+  },
+  "online": "🟢 Bot en línea — sesión activa: {{session}}\nUsa /{{password}} para desbloquear.",
+  "onlineNoSession": "🟢 Bot en línea — ninguna sesión activa (usa /{{change}}).\nUsa /{{password}} para desbloquear.",
+  "status": {
+    "idle": "🟢 libre",
+    "working": "🔵 trabajando",
+    "waiting": "🟡 esperándote",
+    "offline": "🔴 desconectada",
+    "lastActivity": "🕒 Última actividad {{when}}",
+    "model": "🧠 {{model}}",
+    "effort": " · esfuerzo {{effort}}",
+    "context": "📊 Contexto {{pct}}%",
+    "limits": "⏱️ Límites: {{limits}}",
+    "mode_bypass": "⚠️ Funciona sin pedir permiso",
+    "mode_ask": "🛡️ Pide permiso a través del bot"
+  },
+  "session": {
+    "none": "Ninguna sesión activa. Usa /{{change}} o /{{repos}}.",
+    "offline": "🔴 <b>{{name}}</b> está desconectada.",
+    "restartButton": "🔄 Reiniciar sesión",
+    "restarting": "Reiniciando…",
+    "restarted": "🔄 Sesión reiniciada. Puedes enviar tu mensaje de nuevo.",
+    "restartFailed": "No se pudo reiniciar: {{error}}",
+    "switched": "💬 Ahora hablas con <b>{{name}}</b> · {{status}}\n<i>{{cwd}}</i>",
+    "notFound": "Sesión \"{{query}}\" no encontrada. Usa /{{change}} para ver la lista.",
+    "choose": "Elige una sesión:",
+    "empty": "Aún no hay sesiones. Usa /{{repos}} para abrir una.",
+    "gone": "Esa sesión ya no existe.",
+    "unread_one": "📬 Llegó 1 respuesta mientras estabas en otra sesión:",
+    "unread_other": "📬 Llegaron {{count}} respuestas mientras estabas en otra sesión:",
+    "finished_one": "✅ <b>{{name}}</b> terminó · 📬 1 sin leer — <code>/{{change}} {{name}}</code> para verla.",
+    "finished_other": "✅ <b>{{name}}</b> terminó · 📬 {{count}} sin leer — <code>/{{change}} {{name}}</code> para verlas.",
+    "emptyAnswer": "✅ Terminó (sin texto en la respuesta).",
+    "sendFailed": "No se pudo enviar a {{name}}: {{error}}"
+  },
+  "repos": {
+    "title": "📁 Proyectos",
+    "empty": "Aún no hay proyectos conocidos. Abre una sesión desde el panel primero.",
+    "use": "💬 {{name}}",
+    "new": "➕ Nueva: {{name}}",
+    "opening": "⏳ Abriendo una sesión en <b>{{name}}</b>…",
+    "failed": "No se pudo crear la sesión: {{error}}",
+    "stale": "Esta lista está desactualizada — ejecuta /{{repos}} otra vez."
+  },
+  "screen": {
+    "failed": "No se pudo capturar la pantalla: {{error}}",
+    "empty": "(pantalla vacía)"
+  },
+  "cancel": {
+    "done": "⛔ Interrupción enviada."
+  },
+  "cmd": {
+    "sent": "<code>{{command}}</code> → <b>{{name}}</b>",
+    "working": "<i>La sesión está trabajando; el comando puede quedar en cola.</i>",
+    "failed": "No se pudo enviar {{command}}: {{error}}",
+    "invalid": "Valor no válido.",
+    "modelCurrent": "Modelo actual: <b>{{model}}</b>\nElige:",
+    "effortCurrent": "Esfuerzo actual: <b>{{effort}}</b>\nElige:",
+    "defaultsNote": "<i>/model y /effort también pasan a ser el valor por defecto de las nuevas sesiones, como en la terminal.</i>"
+  },
+  "clear": {
+    "confirm": "¿Limpiar el contexto de <b>{{name}}</b>?",
+    "yes": "🧹 Sí, limpiar",
+    "no": "Cancelar",
+    "cancelled": "De acuerdo, no se limpió nada.",
+    "done": "🧹 Contexto de <b>{{name}}</b> limpiado."
+  },
+  "question": {
+    "title": "❓ {{who}}{{header}}{{question}}",
+    "other": "✍️ Otra respuesta",
+    "write": "✍️ Escribe tu respuesta:",
+    "answered": "→ {{answer}}",
+    "gone": "Esta pregunta ya fue respondida.",
+    "failed": "No se pudo responder: {{error}}"
+  },
+  "permission": {
+    "title": "🛡️ <b>{{name}}</b> quiere usar <b>{{tool}}</b>",
+    "answered": "→ {{answer}}",
+    "resolved": "✔️ Resuelto en otro lugar.",
+    "gone": "Esta solicitud ya no está pendiente."
+  },
+  "attachment": {
+    "saved": "📎 Recibí {{name}}.",
+    "tooBig": "Archivo demasiado grande (Telegram limita los bots a 20 MB).",
+    "failed": "No se pudo guardar el archivo: {{error}}"
+  },
+  "lang": {
+    "choose": "Elige tu idioma:",
+    "set": "✅ Idioma configurado en español."
+  },
+  "unknownCommand": "Comando desconocido. Mira /{{help}}.",
+  "unsupported": "Aún no puedo manejar este tipo de mensaje. Envía texto, una foto o un archivo.",
+  "help": "<b>🤖 Claude en Telegram</b>\nCualquier texto va a la <b>sesión activa</b>. Las fotos y archivos se adjuntan a ella.\n\n<b>Acceso</b>\n/{{password}} &lt;contraseña&gt; — desbloquea el bot\n/{{lock}} — bloquéalo ahora\n\n<b>Sesiones</b>\n/{{change}} — elegir la sesión (o <code>/{{change}} nombre</code>)\n<i>  Las respuestas de otras sesiones se guardan (📬) y llegan cuando cambias.</i>\n/{{repos}} — proyectos; abre una nueva sesión\n/{{status}} — sesión activa, modelo y contexto\n/{{screen}} — muestra la terminal ahora\n/{{cancel}} — interrumpe a Claude\n\n<b>Claude Code</b>\n/model — cambiar modelo (o <code>/model opus</code>)\n/effort — nivel de esfuerzo (o <code>/effort high</code>)\n/usage — uso del plan\n/clear — limpia el contexto de la sesión\n\n/{{lang}} — idioma\n\n<i>El bot se bloquea solo tras {{hours}} h sin uso y siempre que se reinicia.</i>",
+  "commands": {
+    "help": "Muestra los comandos",
+    "password": "Desbloquea el bot: /clave <contraseña>",
+    "change": "Cambiar de sesión",
+    "repos": "Proyectos / nueva sesión",
+    "status": "Sesión activa, modelo y contexto",
+    "screen": "Muestra la terminal ahora",
+    "cancel": "Interrumpe a Claude",
+    "model": "Cambiar modelo",
+    "effort": "Nivel de esfuerzo",
+    "usage": "Uso del plan",
+    "clear": "Limpia el contexto",
+    "lock": "Bloquea el bot",
+    "lang": "Idioma"
+  },
+  "time": {
+    "now": "ahora",
+    "minutes": "hace {{count}} min",
+    "hours": "hace {{count}} h",
+    "days": "hace {{count}} días"
+  }
+}

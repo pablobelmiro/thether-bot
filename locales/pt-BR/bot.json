@@ -1,0 +1,130 @@
+{
+  "contact": {
+    "request": "Para continuar, compartilhe seu contato para eu conferir seu número.",
+    "button": "📱 Compartilhar meu contato",
+    "verified": "✅ Número verificado.\nAgora destrave com <code>/{{password}} sua-senha</code>.\nVeja os comandos em /{{help}}."
+  },
+  "lock": {
+    "locked": "🔒 Bot travado. Use <code>/{{password}} sua-senha</code>.",
+    "lockedAlert": "🔒 Travado — use /{{password}}",
+    "usage": "Use <code>/{{password}} sua-senha</code>.",
+    "unlocked": "🔓 Destravado.\nSessão ativa: <b>{{name}}</b> · {{status}}",
+    "unlockedNoSession": "🔓 Destravado.\nNenhuma sessão ativa — use /{{change}} ou /{{repos}}.",
+    "wrong": "❌ Senha incorreta.",
+    "blocked": "⛔ Muitas tentativas. Tente de novo em {{minutes}} min.",
+    "done": "🔒 Travado."
+  },
+  "online": "🟢 Bot online — sessão ativa: {{session}}\nUse /{{password}} para destravar.",
+  "onlineNoSession": "🟢 Bot online — nenhuma sessão ativa (use /{{change}}).\nUse /{{password}} para destravar.",
+  "status": {
+    "idle": "🟢 livre",
+    "working": "🔵 trabalhando",
+    "waiting": "🟡 aguardando você",
+    "offline": "🔴 offline",
+    "lastActivity": "🕒 Última atividade {{when}}",
+    "model": "🧠 {{model}}",
+    "effort": " · esforço {{effort}}",
+    "context": "📊 Contexto {{pct}}%",
+    "limits": "⏱️ Limites: {{limits}}",
+    "mode_bypass": "⚠️ Roda sem pedir permissão",
+    "mode_ask": "🛡️ Pede permissão pelo bot"
+  },
+  "session": {
+    "none": "Nenhuma sessão ativa. Use /{{change}} ou /{{repos}}.",
+    "offline": "🔴 <b>{{name}}</b> está offline.",
+    "restartButton": "🔄 Reiniciar sessão",
+    "restarting": "Reiniciando…",
+    "restarted": "🔄 Sessão reiniciada. Pode mandar a mensagem de novo.",
+    "restartFailed": "Falha ao reiniciar: {{error}}",
+    "switched": "💬 Agora falando com <b>{{name}}</b> · {{status}}\n<i>{{cwd}}</i>",
+    "notFound": "Sessão \"{{query}}\" não encontrada. Use /{{change}} para ver a lista.",
+    "choose": "Escolha a sessão:",
+    "empty": "Nenhuma sessão ainda. Use /{{repos}} para abrir uma.",
+    "gone": "Essa sessão não existe mais.",
+    "unread_one": "📬 1 resposta chegou enquanto você estava em outra sessão:",
+    "unread_other": "📬 {{count}} respostas chegaram enquanto você estava em outra sessão:",
+    "finished_one": "✅ <b>{{name}}</b> terminou · 📬 1 não lida — <code>/{{change}} {{name}}</code> para ver.",
+    "finished_other": "✅ <b>{{name}}</b> terminou · 📬 {{count}} não lidas — <code>/{{change}} {{name}}</code> para ver.",
+    "emptyAnswer": "✅ Terminou (sem texto na resposta).",
+    "sendFailed": "Falha ao enviar para {{name}}: {{error}}"
+  },
+  "repos": {
+    "title": "📁 Projetos",
+    "empty": "Nenhum projeto conhecido ainda. Abra uma sessão pelo painel primeiro.",
+    "use": "💬 {{name}}",
+    "new": "➕ Nova: {{name}}",
+    "opening": "⏳ Abrindo sessão em <b>{{name}}</b>…",
+    "failed": "Falha ao criar a sessão: {{error}}",
+    "stale": "Lista desatualizada — rode /{{repos}} de novo."
+  },
+  "screen": {
+    "failed": "Falha ao capturar a tela: {{error}}",
+    "empty": "(tela vazia)"
+  },
+  "cancel": {
+    "done": "⛔ Interrupção enviada."
+  },
+  "cmd": {
+    "sent": "<code>{{command}}</code> → <b>{{name}}</b>",
+    "working": "<i>A sessão está trabalhando; o comando pode entrar na fila.</i>",
+    "failed": "Falha ao enviar {{command}}: {{error}}",
+    "invalid": "Valor inválido.",
+    "modelCurrent": "Modelo atual: <b>{{model}}</b>\nEscolha:",
+    "effortCurrent": "Esforço atual: <b>{{effort}}</b>\nEscolha:",
+    "defaultsNote": "<i>/model e /effort também viram o padrão das próximas sessões, como no terminal.</i>"
+  },
+  "clear": {
+    "confirm": "Limpar o contexto de <b>{{name}}</b>?",
+    "yes": "🧹 Sim, limpar",
+    "no": "Cancelar",
+    "cancelled": "Ok, nada foi limpo.",
+    "done": "🧹 Contexto de <b>{{name}}</b> limpo."
+  },
+  "question": {
+    "title": "❓ {{who}}{{header}}{{question}}",
+    "other": "✍️ Outra resposta",
+    "write": "✍️ Escreva sua resposta:",
+    "answered": "→ {{answer}}",
+    "gone": "Essa pergunta já foi respondida.",
+    "failed": "Falha ao responder: {{error}}"
+  },
+  "permission": {
+    "title": "🛡️ <b>{{name}}</b> quer usar <b>{{tool}}</b>",
+    "answered": "→ {{answer}}",
+    "resolved": "✔️ Resolvido em outro lugar.",
+    "gone": "Esse pedido não está mais pendente."
+  },
+  "attachment": {
+    "saved": "📎 Recebi {{name}}.",
+    "tooBig": "Arquivo grande demais (o Telegram limita bots a 20 MB).",
+    "failed": "Falha ao salvar o arquivo: {{error}}"
+  },
+  "lang": {
+    "choose": "Escolha seu idioma:",
+    "set": "✅ Idioma definido para português."
+  },
+  "unknownCommand": "Comando desconhecido. Veja /{{help}}.",
+  "unsupported": "Ainda não sei lidar com esse tipo de mensagem. Mande texto, foto ou arquivo.",
+  "help": "<b>🤖 Claude no Telegram</b>\nQualquer texto vai para a <b>sessão ativa</b>. Fotos e arquivos são anexados a ela.\n\n<b>Acesso</b>\n/{{password}} &lt;senha&gt; — destrava o bot\n/{{lock}} — trava na hora\n\n<b>Sessões</b>\n/{{change}} — escolher a sessão (ou <code>/{{change}} nome</code>)\n<i>  Respostas das outras sessões ficam guardadas (📬) e chegam quando você troca.</i>\n/{{repos}} — projetos; abre nova sessão\n/{{status}} — sessão ativa, modelo e contexto\n/{{screen}} — mostra o terminal agora\n/{{cancel}} — interrompe o Claude\n\n<b>Claude Code</b>\n/model — trocar modelo (ou <code>/model opus</code>)\n/effort — nível de esforço (ou <code>/effort high</code>)\n/usage — uso do plano\n/clear — limpa o contexto da sessão\n\n/{{lang}} — idioma\n\n<i>O bot trava sozinho após {{hours}} h sem uso e sempre que reinicia.</i>",
+  "commands": {
+    "help": "Lista os comandos",
+    "password": "Destrava o bot: /senha <senha>",
+    "change": "Trocar de sessão",
+    "repos": "Projetos / nova sessão",
+    "status": "Sessão ativa, modelo e contexto",
+    "screen": "Mostra o terminal agora",
+    "cancel": "Interrompe o Claude",
+    "model": "Trocar modelo",
+    "effort": "Nível de esforço",
+    "usage": "Uso do plano",
+    "clear": "Limpa o contexto",
+    "lock": "Trava o bot",
+    "lang": "Idioma"
+  },
+  "time": {
+    "now": "agora",
+    "minutes": "há {{count}} min",
+    "hours": "há {{count}} h",
+    "days": "há {{count}} dias"
+  }
+}
