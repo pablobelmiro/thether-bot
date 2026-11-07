@@ -14,6 +14,8 @@ import { createTelegramBot, type TelegramBot } from './bot.js'
 
 export class BotManager {
   private current: { tg: TelegramBot; detach: () => void; done: Promise<void> } | null = null
+  private retryTimer: NodeJS.Timeout | null = null
+  private retryDelay = 5000
   private state: BotStatus = { state: 'stopped' }
   private busy: Promise<unknown> = Promise.resolve()
 
@@ -96,8 +98,12 @@ export class BotManager {
     try {
       await tg.bot.init()
     } catch (e) {
-      return this.set({ state: 'error', message: (e as Error).message })
+      const msg = (e as Error).message
+      // Network not ready (e.g. right after boot): retry with backoff. A rejected token is final.
+      if (!/401|Unauthorized|404: Not Found/i.test(msg)) this.scheduleRetry()
+      return this.set({ state: 'error', message: msg })
     }
+    this.retryDelay = 5000
     const detach = tg.attach()
     const username = tg.bot.botInfo.username
 
@@ -121,7 +127,20 @@ export class BotManager {
     return this.set({ state: 'running', username, startedAt: Date.now() })
   }
 
+  private scheduleRetry(): void {
+    if (this.retryTimer) return
+    const delay = this.retryDelay
+    this.retryDelay = Math.min(this.retryDelay * 2, 5 * 60 * 1000)
+    log(`Telegram unreachable, retrying in ${Math.round(delay / 1000)} s`)
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null
+      if (this.state.state === 'error') void this.start()
+    }, delay)
+  }
+
   private async doStop(): Promise<void> {
+    if (this.retryTimer) clearTimeout(this.retryTimer)
+    this.retryTimer = null
     const c = this.current
     if (!c) return
     this.current = null

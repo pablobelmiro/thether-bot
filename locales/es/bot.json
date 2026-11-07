@@ -12,7 +12,9 @@
     "unlockedNoSession": "🔓 Desbloqueado.\nNinguna sesión activa — usa /{{change}} o /{{repos}}.",
     "wrong": "❌ Contraseña incorrecta.",
     "blocked": "⛔ Demasiados intentos. Inténtalo de nuevo en {{minutes}} min.",
-    "done": "🔒 Bloqueado."
+    "done": "🔒 Bloqueado.",
+    "answerWaiting": "🔒 Nueva respuesta de <b>{{name}}</b>. Desbloquea con /{{password}} para leerla.",
+    "actionWaiting": "🔒 <b>{{name}}</b> necesita tu respuesta. Desbloquea con /{{password}} para verla."
   },
   "online": "🟢 Bot en línea — sesión activa: {{session}}\nUsa /{{password}} para desbloquear.",
   "onlineNoSession": "🟢 Bot en línea — ninguna sesión activa (usa /{{change}}).\nUsa /{{password}} para desbloquear.",

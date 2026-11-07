@@ -16,15 +16,15 @@
     "hooks",
     "locales",
     "docs/TELEGRAM_AGENT.md",
-    "install.sh",
+    "docs/assets",
     "README.md",
     "SECURITY.md",
     "LICENSE",
     "NOTICE"
   ],
   "scripts": {
-    "dev": "concurrently -k -n server,web \"NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx watch src/server/index.ts\" \"vite --config web/vite.config.ts\"",
-    "dev:server": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx watch src/server/index.ts",
+    "dev": "concurrently -k -n server,web \"TETHER_DEV_ORIGINS=http://localhost:5173,http://127.0.0.1:5173 NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx watch src/server/index.ts\" \"vite --config web/vite.config.ts\"",
+    "dev:server": "TETHER_DEV_ORIGINS=http://localhost:5173,http://127.0.0.1:5173 NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx watch src/server/index.ts",
     "dev:web": "vite --config web/vite.config.ts",
     "build": "npm run build:server && npm run build:web",
     "build:server": "tsc -p tsconfig.json",

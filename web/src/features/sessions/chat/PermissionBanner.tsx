@@ -18,12 +18,12 @@ export function PermissionBanner({ sessionId, prompt }: { sessionId: string; pro
   // A new prompt (different detectedAt) re-enables the buttons.
   useEffect(() => {
     setSending(null)
-  }, [prompt.detectedAt])
+  }, [prompt.id])
 
   const answer = async (option: string) => {
     setSending(option)
     try {
-      await api.permission(sessionId, option)
+      await api.permission(sessionId, option, prompt.id)
     } catch (err) {
       toast.error(errorMessage(err))
       setSending(null)

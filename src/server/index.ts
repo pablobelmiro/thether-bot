@@ -6,7 +6,7 @@ import './db/quiet-sqlite-warning.js'
 import { serve } from '@hono/node-server'
 import { WebSocketServer, type WebSocket } from 'ws'
 import type { IncomingMessage } from 'node:http'
-import { writeFileSync } from 'node:fs'
+import { writeFileSync, chmodSync } from 'node:fs'
 import type { ServerMessage } from '../shared/api.js'
 import { env, paths, log } from './env.js'
 import { openDatabase } from './db/db.js'
@@ -18,9 +18,10 @@ import { hub } from './core/hub.js'
 import { normalizeNative } from './core/events.js'
 import { tmux } from './core/tmux.js'
 import { BotManager } from './bot/manager.js'
-import { AUTH_COOKIE, createApp, isOriginAllowed } from './http/app.js'
+import { AUTH_COOKIE, createApp, isHostAllowed, isOriginAllowed } from './http/app.js'
 
 async function main(): Promise<void> {
+  process.umask(0o077) // everything we create is private to this user
   if (!(await tmux.available())) log('⚠️  tmux not found — install tmux to run Claude sessions')
 
   const db = openDatabase(paths.db)
@@ -30,6 +31,8 @@ async function main(): Promise<void> {
   const bot = new BotManager(repo, settings, sessions)
   const hookToken = loadOrCreateFile(paths.hookToken, () => randomToken(24))
   writeFileSync(paths.portFile, String(env.port), { mode: 0o600 })
+  writeFileSync(paths.hookHeader, `X-Tether-Token: ${hookToken}\n`, { mode: 0o600 })
+  hardenPermissions()
 
   const app = createApp({
     repo,
@@ -51,12 +54,23 @@ async function main(): Promise<void> {
   const clients = new Set<WebSocket>()
 
   server.on('upgrade', (req: IncomingMessage, socket, head) => {
+    try {
+      handleUpgrade(req, socket, head)
+    } catch (e) {
+      log('WebSocket upgrade error:', (e as Error).message)
+      socket.destroy()
+    }
+  })
+
+  const handleUpgrade = (req: IncomingMessage, socket: import('node:stream').Duplex, head: Buffer) => {
     const reject = (code: number) => {
       socket.write(`HTTP/1.1 ${code} Rejected\r\n\r\n`)
       socket.destroy()
     }
     if (!req.url?.startsWith('/api/ws')) return reject(404)
-    if (!isOriginAllowed(req.headers.origin)) return reject(403)
+    if (!isHostAllowed(req.headers.host)) return reject(403)
+    // Browsers always send Origin on WebSocket upgrades; require it
+    if (!req.headers.origin || !isOriginAllowed(req.headers.origin)) return reject(403)
     const token = parseCookie(req.headers.cookie ?? '')[AUTH_COOKIE]
     if (!token || !repo.checkAuthSession(token)) return reject(401)
     wss.handleUpgrade(req, socket, head, ws => {
@@ -66,7 +80,7 @@ async function main(): Promise<void> {
       send(ws, { type: 'sessions', sessions: sessions.list() })
       send(ws, { type: 'bot', status: bot.status() })
     })
-  })
+  }
 
   const send = (ws: WebSocket, msg: ServerMessage) => {
     if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg))
@@ -89,8 +103,8 @@ async function main(): Promise<void> {
   }, 30_000)
 
   sessions.start()
-  setInterval(() => repo.prune(), 3600_000)
-  repo.prune()
+  setInterval(() => repo.prune(paths.uploads), 3600_000)
+  repo.prune(paths.uploads)
 
   log(`Tether running on http://${env.host === '0.0.0.0' ? 'localhost' : env.host}:${env.port}`)
   if (!settings.isConfigured()) log('First run: open the dashboard to set a password and an allowed phone number')
@@ -113,11 +127,30 @@ async function main(): Promise<void> {
   process.on('SIGTERM', () => void shutdown())
 }
 
+/** Tighten permissions of existing files too (older installs, WAL files) */
+function hardenPermissions(): void {
+  const tryChmod = (p: string, mode: number) => {
+    try {
+      chmodSync(p, mode)
+    } catch {
+      /* missing */
+    }
+  }
+  tryChmod(env.home, 0o700)
+  for (const f of [paths.db, `${paths.db}-wal`, `${paths.db}-shm`, paths.secretKey, paths.hookToken, paths.hookHeader, paths.portFile]) tryChmod(f, 0o600)
+}
+
 function parseCookie(header: string): Record<string, string> {
   const out: Record<string, string> = {}
   for (const part of header.split(';')) {
     const i = part.indexOf('=')
-    if (i > 0) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim())
+    if (i <= 0) continue
+    const raw = part.slice(i + 1).trim()
+    try {
+      out[part.slice(0, i).trim()] = decodeURIComponent(raw)
+    } catch {
+      out[part.slice(0, i).trim()] = raw
+    }
   }
   return out
 }

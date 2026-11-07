@@ -12,7 +12,9 @@
     "unlockedNoSession": "🔓 Destravado.\nNenhuma sessão ativa — use /{{change}} ou /{{repos}}.",
     "wrong": "❌ Senha incorreta.",
     "blocked": "⛔ Muitas tentativas. Tente de novo em {{minutes}} min.",
-    "done": "🔒 Travado."
+    "done": "🔒 Travado.",
+    "answerWaiting": "🔒 Nova resposta de <b>{{name}}</b>. Destrave com /{{password}} para ler.",
+    "actionWaiting": "🔒 <b>{{name}}</b> precisa da sua resposta. Destrave com /{{password}} para ver."
   },
   "online": "🟢 Bot online — sessão ativa: {{session}}\nUse /{{password}} para destravar.",
   "onlineNoSession": "🟢 Bot online — nenhuma sessão ativa (use /{{change}}).\nUse /{{password}} para destravar.",

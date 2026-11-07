@@ -66,6 +66,13 @@ export function isOriginAllowed(origin: string | undefined): boolean {
   return !origin || allowedOrigins().has(origin)
 }
 
+/** Host header must name this server (blocks DNS-rebinding style requests) */
+export function isHostAllowed(host: string | undefined): boolean {
+  if (!host) return false
+  const hosts = new Set([...allowedOrigins()].map(o => o.replace(/^https?:\/\//, '')))
+  return hosts.has(host)
+}
+
 const loginFailures = new Map<string, { count: number; until: number }>()
 
 function clientIp(c: Context): string {
@@ -94,7 +101,7 @@ function recordLoginFailure(ip: string): void {
 
 export function createApp(d: AppDeps): Hono {
   const app = new Hono()
-  const uploads = new Map<string, Upload>()
+  const uploads = new Map<string, Upload & { sessionId: string }>()
 
   const isAuthed = (c: Context) => {
     const token = getCookie(c, AUTH_COOKIE)
@@ -118,13 +125,23 @@ export function createApp(d: AppDeps): Hono {
     if (err instanceof SyntaxError) return c.json({ error: 'Invalid JSON' }, 400)
     const msg = err instanceof Error ? err.message : String(err)
     log('API error:', msg)
-    return c.json({ error: msg }, 400)
+    // Validation errors from our own modules are safe to show; anything else stays generic
+    const safe = err instanceof Error && /^(Phone|At least|Unsupported|Invalid|Idle lock|That does not|Telegram rejected|Password|Directory)/.test(err.message)
+    return c.json({ error: safe ? msg : 'Request failed' }, safe ? 400 : 500)
   })
 
   // --- origin check for every state-changing request ------------------------
   app.use('/api/*', async (c, next) => {
-    if (c.req.method !== 'GET' && c.req.method !== 'HEAD' && !c.req.path.startsWith('/api/hook/')) {
-      if (!isOriginAllowed(c.req.header('origin'))) return c.json({ error: 'Origin not allowed' }, 403)
+    if (!isHostAllowed(c.req.header('host'))) return c.json({ error: 'Host not allowed' }, 403)
+    if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
+      if (!c.req.path.startsWith('/api/hook/') && !isOriginAllowed(c.req.header('origin'))) {
+        return c.json({ error: 'Origin not allowed' }, 403)
+      }
+      // Only JSON (or multipart for uploads): forces a CORS preflight for any cross-site attempt
+      const type = (c.req.header('content-type') ?? '').toLowerCase()
+      const body = c.req.header('content-length') !== '0' && (c.req.header('content-length') || c.req.header('transfer-encoding'))
+      const multipartOk = type.startsWith('multipart/form-data') && /\/uploads$/.test(c.req.path)
+      if (body && !type.startsWith('application/json') && !multipartOk) return c.json({ error: 'Content-Type must be application/json' }, 415)
     }
     await next()
   })
@@ -263,7 +280,10 @@ export function createApp(d: AppDeps): Hono {
   app.post('/api/sessions/:id/prompt', async c => {
     const id = c.req.param('id')
     const body = (await c.req.json()) as PromptRequest
-    const files = (body.attachments ?? []).map(a => uploads.get(a)?.path).filter((p): p is string => !!p)
+    const files = (body.attachments ?? [])
+      .map(a => uploads.get(a))
+      .filter((u): u is Upload & { sessionId: string } => !!u && u.sessionId === id)
+      .map(u => u.path)
     await d.sessions.prompt(id, String(body.text ?? ''), DASHBOARD_PREFIX, files)
     return c.json({ ok: true })
   })
@@ -284,9 +304,9 @@ export function createApp(d: AppDeps): Hono {
   })
 
   app.post('/api/sessions/:id/permission', async c => {
-    const { option } = (await c.req.json()) as PermissionResponseRequest
+    const { option, promptId } = (await c.req.json()) as PermissionResponseRequest
     const s = d.sessions.require(c.req.param('id'))
-    await d.sessions.respondPermission(s.id, String(option ?? ''))
+    await d.sessions.respondPermission(s.id, String(option ?? ''), String(promptId ?? ''))
     d.repo.audit('dashboard', 'permission.answer', `${s.name}: option ${option}`)
     return c.json({ ok: true })
   })
@@ -317,7 +337,7 @@ export function createApp(d: AppDeps): Hono {
     if (!(file instanceof File)) throw new HttpError(400, 'Field "file" is required')
     if (file.size > MAX_UPLOAD) throw new HttpError(413, 'File too large (max 25 MB)')
     const upload = saveUpload(s.id, file.name, Buffer.from(await file.arrayBuffer()), file.type)
-    uploads.set(upload.id, upload)
+    uploads.set(upload.id, { ...upload, sessionId: s.id })
     return c.json(upload)
   })
 

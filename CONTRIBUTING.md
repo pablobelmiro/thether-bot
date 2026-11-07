@@ -11,7 +11,7 @@ npm test           # unit tests (node:test via tsx)
 npm run typecheck  # server + dashboard
 ```
 
-A dev instance uses `~/.tether` by default. To keep it separate from a real install,
+`npm run dev` sets `TETHER_DEV_ORIGINS` so the dashboard on :5173 can call the API; production never trusts it unless you set it. A dev instance uses `~/.tether` by default. To keep it separate from a real install,
 run `TETHER_HOME=/tmp/tether-dev TETHER_PORT=4200 npm run dev:server`.
 
 ## Layout

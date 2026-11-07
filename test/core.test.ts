@@ -223,8 +223,8 @@ test('lock: unlock, idle expiry and lockout', () => {
 })
 
 test('claude command flags per permission mode', () => {
-  assert.match(claudeCommand('bypass', true), /claude -c --permission-mode=bypassPermissions --dangerously-skip-permissions$/)
-  assert.match(claudeCommand('ask', false, 'opus'), /claude --permission-mode=default --model opus$/)
+  assert.equal(claudeCommand('bypass', true), "exec 'claude' '-c' '--permission-mode=bypassPermissions' '--dangerously-skip-permissions'")
+  assert.equal(claudeCommand('ask', false, 'opus[1m]'), "exec 'claude' '--permission-mode=default' '--model' 'opus[1m]'")
 })
 
 test('directory helpers', () => {
@@ -303,6 +303,38 @@ test('conversations: summarizes transcripts, newest first, skips metadata-only f
 })
 
 test('resume command uses --resume with a validated id', () => {
-  assert.match(claudeCommand('bypass', true, undefined, '11111111-1111-1111-1111-111111111111'), /claude --resume 11111111-1111-1111-1111-111111111111 --permission-mode=bypassPermissions/)
+  assert.match(claudeCommand('bypass', true, undefined, '11111111-1111-1111-1111-111111111111'), /'claude' '--resume' '11111111-1111-1111-1111-111111111111' '--permission-mode=bypassPermissions'/)
   assert.throws(() => claudeCommand('ask', false, undefined, 'x; rm -rf /'))
+})
+
+test('shell quoting survives quotes and globs', async () => {
+  const { shellQuote } = await import('../src/server/core/sessions.js')
+  assert.equal(shellQuote("it's"), "'it'\\''s'")
+  assert.equal(shellQuote('$(rm -rf /) *'), "'$(rm -rf /) *'")
+})
+
+test('permission prompt ids change when the prompt changes', async () => {
+  const { promptId } = await import('../src/server/core/permissions.js')
+  const opts = [{ number: '1', label: 'Yes' }, { number: '2', label: 'No' }]
+  assert.equal(promptId('Bash', 'ls', opts), promptId('Bash', 'ls', opts))
+  assert.notEqual(promptId('Bash', 'ls', opts), promptId('Bash', 'rm -rf build', opts))
+})
+
+test('HTTP guard: host check, JSON-only writes, origin check', async () => {
+  const { createApp, isHostAllowed } = await import('../src/server/http/app.js')
+  assert.equal(isHostAllowed('127.0.0.1:4100'), true)
+  assert.equal(isHostAllowed('evil.example:4100'), false)
+  assert.equal(isHostAllowed(undefined), false)
+  const { repo } = makeRepo()
+  const settings = new SettingsService(repo)
+  const app = createApp({ repo, settings, sessions: {} as never, bot: { status: () => ({ state: 'stopped' }) } as never, hookToken: 'x', onHookEvent: () => {} })
+  const base = { 'Host': '127.0.0.1:4100' }
+  const textPlain = await app.request('/api/auth/login', { method: 'POST', headers: { ...base, 'Content-Type': 'text/plain', 'Content-Length': '2' }, body: '{}' })
+  assert.equal(textPlain.status, 415)
+  const evilOrigin = await app.request('/api/auth/login', { method: 'POST', headers: { ...base, Origin: 'http://localhost:5173', 'Content-Type': 'application/json' }, body: '{}' })
+  assert.equal(evilOrigin.status, 403, 'dev origin is not trusted unless TETHER_DEV_ORIGINS is set')
+  const badHost = await app.request('/api/auth/state', { headers: { Host: 'rebind.example' } })
+  assert.equal(badHost.status, 403)
+  const ok = await app.request('/api/auth/state', { headers: base })
+  assert.equal(ok.status, 200)
 })

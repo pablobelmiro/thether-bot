@@ -11,12 +11,12 @@
 TETHER_HOME="${TETHER_HOME:-$HOME/.tether}"
 input="$(cat)"
 
-if [ -r "$TETHER_HOME/hook-token" ] && command -v curl >/dev/null 2>&1; then
+if [ -r "$TETHER_HOME/hook-header" ] && command -v curl >/dev/null 2>&1; then
   port="4100"
   [ -r "$TETHER_HOME/port" ] && port="$(cat "$TETHER_HOME/port")"
   curl -s -o /dev/null -X POST "http://127.0.0.1:$port/api/hook/statusline" \
     -H "Content-Type: application/json" \
-    -H "X-Tether-Token: $(cat "$TETHER_HOME/hook-token")" \
+    -H @"$TETHER_HOME/hook-header" \
     --data-binary @- --connect-timeout 1 --max-time 2 <<<"$input" >/dev/null 2>&1 &
 fi
 

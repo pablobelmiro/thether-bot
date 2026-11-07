@@ -28,8 +28,8 @@ export const env = {
   port: parseInt(process.env.TETHER_PORT ?? '4100', 10),
   /** Bind address. Keep 127.0.0.1 unless you put an authenticated proxy in front. */
   host: process.env.TETHER_HOST ?? '127.0.0.1',
-  /** Extra browser origins allowed to call the API (e.g. the Vite dev server) */
-  devOrigins: (process.env.TETHER_DEV_ORIGINS ?? 'http://localhost:5173,http://127.0.0.1:5173')
+  /** Extra browser origins allowed to call the API. Empty by default; `npm run dev` sets the Vite one. */
+  devOrigins: (process.env.TETHER_DEV_ORIGINS ?? '')
     .split(',')
     .map(s => s.trim())
     .filter(Boolean),
@@ -42,6 +42,8 @@ export const paths = {
   db: join(env.home, 'tether.db'),
   secretKey: join(env.home, 'secret.key'),
   hookToken: join(env.home, 'hook-token'),
+  /** Same token as a curl header file, so it never appears on a command line */
+  hookHeader: join(env.home, 'hook-header'),
   /** Read by the hook scripts to find the server */
   portFile: join(env.home, 'port'),
   uploads: join(env.home, 'uploads'),

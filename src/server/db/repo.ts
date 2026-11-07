@@ -12,6 +12,30 @@ import type {
   UsagePoint,
 } from '../../shared/api.js'
 import { SecretBox, hashPassword, verifyPassword, sha256 } from '../crypto.js'
+import { readdirSync, statSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+
+/** Delete files older than maxAge (uploads), then empty folders */
+function pruneOldFiles(dir: string, maxAgeMs: number): void {
+  let entries: string[] = []
+  try {
+    entries = readdirSync(dir)
+  } catch {
+    return
+  }
+  for (const name of entries) {
+    const p = join(dir, name)
+    try {
+      const st = statSync(p)
+      if (st.isDirectory()) {
+        pruneOldFiles(p, maxAgeMs)
+        if (readdirSync(p).length === 0) rmSync(p, { recursive: true })
+      } else if (Date.now() - st.mtimeMs > maxAgeMs) rmSync(p)
+    } catch {
+      /* gone */
+    }
+  }
+}
 
 export interface StoredSession {
   id: string
@@ -379,7 +403,8 @@ export class Repo {
   // Housekeeping
   // -------------------------------------------------------------------------
 
-  prune(): void {
+  prune(uploadsDir?: string): void {
+    if (uploadsDir) pruneOldFiles(uploadsDir, 7 * 24 * 3600 * 1000)
     const weekAgo = Date.now() - 7 * 24 * 3600 * 1000
     this.db.prepare('DELETE FROM usage_points WHERE ts < ?').run(weekAgo)
     this.db.prepare('DELETE FROM activity WHERE ts < ?').run(weekAgo)

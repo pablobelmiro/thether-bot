@@ -4,9 +4,12 @@
  * Adapted from Vibecraft (MIT, © nearcyan) — see NOTICE.
  */
 
+import { createHash } from 'node:crypto'
 import type { PermissionOption } from '../../shared/api.js'
 
 export interface DetectedPrompt {
+  /** Hash of what the user is shown: same prompt → same id */
+  id: string
   tool: string
   context: string
   options: PermissionOption[]
@@ -68,7 +71,15 @@ export function detectPermissionPrompt(output: string): DetectedPrompt | null {
     .replace(/[ \t]+\n/g, '\n')
     .trim()
 
-  return { tool, context, options }
+  const id = promptId(tool, context, options)
+  return { id, tool, context, options }
+}
+
+export function promptId(tool: string, context: string, options: PermissionOption[]): string {
+  return createHash('sha256')
+    .update(JSON.stringify([tool, context, options]))
+    .digest('hex')
+    .slice(0, 12)
 }
 
 /** First run of --dangerously-skip-permissions shows a warning that must be accepted */

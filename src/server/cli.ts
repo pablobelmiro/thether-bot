@@ -63,8 +63,9 @@ function setup(args: string[]): void {
   copyFileSync(join(ROOT, 'hooks', 'tether-statusline.sh'), installedStatus)
   chmodSync(installedHook, 0o755)
   chmodSync(installedStatus, 0o755)
-  loadOrCreateFile(paths.hookToken, () => randomToken(24))
+  const token = loadOrCreateFile(paths.hookToken, () => randomToken(24))
   writeFileSync(paths.portFile, String(env.port), { mode: 0o600 })
+  writeFileSync(paths.hookHeader, `X-Tether-Token: ${token}\n`, { mode: 0o600 })
   console.log(`  scripts: ${join(env.home, 'hooks')}`)
 
   const data = readClaudeSettings()
@@ -209,11 +210,13 @@ function service(action: string | undefined): void {
   if (action === 'install') {
     mkdirSync(unitDir, { recursive: true })
     const entry = existsSync(join(ROOT, 'dist', 'server', 'index.js'))
-      ? `${process.execPath} --disable-warning=ExperimentalWarning ${join(ROOT, 'dist', 'server', 'index.js')}`
-      : `${process.execPath} --disable-warning=ExperimentalWarning ${join(ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs')} ${join(ROOT, 'src', 'server', 'index.ts')}`
-    const envLines = Object.entries(process.env)
-      .filter(([k]) => k.startsWith('TETHER_') || k === 'CLAUDE_CONFIG_DIR')
-      .map(([k, v]) => `Environment=${k}=${v}`)
+      ? `"${process.execPath}" --disable-warning=ExperimentalWarning "${join(ROOT, 'dist', 'server', 'index.js')}"`
+      : `"${process.execPath}" --disable-warning=ExperimentalWarning "${join(ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs')}" "${join(ROOT, 'src', 'server', 'index.ts')}"`
+    // Only non-secret, process-level settings (never TETHER_PASSWORD / tokens from a sourced .env)
+    const ALLOWED = ['TETHER_PORT', 'TETHER_HOST', 'TETHER_HOME', 'TETHER_CLAUDE_BIN', 'TETHER_DEBUG', 'CLAUDE_CONFIG_DIR']
+    const q = (v: string) => `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+    const envLines = ALLOWED.filter(k => process.env[k])
+      .map(k => `Environment=${q(`${k}=${process.env[k]}`)}`)
       .join('\n')
     writeFileSync(
       unit,
@@ -224,9 +227,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=${ROOT}
+WorkingDirectory="${ROOT}"
 ExecStart=${entry}
-Environment=PATH=${process.env.PATH}
+Environment="PATH=${process.env.PATH}"
 ${envLines}
 Restart=always
 RestartSec=5
@@ -234,7 +237,9 @@ RestartSec=5
 [Install]
 WantedBy=default.target
 `,
+      { mode: 0o600 },
     )
+    chmodSync(unit, 0o600)
     execFileSync('systemctl', ['--user', 'daemon-reload'])
     execFileSync('systemctl', ['--user', 'enable', '--now', 'telegram-claude-tether.service'], { stdio: 'inherit' })
     console.log(`Installed ${unit}`)

@@ -6,7 +6,7 @@
 
 import { randomUUID, randomBytes } from 'node:crypto'
 import { statSync } from 'node:fs'
-import { basename, resolve } from 'node:path'
+import { basename, join, resolve, sep } from 'node:path'
 import type {
   ActivityEvent,
   ChatMessage,
@@ -162,7 +162,7 @@ export class SessionManager {
     const name = (req.name?.trim() || basename(cwd) || 'claude').slice(0, 60)
     const tmuxSession = `tether-${randomBytes(4).toString('hex')}`
 
-    await tmux.newSession(tmuxSession, cwd, claudeCommand(mode, !!req.continueConversation && !resume, req.model, resume))
+    await tmux.newSession(tmuxSession, cwd, claudeCommand(mode, !!req.continueConversation && !resume, req.model, resume), tmuxEnv())
 
     const now = Date.now()
     const s: StoredSession = {
@@ -254,9 +254,13 @@ export class SessionManager {
   async restart(id: string): Promise<Session> {
     const s = this.require(id)
     await tmux.kill(s.tmuxSession)
-    await tmux.newSession(s.tmuxSession, s.cwd, claudeCommand(s.permissionMode, true))
-    s.claudeSessionId = undefined
-    s.transcriptPath = undefined
+    // Resume this session's own conversation; -c (latest in the folder) only as a fallback
+    const resumeId = s.claudeSessionId && CONVERSATION_ID.test(s.claudeSessionId) ? s.claudeSessionId : undefined
+    await tmux.newSession(s.tmuxSession, s.cwd, claudeCommand(s.permissionMode, !resumeId, undefined, resumeId), tmuxEnv())
+    if (!resumeId) {
+      s.claudeSessionId = undefined
+      s.transcriptPath = undefined
+    }
     s.lastActivity = Date.now()
     const l = this.liveOf(s.id)
     l.reader = undefined
@@ -317,13 +321,19 @@ export class SessionManager {
     await tmux.keys(s.tmuxSession, 'Escape')
   }
 
-  async respondPermission(id: string, option: string): Promise<void> {
+  async respondPermission(id: string, option: string, promptId: string): Promise<void> {
     const s = this.require(id)
     if (!/^\d{1,2}$/.test(option)) throw new HttpError(400, 'Invalid option')
     const l = this.liveOf(id)
     // Already answered elsewhere (dashboard, Telegram or terminal): don't send stray keys
     if (!l.pendingPermission) throw new HttpError(409, 'This request is no longer pending')
+    if (l.pendingPermission.id !== promptId) throw new HttpError(409, 'This request was replaced by a newer one')
     if (!l.pendingPermission.options.some(o => o.number === option)) throw new HttpError(400, 'Invalid option')
+    if (l.pendingPermission.tool !== TRUST_TOOL) {
+      // The screen is the source of truth: the prompt being answered must still be the one shown
+      const current = detectPermissionPrompt(await tmux.capture(s.tmuxSession, 50))
+      if (!current || current.id !== promptId) throw new HttpError(409, 'This request is no longer on screen')
+    }
     if (l.pendingPermission?.tool === TRUST_TOOL) {
       // Unnumbered menu: move the cursor to the chosen entry, verify on screen, then confirm (fail closed)
       const target = option === '1' ? 'yes' : 'no'
@@ -438,6 +448,13 @@ export class SessionManager {
     this.repo.saveSession(s)
   }
 
+  /** Only accept a transcript path that is really this conversation's file under ~/.claude/projects */
+  private trustedTranscript(e: HookEvent, cwd: string): string | undefined {
+    const p = e.transcriptPath
+    if (p && isUnder(p, join(env.claudeHome, 'projects')) && basename(p) === `${e.claudeSessionId}.jsonl`) return p
+    return findTranscript(env.claudeHome, e.claudeSessionId, cwd)
+  }
+
   /** Find the managed session for an event and keep ids/paths linked */
   private link(e: HookEvent): StoredSession | undefined {
     let s: StoredSession | undefined
@@ -447,12 +464,15 @@ export class SessionManager {
     if (s.claudeSessionId !== e.claudeSessionId) {
       debug(`Linking ${s.name} → claude ${e.claudeSessionId.slice(0, 8)}`)
       s.claudeSessionId = e.claudeSessionId
-      s.transcriptPath = e.transcriptPath ?? findTranscript(env.claudeHome, e.claudeSessionId, e.cwd ?? s.cwd)
+      s.transcriptPath = this.trustedTranscript(e, e.cwd ?? s.cwd)
       this.liveOf(s.id).reader = undefined
       this.changed(s)
     } else if (e.transcriptPath && s.transcriptPath !== e.transcriptPath) {
-      s.transcriptPath = e.transcriptPath
-      this.liveOf(s.id).reader = undefined
+      const p = this.trustedTranscript(e, s.cwd)
+      if (p && p !== s.transcriptPath) {
+        s.transcriptPath = p
+        this.liveOf(s.id).reader = undefined
+      }
     }
     return s
   }
@@ -565,18 +585,20 @@ export class SessionManager {
       const l = this.liveOf(s.id)
       if (l.status === 'offline') continue
       const booting = !!l.bootUntil && Date.now() < l.bootUntil
-      if (s.permissionMode !== 'ask' && !booting) continue
+      const trustPending = l.pendingPermission?.tool === TRUST_TOOL
+      if (s.permissionMode !== 'ask' && !booting && !trustPending) continue
       let screen: string
       try {
         screen = await tmux.capture(s.tmuxSession, 50)
       } catch {
         continue
       }
-      if (booting) {
+      if (booting || trustPending) {
         // Folder trust is the user's decision: surface it as a prompt (its default choice is "No, exit")
         if (detectTrustDialog(screen)) {
           if (!l.pendingPermission) {
             l.pendingPermission = {
+              id: `trust-${s.id.slice(0, 8)}`,
               tool: TRUST_TOOL,
               context: `Claude Code asks whether you trust this folder:\n${s.cwd}`,
               options: [
@@ -603,7 +625,9 @@ export class SessionManager {
       }
       if (s.permissionMode !== 'ask') continue
       const prompt = detectPermissionPrompt(screen)
-      if (prompt && !l.pendingPermission) {
+      if (prompt && l.pendingPermission?.id !== prompt.id) {
+        // New prompt, or a different one replaced the previous within a poll cycle
+        if (l.pendingPermission) hub.emit('permission', this.toApi(s), null)
         l.pendingPermission = { ...prompt, detectedAt: Date.now() }
         this.setStatus(s, 'waiting', prompt.tool)
         this.activity(s, 'permission', `${prompt.tool} needs approval`, prompt.tool)
@@ -649,6 +673,16 @@ export class HttpError extends Error {
   }
 }
 
+/** POSIX single-quote a word for the shell tmux runs the command with */
+export function shellQuote(word: string): string {
+  return `'${word.replace(/'/g, `'\\''`)}'`
+}
+
+/** Environment for new tmux sessions: keep our PATH so `claude` resolves */
+function tmuxEnv(): Record<string, string> {
+  return process.env.PATH ? { PATH: process.env.PATH } : {}
+}
+
 export function claudeCommand(mode: PermissionMode, continueConversation: boolean, model?: string, resumeId?: string): string {
   const args = [env.claudeBin]
   if (resumeId) {
@@ -659,9 +693,8 @@ export function claudeCommand(mode: PermissionMode, continueConversation: boolea
   // "ask" must really ask, even if the user's own default is auto/acceptEdits
   else args.push('--permission-mode=default')
   if (model) args.push('--model', model)
-  // tmux runs this through the default shell; keep our PATH so `claude` resolves
-  const path = (process.env.PATH ?? '').replace(/'/g, '')
-  return `PATH='${path}' ${args.join(' ')}`
+  // tmux runs this string through the user's shell: quote every word so nothing is expanded
+  return `exec ${args.map(shellQuote).join(' ')}`
 }
 
 export function validateDirectory(p: string): string {
@@ -693,6 +726,11 @@ export function trustMenuState(screen: string): { order: Array<'yes' | 'no'>; cu
     if (/^\s*❯/.test(line)) cursor = kind
   }
   return order.length === 2 && cursor ? { order, cursor } : null
+}
+
+function isUnder(path: string, dir: string): boolean {
+  const p = resolve(path)
+  return p.startsWith(resolve(dir) + sep)
 }
 
 function stripSourcePrefix(text: string): string {

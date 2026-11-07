@@ -62,7 +62,8 @@ case ":$PATH:" in *":$BIN_DIR:"*) ;; *) warn "$BIN_DIR is not in your PATH. Add:
 
 if [ "$HOOKS" != no ]; then
   bold "Claude Code integration"
-  echo "  Tether adds hooks and a status line forwarder to ~/.claude/settings.json (a backup is kept)."
+  echo "  Tether adds hooks and a status line forwarder to ~/.claude/settings.json (a backup is kept)"
+  echo "  and appends one line to ~/.claude/CLAUDE.md so Claude formats answers well for Telegram."
   if confirm "Install them now?"; then
     node bin/tether.mjs setup --claude-md
   else

@@ -12,7 +12,9 @@
     "unlockedNoSession": "🔓 Unlocked.\nNo active session — use /{{change}} or /{{repos}}.",
     "wrong": "❌ Wrong password.",
     "blocked": "⛔ Too many attempts. Try again in {{minutes}} min.",
-    "done": "🔒 Locked."
+    "done": "🔒 Locked.",
+    "answerWaiting": "🔒 New answer from <b>{{name}}</b>. Unlock with /{{password}} to read it.",
+    "actionWaiting": "🔒 <b>{{name}}</b> needs your answer. Unlock with /{{password}} to see it."
   },
   "online": "🟢 Bot online — active session: {{session}}\nUse /{{password}} to unlock.",
   "onlineNoSession": "🟢 Bot online — no active session (use /{{change}}).\nUse /{{password}} to unlock.",

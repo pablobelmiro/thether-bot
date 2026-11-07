@@ -271,12 +271,12 @@ export function splitPlain(text: string, limit = SPLIT_LIMIT): string[] {
 }
 
 /** Wrap terminal output in a <pre> block, trimmed to fit one message */
-export function terminalToHtml(output: string, limit = SPLIT_LIMIT): string {
+export function terminalToHtml(output: string, limit = SPLIT_LIMIT, emptyText = '(empty)'): string {
   let text = output.replace(/\s+$/g, '').replace(/^\s*\n/, '')
   // Keep the tail (most recent lines) if too long
   while (escapeHtml(text).length + 11 > limit) {
     const nl = text.indexOf('\n')
     text = nl === -1 ? text.slice(text.length - Math.floor(limit / 6)) : text.slice(nl + 1)
   }
-  return `<pre>${escapeHtml(text || '(tela vazia)')}</pre>`
+  return `<pre>${escapeHtml(text || emptyText)}</pre>`
 }

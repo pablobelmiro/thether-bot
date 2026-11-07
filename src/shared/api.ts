@@ -46,6 +46,8 @@ export interface PermissionOption {
 }
 
 export interface PermissionPrompt {
+  /** Identifies this exact prompt; answers must quote it so they can't approve a newer one */
+  id: string
   tool: string
   /** Terminal excerpt describing what Claude wants to do */
   context: string
@@ -276,6 +278,8 @@ export interface CommandRequest {
 /** POST /api/sessions/:id/permission */
 export interface PermissionResponseRequest {
   option: string
+  /** PermissionPrompt.id the user was looking at */
+  promptId: string
 }
 
 /** POST /api/sessions/:id/answer — answer pendingQuestion: option is 1-based; or free text ("Other") */

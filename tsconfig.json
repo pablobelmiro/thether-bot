@@ -14,7 +14,7 @@
     "resolveJsonModule": true,
     "outDir": "dist",
     "rootDir": "src",
-    "sourceMap": true
+    "sourceMap": false
   },
   "include": ["src/server/**/*", "src/shared/**/*"]
 }

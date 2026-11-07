@@ -94,8 +94,8 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
   const questionMessages = new Map<string, Array<{ chatId: number; messageId: number }>>() // sessionId → sent prompts
   const typing = new Map<number, NodeJS.Timeout>()
   const lastResponse = new Map<string, string>() // sessionId → last answer
-  let lastProjects: { path: string; name: string }[] = []
-  let lastConversations: { id: string; cwd: string; title: string }[] = []
+  const lastProjects = new Map<number, { path: string; name: string }[]>() // per user
+  const lastConversations = new Map<number, { id: string; cwd: string; title: string }[]>() // per user
   const contactPromptedAt = new Map<number, number>()
 
   // --- helpers ---------------------------------------------------------------
@@ -321,6 +321,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
       const s = activeOf(me(ctx))
       await ctx.reply(s ? t('lock.unlocked', { name: escapeHtml(s.name), status: statusText(lng, s) }) : t('lock.unlockedNoSession', n), { parse_mode: 'HTML' })
       updateTyping(me(ctx))
+      await deliverPending(me(ctx))
     } else if (result === 'wrong') {
       await ctx.reply(t('lock.wrong'))
     } else {
@@ -394,15 +395,16 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
 
   bot.command([...ALIASES.repos], async ctx => {
     const { t } = tr(ctx)
-    lastProjects = d.repo.listProjects(15)
-    if (!lastProjects.length) {
+    const projects = d.repo.listProjects(15)
+    lastProjects.set(ctx.from!.id, projects)
+    if (!projects.length) {
       await ctx.reply(t('repos.empty'))
       return
     }
     const sessions = d.sessions.list()
     const lines = [`<b>${t('repos.title')}</b>`]
     const kb = new InlineKeyboard()
-    lastProjects.forEach((p, i) => {
+    projects.forEach((p, i) => {
       const existing = sessions.find(s => s.cwd === p.path || s.cwd.startsWith(p.path + '/'))
       lines.push(`${i + 1}. <b>${escapeHtml(p.name)}</b> — <i>${escapeHtml(shortPath(p.path))}</i>`)
       if (existing) kb.text(t('repos.use', { name: existing.name }), `chg:${existing.id}`)
@@ -414,7 +416,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
   bot.callbackQuery(/^repo:(\d+)$/, async ctx => {
     await ctx.answerCallbackQuery()
     const { t, n } = tr(ctx)
-    const p = lastProjects[Number(ctx.match[1])]
+    const p = lastProjects.get(ctx.from.id)?.[Number(ctx.match[1])]
     if (!p) {
       await ctx.reply(t('repos.stale', n))
       return
@@ -433,7 +435,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
   bot.command([...ALIASES.resume], async ctx => {
     const { lng, t } = tr(ctx)
     const list = d.sessions.conversations(12).filter(c => !c.managedSessionId).slice(0, 10)
-    lastConversations = list
+    lastConversations.set(ctx.from!.id, list)
     if (!list.length) return void (await ctx.reply(t('resume.empty')))
     const lines = [`<b>${t('resume.title')}</b>`, `<i>${t('resume.mode', { mode: t(`status.mode_${d.settings.get().defaultPermissionMode}`) })}</i>`, '']
     const kb = new InlineKeyboard()
@@ -449,7 +451,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
   bot.callbackQuery(/^res:(\d+)$/, async ctx => {
     await ctx.answerCallbackQuery()
     const { t, n } = tr(ctx)
-    const c = lastConversations[Number(ctx.match[1])]
+    const c = lastConversations.get(ctx.from.id)?.[Number(ctx.match[1])]
     if (!c) return void (await ctx.reply(t('repos.stale', { ...n, repos: cmdName(tr(ctx).lng, 'resume') })))
     await ctx.editMessageReplyMarkup().catch(() => {})
     await ctx.reply(t('resume.opening', { title: escapeHtml(c.title.slice(0, 70)) }), { parse_mode: 'HTML' })
@@ -501,7 +503,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     const s = await requireActive(ctx)
     if (!s) return
     try {
-      await ctx.reply(terminalToHtml(await d.sessions.terminal(s.id)), { parse_mode: 'HTML' })
+      await ctx.reply(terminalToHtml(await d.sessions.terminal(s.id), undefined, tr(ctx).t('screen.empty')), { parse_mode: 'HTML' })
     } catch (e) {
       await ctx.reply(tr(ctx).t('screen.failed', { error: (e as Error).message }))
     }
@@ -555,6 +557,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
   bot.callbackQuery(/^mdl:(.+)$/, async ctx => {
     await ctx.answerCallbackQuery()
     await ctx.editMessageReplyMarkup().catch(() => {})
+    if (!MODELS.includes(ctx.match[1])) return
     await runCommand(ctx, `/model ${ctx.match[1]}`)
   })
 
@@ -573,6 +576,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
   bot.callbackQuery(/^eff:(.+)$/, async ctx => {
     await ctx.answerCallbackQuery()
     await ctx.editMessageReplyMarkup().catch(() => {})
+    if (!EFFORTS.includes(ctx.match[1])) return
     await runCommand(ctx, `/effort ${ctx.match[1]}`)
   })
 
@@ -637,23 +641,24 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     }
   })
 
-  bot.callbackQuery(/^perm:([\w-]+):(\d+)$/, async ctx => {
+  bot.callbackQuery(/^perm:([\w-]+):([\w-]+):(\d+)$/, async ctx => {
     const { t } = tr(ctx)
     const s = d.sessions.get(ctx.match[1])
-    if (!s?.pendingPermission) {
+    const promptId = ctx.match[2]
+    if (!s?.pendingPermission || s.pendingPermission.id !== promptId) {
       await ctx.editMessageReplyMarkup().catch(() => {})
       return void (await ctx.answerCallbackQuery({ text: t('permission.gone') }))
     }
-    const option = s.pendingPermission.options.find(o => o.number === ctx.match[2])
+    const option = s.pendingPermission.options.find(o => o.number === ctx.match[3])
     await ctx.answerCallbackQuery()
     await ctx.editMessageReplyMarkup().catch(() => {})
     try {
-      await d.sessions.respondPermission(s.id, ctx.match[2])
+      await d.sessions.respondPermission(s.id, ctx.match[3], promptId)
     } catch {
       return void (await ctx.reply(t('permission.gone'))) // answered elsewhere a moment ago
     }
-    d.repo.audit('telegram', 'permission.answer', `${s.name}: ${option?.label ?? ctx.match[2]}`)
-    await ctx.reply(t('permission.answered', { answer: option?.label ?? ctx.match[2] }))
+    d.repo.audit('telegram', 'permission.answer', `${s.name}: ${option?.label ?? ctx.match[3]}`)
+    await ctx.reply(t('permission.answered', { answer: option?.label ?? ctx.match[3] }))
   })
 
   // --- free text and attachments -----------------------------------------------
@@ -713,43 +718,99 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
 
   // --- hub → Telegram ------------------------------------------------------------
 
+  const isOpen = (u: StoredTelegramUser) => lockFor(u.userId).isUnlocked()
+  const questionKeys = new Map<string, string>() // sessionId → callback key of its open question
+
+  async function deliverQuestion(u: StoredTelegramUser, s: Session, q: PendingQuestion): Promise<void> {
+    let key = questionKeys.get(s.id)
+    if (!key) {
+      key = randomBytes(4).toString('hex')
+      questionKeys.set(s.id, key)
+      pendingQuestions.set(key, { sessionId: s.id, labels: q.options.map(o => o.label) })
+    }
+    const lng = localeOf(u)
+    const t = translator(lng)
+    const who = u.activeSessionId === s.id ? '' : `<b>${escapeHtml(s.name)}</b> · `
+    const lines = [t('question.title', { who, header: q.header ? `<b>${escapeHtml(q.header)}</b> — ` : '', question: escapeHtml(q.question) })]
+    for (const o of q.options) lines.push(`• <b>${escapeHtml(o.label)}</b>${o.description ? ` — ${escapeHtml(o.description)}` : ''}`)
+    const kb = new InlineKeyboard()
+    q.options.forEach((o, i) => kb.text(o.label.slice(0, 60), `q:${key}:${i}`).row())
+    kb.text(t('question.other'), `q:${key}:o`)
+    const id = await send(u.chatId, lines.join('\n'), { reply_markup: kb })
+    if (id) questionMessages.set(s.id, [...(questionMessages.get(s.id) ?? []), { chatId: u.chatId, messageId: id }])
+    log(`Telegram → ${u.userId}: question from ${s.name}${id ? '' : ' (failed)'}`)
+  }
+
+  async function deliverPermission(u: StoredTelegramUser, s: Session, p: PermissionPrompt): Promise<void> {
+    const lng = localeOf(u)
+    const t = translator(lng)
+    const kb = new InlineKeyboard()
+    p.options.forEach(o => kb.text(`${o.number}. ${o.label}`.slice(0, 60), `perm:${s.id}:${p.id}:${o.number}`).row())
+    const html = `${t('permission.title', { name: escapeHtml(s.name), tool: escapeHtml(p.tool) })}\n${terminalToHtml(p.context, 3000)}`
+    const id = await send(u.chatId, html, { reply_markup: kb })
+    if (id) permissionMessages.set(s.id, [...(permissionMessages.get(s.id) ?? []), { chatId: u.chatId, messageId: id, lng }])
+    log(`Telegram → ${u.userId}: permission request from ${s.name}${id ? '' : ' (failed)'}`)
+  }
+
+  /** While locked, the bot only says that something is waiting; content is shown after unlocking */
+  async function notifyLocked(u: StoredTelegramUser, s: Session, key: 'lock.answerWaiting' | 'lock.actionWaiting'): Promise<void> {
+    const lng = localeOf(u)
+    const id = await send(u.chatId, translator(lng)(key, { name: escapeHtml(s.name), password: cmdName(lng, 'password') }))
+    log(`Telegram → ${u.userId}: locked notice (${key}) for ${s.name}${id ? '' : ' (failed)'}`)
+  }
+
+  /** After /password: deliver what arrived while locked */
+  async function deliverPending(u: StoredTelegramUser): Promise<void> {
+    const lng = localeOf(u)
+    const t = translator(lng)
+    const active = activeOf(u)
+    if (active) {
+      const unread = d.repo.takeInbox(u.userId, active.id)
+      if (unread.length) {
+        await send(u.chatId, t('session.unread', { count: unread.length }))
+        for (const r of unread) await sendMarkdown(u.chatId, r.text, `<i>🕒 ${clock(lng, r.ts)}</i>`)
+      }
+    }
+    for (const s of d.sessions.list()) {
+      if (s.pendingPermission) await deliverPermission(u, s, s.pendingPermission)
+      if (s.pendingQuestion) await deliverQuestion(u, s, s.pendingQuestion)
+    }
+  }
+
   function attach(): () => void {
     const onTurn = async (s: Session, response: string) => {
       if (response) lastResponse.set(s.id, response)
       for (const u of users()) {
         const lng = localeOf(u)
         const t = translator(lng)
-        if (u.activeSessionId === s.id) {
+        const text = response || t('session.emptyAnswer')
+        if (!isOpen(u)) {
+          d.repo.addInbox(u.userId, s.id, text, Date.now())
+          await notifyLocked(u, s, 'lock.answerWaiting')
+        } else if (u.activeSessionId === s.id) {
           stopTyping(u.userId)
-          await sendMarkdown(u.chatId, response || t('session.emptyAnswer'))
+          await sendMarkdown(u.chatId, text)
+          log(`Telegram → ${u.userId}: answer from ${s.name} (${text.length} chars)`)
         } else {
-          d.repo.addInbox(u.userId, s.id, response || t('session.emptyAnswer'), Date.now())
+          d.repo.addInbox(u.userId, s.id, text, Date.now())
           const count = d.repo.inboxCount(u.userId, s.id)
-          await send(u.chatId, t('session.finished', { count, name: escapeHtml(s.name), change: cmdName(lng, 'change') }))
+          const id = await send(u.chatId, t('session.finished', { count, name: escapeHtml(s.name), change: cmdName(lng, 'change') }))
+          log(`Telegram → ${u.userId}: "${s.name} finished" notice, ${count} unread${id ? '' : ' (failed)'}`)
         }
       }
     }
 
     const onQuestion = async (s: Session, q: PendingQuestion) => {
-      const key = randomBytes(4).toString('hex')
-      const labels = q.options.map(o => o.label)
-      pendingQuestions.set(key, { sessionId: s.id, labels })
+      questionKeys.delete(s.id)
       for (const u of users()) {
-        const lng = localeOf(u)
-        const t = translator(lng)
-        const who = u.activeSessionId === s.id ? '' : `<b>${escapeHtml(s.name)}</b> · `
-        const lines = [t('question.title', { who, header: q.header ? `<b>${escapeHtml(q.header)}</b> — ` : '', question: escapeHtml(q.question) })]
-        for (const o of q.options) lines.push(`• <b>${escapeHtml(o.label)}</b>${o.description ? ` — ${escapeHtml(o.description)}` : ''}`)
-        const kb = new InlineKeyboard()
-        labels.forEach((l, i) => kb.text(l.slice(0, 60), `q:${key}:${i}`).row())
-        kb.text(t('question.other'), `q:${key}:o`)
-        const id = await send(u.chatId, lines.join('\n'), { reply_markup: kb })
-        if (id) questionMessages.set(s.id, [...(questionMessages.get(s.id) ?? []), { chatId: u.chatId, messageId: id }])
+        if (isOpen(u)) await deliverQuestion(u, s, q)
+        else await notifyLocked(u, s, 'lock.actionWaiting')
       }
     }
 
     const onQuestionResolved = async (s: Session) => {
       for (const [key, q] of pendingQuestions) if (q.sessionId === s.id) pendingQuestions.delete(key)
+      questionKeys.delete(s.id)
       for (const [userId, sessionId] of pendingOther) if (sessionId === s.id) pendingOther.delete(userId)
       for (const m of questionMessages.get(s.id) ?? []) {
         await bot.api.editMessageReplyMarkup(m.chatId, m.messageId).catch(() => {})
@@ -758,24 +819,15 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     }
 
     const onPermission = async (s: Session, p: PermissionPrompt | null) => {
-      if (!p) {
-        for (const m of permissionMessages.get(s.id) ?? []) {
-          await bot.api.editMessageReplyMarkup(m.chatId, m.messageId).catch(() => {})
-        }
-        permissionMessages.delete(s.id)
-        return
+      for (const m of permissionMessages.get(s.id) ?? []) {
+        await bot.api.editMessageReplyMarkup(m.chatId, m.messageId).catch(() => {})
       }
-      const sent: Array<{ chatId: number; messageId: number; lng: string }> = []
+      permissionMessages.delete(s.id)
+      if (!p) return
       for (const u of users()) {
-        const lng = localeOf(u)
-        const t = translator(lng)
-        const kb = new InlineKeyboard()
-        p.options.forEach(o => kb.text(`${o.number}. ${o.label}`.slice(0, 60), `perm:${s.id}:${o.number}`).row())
-        const html = `${t('permission.title', { name: escapeHtml(s.name), tool: escapeHtml(p.tool) })}\n${terminalToHtml(p.context, 3000)}`
-        const id = await send(u.chatId, html, { reply_markup: kb })
-        if (id) sent.push({ chatId: u.chatId, messageId: id, lng })
+        if (isOpen(u)) await deliverPermission(u, s, p)
+        else await notifyLocked(u, s, 'lock.actionWaiting')
       }
-      permissionMessages.set(s.id, sent)
     }
 
     const onSession = (s: Session) => {

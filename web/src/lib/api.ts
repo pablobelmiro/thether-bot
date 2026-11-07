@@ -152,8 +152,8 @@ export const api = {
   command: (id: string, command: string) =>
     request<{ ok: true; output: string }>('POST', `/sessions/${enc(id)}/command`, { body: { command } }),
   cancel: (id: string) => request<{ ok: true }>('POST', `/sessions/${enc(id)}/cancel`),
-  permission: (id: string, option: string) =>
-    request<{ ok: true }>('POST', `/sessions/${enc(id)}/permission`, { body: { option } }),
+  permission: (id: string, option: string, promptId: string) =>
+    request<{ ok: true }>('POST', `/sessions/${enc(id)}/permission`, { body: { option, promptId } }),
   answer: (id: string, body: AnswerRequest) => request<{ ok: true }>('POST', `/sessions/${enc(id)}/answer`, { body }),
   messages: (id: string, limit = 200) =>
     request<ChatMessage[]>('GET', `/sessions/${enc(id)}/messages`, { query: { limit } }),

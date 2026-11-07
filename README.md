@@ -157,6 +157,7 @@ Everything user-facing lives in the dashboard (stored in `~/.tether/tether.db`).
 | `TETHER_CLAUDE_BIN` | `claude` | Claude Code executable |
 | `CLAUDE_CONFIG_DIR` | `~/.claude` | Claude Code settings and transcripts |
 | `TETHER_DEBUG` | | `1` for verbose logs |
+| `TETHER_DEV_ORIGINS` | | Extra browser origins allowed to call the API, comma-separated. Development only (`npm run dev` sets it). |
 
 ### CLI
 
@@ -182,6 +183,11 @@ tether uninstall-hooks     # remove Tether from ~/.claude/settings.json
 | Answers don't arrive after `/clear` | They should. If not, check that the hooks are installed (`tether doctor`). |
 | Forgot the password | Run `tether passwd` on the machine. |
 | Logs | `journalctl --user -u telegram-claude-tether -f` (service), or the terminal running `tether`. |
+
+## Known limitations
+
+- **Multiple questions or multi-select.** When Claude asks several questions at once, or a multi-select question, only the first question is shown with buttons. Answer the rest in the dashboard terminal view or with `/screen` plus a free-text answer.
+- **One Tether per bot token.** Telegram only lets one program read updates for a bot at a time.
 
 ## Uninstall
 
