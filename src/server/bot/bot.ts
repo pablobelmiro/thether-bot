@@ -35,6 +35,7 @@ const ALIASES = {
   change: ['change', 'trocar', 'cambiar'],
   repos: ['repos', 'projects', 'projetos', 'proyectos'],
   resume: ['resume', 'retomar', 'reanudar'],
+  new: ['new', 'nova', 'nueva'],
   status: ['status', 'estado'],
   screen: ['screen', 'tela', 'pantalla'],
   cancel: ['cancel', 'cancelar'],
@@ -50,8 +51,8 @@ type Cmd = keyof typeof ALIASES
 /** Name shown in menus and help, per language */
 const PRIMARY: Record<string, Partial<Record<Cmd, string>>> = {
   en: {},
-  'pt-BR': { help: 'ajuda', password: 'senha', lock: 'travar', screen: 'tela', cancel: 'cancelar', lang: 'idioma', resume: 'retomar' },
-  es: { help: 'ayuda', password: 'clave', lock: 'bloquear', change: 'cambiar', status: 'estado', screen: 'pantalla', cancel: 'cancelar', lang: 'idioma', resume: 'reanudar' },
+  'pt-BR': { help: 'ajuda', password: 'senha', lock: 'travar', screen: 'tela', cancel: 'cancelar', lang: 'idioma', resume: 'retomar', new: 'nova' },
+  es: { help: 'ayuda', password: 'clave', lock: 'bloquear', change: 'cambiar', status: 'estado', screen: 'pantalla', cancel: 'cancelar', lang: 'idioma', resume: 'reanudar', new: 'nueva' },
 }
 
 function cmdName(lng: string, c: Cmd): string {
@@ -465,6 +466,27 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     }
   })
 
+  // /new <path> [name] — open a session in any directory of this machine
+  bot.command([...ALIASES.new], async ctx => {
+    const { lng, t } = tr(ctx)
+    const raw = ctx.match.trim()
+    if (!raw) {
+      return void (await ctx.reply(t('newSession.usage', { new: cmdName(lng, 'new') }), { parse_mode: 'HTML' }))
+    }
+    // Paths with spaces can be quoted: /new "~/My Projects/app" name
+    const m = raw.match(/^"([^"]+)"\s*(.*)$/) ?? raw.match(/^(\S+)\s*(.*)$/)
+    const path = m?.[1] ?? raw
+    const name = m?.[2]?.trim() || undefined
+    await ctx.reply(t('repos.opening', { name: escapeHtml(path) }), { parse_mode: 'HTML' })
+    try {
+      const s = await d.sessions.create({ cwd: path, name }, d.settings.get().defaultPermissionMode)
+      d.repo.audit('telegram', 'session.create', `${s.name} (${s.permissionMode}) ${s.cwd}`)
+      await switchTo(ctx, s)
+    } catch (e) {
+      await ctx.reply(t('repos.failed', { error: (e as Error).message }))
+    }
+  })
+
   bot.callbackQuery(/^rst:(.+)$/, async ctx => {
     const { t } = tr(ctx)
     await ctx.answerCallbackQuery({ text: t('session.restarting') })
@@ -863,7 +885,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     // Command menus per language
     const menu = (lng: string) => {
       const t = translator(lng)
-      const order: Cmd[] = ['help', 'password', 'change', 'resume', 'repos', 'status', 'screen', 'cancel', 'model', 'effort', 'usage', 'clear', 'lock', 'lang']
+      const order: Cmd[] = ['help', 'password', 'change', 'new', 'resume', 'repos', 'status', 'screen', 'cancel', 'model', 'effort', 'usage', 'clear', 'lock', 'lang']
       return order.map(c => ({ command: cmdName(lng, c), description: t(`commands.${c}`) }))
     }
     await bot.api.setMyCommands(menu('en')).catch(() => {})

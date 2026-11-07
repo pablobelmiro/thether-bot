@@ -176,15 +176,11 @@ export function SessionPanel({ session }: { session: Session }) {
         )}
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={session.status} />
-          {session.permissionMode === 'bypass' ? (
-            <Hint label={t('permissionMode.bypass.description')}>
-              <Badge variant="warning">{t('permissionMode.bypass.badge')}</Badge>
-            </Hint>
-          ) : (
-            <Hint label={t('permissionMode.ask.description')}>
-              <Badge variant="outline">{t('permissionMode.ask.badge')}</Badge>
-            </Hint>
-          )}
+          <Hint label={t(`permissionMode.${session.permissionMode}.description`)}>
+            <Badge variant={session.permissionMode === 'bypass' ? 'warning' : 'outline'}>
+              {t(`permissionMode.${session.permissionMode}.badge`)}
+            </Badge>
+          </Hint>
           {session.origin === 'adopted' && <Badge variant="secondary">{t('panel.adopted')}</Badge>}
         </div>
         {session.currentTool && session.status === 'working' && (

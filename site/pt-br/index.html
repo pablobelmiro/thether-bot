@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>tether-bot · Claude Code no seu celular</title>
+  <meta name="description" content="Deixe o computador ligado e continue trabalhando com o Claude Code pelo celular. Um bot do Telegram e um painel web para as sessões do Claude Code que rodam na sua própria máquina. Código aberto, MIT." />
+  <meta name="theme-color" content="#f5f3ee" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#100f0f" media="(prefers-color-scheme: dark)" />
+  <link rel="canonical" href="https://pablobelmiro.github.io/thether-bot/pt-br/" />
+  <link rel="alternate" hreflang="en" href="https://pablobelmiro.github.io/thether-bot/" />
+  <link rel="alternate" hreflang="pt-BR" href="https://pablobelmiro.github.io/thether-bot/pt-br/" />
+  <link rel="alternate" hreflang="es" href="https://pablobelmiro.github.io/thether-bot/es/" />
+  <link rel="alternate" hreflang="x-default" href="https://pablobelmiro.github.io/thether-bot/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="pt_BR" />
+  <meta property="og:title" content="tether-bot · Claude Code no seu celular" />
+  <meta property="og:description" content="Um bot do Telegram e um painel web para as sessões do Claude Code que rodam na sua própria máquina." />
+  <meta property="og:image" content="https://pablobelmiro.github.io/thether-bot/assets/logo.jpg" />
+  <link rel="icon" type="image/png" href="../assets/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Inter:wght@400;500;600&amp;display=swap" />
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Pular para o conteúdo</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="index.html" aria-label="Página inicial do tether-bot">
+        <img src="../assets/favicon.png" alt="" width="36" height="36" />
+        <span class="brand-name">tether-bot</span>
+      </a>
+      <nav class="site-nav" aria-label="Principal">
+        <a href="manual.html">Manual</a>
+        <a href="https://github.com/pablobelmiro/thether-bot">GitHub</a>
+        <div class="lang-switch" role="group" aria-label="Idioma">
+          <a href="../index.html" hreflang="en" lang="en" title="English">EN</a>
+          <a href="index.html" hreflang="pt-BR" lang="pt-BR" title="Português (Brasil)" aria-current="true">PT</a>
+          <a href="../es/index.html" hreflang="es" lang="es" title="Español">ES</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- Hero -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap hero-grid">
+        <div>
+          <span class="label">Código aberto · para o Claude Code</span>
+          <h1 id="hero-title">Deixe o computador ligado. Continue trabalhando <em>pelo celular.</em></h1>
+          <p class="lead">O Tether é um bot do Telegram e um painel web para as sessões do Claude Code que rodam na sua própria máquina. Envie prompts, leia respostas, aprove ações e troque de projeto de qualquer lugar.</p>
+          <div class="actions">
+            <a class="btn" href="manual.html#install">Começar</a>
+            <a class="btn btn-ghost" href="https://github.com/pablobelmiro/thether-bot">
+              <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.22 1.88.87 2.34.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+              GitHub
+            </a>
+          </div>
+          <p class="hero-meta">Licença MIT · Linux e macOS · Sem chave de API · Roda em 127.0.0.1</p>
+        </div>
+        <div class="hero-figure">
+          <figure class="logo-frame">
+            <img src="../assets/logo.jpg" alt="Logo do tether-bot: o avião de papel do Telegram e o símbolo do Claude ligados por um terminal" width="480" height="480" />
+            <figcaption><span>tether-bot</span><span>v0.1</span></figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- What it does -->
+    <section class="section" id="what" aria-labelledby="what-title">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="label">O que ele faz</span>
+          <h2 id="what-title">Duas entradas. As mesmas sessões.</h2>
+          <p>O Tether conecta o Claude Code CLI do <strong>seu</strong> computador ao Telegram e a um painel no navegador. Cada sessão é um processo <code>claude</code> normal dentro do <code>tmux</code>, então você continua podendo usar <code>tmux attach</code> a qualquer momento.</p>
+        </div>
+        <div class="grid-2">
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 4 3 11l6 2 2 6 3-4 5 4 2-15Z" stroke-linejoin="round"/><path d="m9 13 8-6" /></svg>
+            </div>
+            <h3>Telegram, no celular</h3>
+            <ul class="check-list">
+              <li>Converse com qualquer sessão e alterne entre elas.</li>
+              <li>Receba as respostas do Claude assim que ficam prontas.</li>
+              <li>Responda às perguntas dele e aprove permissões com botões.</li>
+              <li>Envie fotos e arquivos.</li>
+              <li>Retome conversas antigas ou abra uma nova sessão em qualquer pasta.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="14" /><path d="M3 8h18M8 21h8M12 18v3" /></svg>
+            </div>
+            <h3>Um painel, no navegador</h3>
+            <ul class="check-list">
+              <li>Todas as sessões, com chat completo e anexos.</li>
+              <li>Comandos de barra e troca de modelo e esforço.</li>
+              <li>Gráficos de contexto e dos limites do plano.</li>
+              <li>Visualização do terminal ao vivo.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="section section-alt" id="how" aria-labelledby="how-title">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="label">Como funciona</span>
+          <h2 id="how-title">Um único processo na sua máquina.</h2>
+          <p>O Tether é um único processo Node escutando em <code>127.0.0.1:4100</code>. Ele roda o Claude Code no tmux e lê o que o próprio Claude Code já grava: eventos de hooks, transcrições e a linha de status.</p>
+        </div>
+
+        <div class="diagram" role="img" aria-label="Diagrama: o Telegram e o navegador se conectam ao Tether em 127.0.0.1, que controla o tmux, que roda o claude.">
+          <div class="d-stack">
+            <div class="d-node"><strong>Telegram</strong><span>seu celular</span></div>
+            <div class="d-node"><strong>Navegador</strong><span>painel</span></div>
+          </div>
+          <div class="d-arrow" aria-hidden="true"><span class="h">→</span><span class="v">↓</span></div>
+          <div class="d-node is-core"><strong>Tether</strong><span>127.0.0.1:4100</span></div>
+          <div class="d-arrow" aria-hidden="true"><span class="h">→</span><span class="v">↓</span></div>
+          <div class="d-node"><strong>tmux</strong><span>um por sessão</span></div>
+          <div class="d-arrow" aria-hidden="true"><span class="h">→</span><span class="v">↓</span></div>
+          <div class="d-node is-term"><strong>claude</strong><span>seu login</span></div>
+        </div>
+        <p class="diagram-caption">O bot usa long polling, então nenhuma porta é aberta para a internet. O painel só escuta em localhost.</p>
+
+        <ol class="steps">
+          <li>
+            <h3>Você envia uma mensagem</h3>
+            <p>Pelo Telegram ou pelo painel. Ela é colada na janela do tmux da sessão ativa, como se você digitasse no terminal.</p>
+          </li>
+          <li>
+            <h3>O Claude trabalha</h3>
+            <p>Os hooks avisam o Tether do que está acontecendo. Perguntas e pedidos de permissão chegam até você com botões.</p>
+          </li>
+          <li>
+            <h3>A resposta volta</h3>
+            <p>Quando o turno termina, a resposta final é lida da própria transcrição do Claude Code e enviada para você.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section class="section" id="features" aria-labelledby="features-title">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="label">Recursos</span>
+          <h2 id="features-title">Tudo o que você precisa longe da mesa.</h2>
+        </div>
+        <div class="grid-3">
+          <article class="card">
+            <span class="num">01</span>
+            <h3>Várias sessões</h3>
+            <p>Rode um Claude por projeto e alterne com <code>/trocar</code>. As respostas das outras sessões esperam numa caixa de entrada 📬.</p>
+          </article>
+          <article class="card">
+            <span class="num">02</span>
+            <h3>Nova sessão a partir de um caminho</h3>
+            <p><code>/nova ~/projetos/meu-app</code> abre o Claude em qualquer pasta. A janela do painel completa os caminhos automaticamente.</p>
+          </article>
+          <article class="card">
+            <span class="num">03</span>
+            <h3>Retome qualquer conversa</h3>
+            <p>Continue qualquer conversa recente do Claude Code desta máquina, mesmo as que começaram no terminal.</p>
+          </article>
+          <article class="card">
+            <span class="num">04</span>
+            <h3>Botões para decidir</h3>
+            <p>Perguntas e pedidos de permissão viram botões. Responda em um lugar e os outros se atualizam.</p>
+          </article>
+          <article class="card">
+            <span class="num">05</span>
+            <h3>Fotos e arquivos</h3>
+            <p>Mande um print do celular ou arraste arquivos para o painel. A legenda vira o prompt.</p>
+          </article>
+          <article class="card">
+            <span class="num">06</span>
+            <h3>Modelo e esforço</h3>
+            <p>Troque entre Opus, Sonnet, Haiku e outros, e ajuste o esforço de raciocínio, de qualquer um dos lados.</p>
+          </article>
+          <article class="card">
+            <span class="num">07</span>
+            <h3>Uso num relance</h3>
+            <p>Limites do plano de 5 horas e de 7 dias com horário de renovação, contexto por sessão e custo, em gráficos e no <code>/usage</code>.</p>
+          </article>
+          <article class="card">
+            <span class="num">08</span>
+            <h3>Terminal ao vivo</h3>
+            <p>Veja exatamente o que está na tela pelo painel, ou peça uma captura com <code>/tela</code>.</p>
+          </article>
+          <article class="card">
+            <span class="num">09</span>
+            <h3>Três idiomas</h3>
+            <p>Bot e painel em English, Português e Español. Adicionar um idioma é copiar uma pasta.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Permission modes -->
+    <section class="section section-alt" id="modes" aria-labelledby="modes-title">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="label">Modos de permissão</span>
+          <h2 id="modes-title">Você decide quanto o Claude pode fazer sozinho.</h2>
+          <p>Cada sessão roda em um de três modos, escolhido ao criá-la ou retomá-la.</p>
+        </div>
+        <div class="grid-3">
+          <article class="card mode">
+            <span class="badge">Perguntar</span>
+            <h3>Perguntar</h3>
+            <p>Todo pedido de permissão vai para o Telegram e para o painel com botões. Responda de onde estiver; os outros lugares se atualizam.</p>
+            <p class="muted">Ideal para pastas sensíveis, ou quando você quer ver cada passo.</p>
+          </article>
+          <article class="card mode is-recommended">
+            <span class="badge is-primary">Auto · recomendado</span>
+            <h3>Auto</h3>
+            <p>O Claude trabalha sozinho, e o classificador de segurança embutido no Claude Code revisa cada ação. As arriscadas são bloqueadas, inclusive as induzidas por prompt injection.</p>
+            <p class="muted">O padrão certo para a maior parte do trabalho que você inicia pelo celular.</p>
+          </article>
+          <article class="card mode">
+            <span class="badge is-warning">Ignorar</span>
+            <h3>Ignorar</h3>
+            <p>O Claude roda com <code>--dangerously-skip-permissions</code> e nunca pergunta. Nada revisa as ações dele.</p>
+            <p class="muted">Só para pastas e trabalhos em que você confia e que consegue desfazer.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Security -->
+    <section class="section" id="security" aria-labelledby="security-title">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="label">Segurança</span>
+          <h2 id="security-title">Protegido por padrão.</h2>
+          <p>O Tether pode fazer o Claude rodar comandos no seu computador, por isso coloca várias barreiras na frente disso.</p>
+        </div>
+        <ul class="sec-list">
+          <li>
+            <span class="label">Acesso ao bot</span>
+            <p>Um usuário do Telegram precisa ter <strong>o próprio número na sua lista de autorizados</strong> e <strong>a senha</strong>. O bot volta a travar depois de um tempo sem uso (12 h por padrão) e a cada reinício.</p>
+          </li>
+          <li>
+            <span class="label">Não roda desprotegido</span>
+            <p>O bot se recusa a iniciar sem uma senha e pelo menos um número autorizado. O último número não pode ser removido.</p>
+          </li>
+          <li>
+            <span class="label">Só local</span>
+            <p>O painel escuta em 127.0.0.1 e pede a mesma senha. Verificações de Host e Origin bloqueiam DNS rebinding e requisições de outros sites.</p>
+          </li>
+          <li>
+            <span class="label">Segredos guardados</span>
+            <p>A senha é armazenada com scrypt. O token do bot é criptografado com AES-256-GCM usando uma chave local (modo 600).</p>
+          </li>
+          <li>
+            <span class="label">Fora do alcance do Claude</span>
+            <p>O <code>tether setup</code> adiciona regras de bloqueio (deny) ao Claude Code para que o Claude não possa ler nem editar <code>~/.tether</code> ou <code>~/.ssh</code>.</p>
+          </li>
+          <li>
+            <span class="label">Registro de auditoria</span>
+            <p>Todo login, desbloqueio, mudança de configuração e resposta de permissão fica registrado e visível no painel.</p>
+          </li>
+        </ul>
+        <p class="more-link"><a href="manual.html#security">Leia o modelo de segurança completo →</a></p>
+      </div>
+    </section>
+
+    <!-- Quick start -->
+    <section class="section section-alt" id="start" aria-labelledby="start-title">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="label">Início rápido</span>
+          <h2 id="start-title">Funcionando em poucos minutos.</h2>
+          <p>Você precisa de Linux ou macOS, Node.js 22.13+, <code>tmux</code>, <code>curl</code> e do Claude Code instalado e com login feito.</p>
+        </div>
+        <div class="code">
+          <div class="code-head"><span>Terminal</span><button class="copy-btn" type="button" data-copy="#quickstart" data-done="Copiado" hidden>Copiar</button></div>
+          <pre><code id="quickstart"><span class="p">$ </span>git clone https://github.com/pablobelmiro/thether-bot.git &amp;&amp; cd thether-bot &amp;&amp; ./install.sh</code></pre>
+        </div>
+        <p>Depois abra <code>http://127.0.0.1:4100</code> e siga o assistente de primeira execução. O <a href="manual.html#install">manual</a> mostra cada passo, inclusive como criar o seu bot do Telegram.</p>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section" id="faq" aria-labelledby="faq-title">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="label">Perguntas frequentes</span>
+          <h2 id="faq-title">Dúvidas.</h2>
+        </div>
+        <div class="faq">
+          <details>
+            <summary>Minha conta do Claude é compartilhada com alguém?</summary>
+            <div><p>Não. O Tether usa o seu login local do <code>claude</code>, o mesmo que você usa no terminal. Nada passa por terceiros; o bot só conversa com o Telegram, e o painel só com a sua própria máquina.</p></div>
+          </details>
+          <details>
+            <summary>Preciso de uma chave de API?</summary>
+            <div><p>Não. As sessões rodam o Claude Code CLI normal, com a sua assinatura ou login atual. Não há chave para configurar.</p></div>
+          </details>
+          <details>
+            <summary>Estranhos podem usar o meu bot?</summary>
+            <div><p>Não. Qualquer pessoa pode achar o nome de usuário de um bot, mas o Tether só responde a contas do Telegram que compartilham o próprio contato com um número da sua lista de autorizados, e depois ainda pede a sua senha. Todo o resto só vê o pedido para compartilhar o contato.</p></div>
+          </details>
+          <details>
+            <summary>O computador precisa ficar ligado?</summary>
+            <div><p>Sim. O Claude roda na sua máquina, então ela precisa estar ligada e acordada. No Linux, o instalador pode configurar o Tether como um serviço em segundo plano que inicia sozinho.</p></div>
+          </details>
+          <details>
+            <summary>Ainda posso usar o terminal?</summary>
+            <div><p>Pode. Cada sessão é uma sessão normal do tmux, então <code>tmux attach</code> funciona a qualquer momento. O que você digita lá também aparece no chat do painel. Dá até para adotar uma sessão do tmux que você mesmo iniciou.</p></div>
+          </details>
+          <details>
+            <summary>Este é um produto oficial da Anthropic?</summary>
+            <div><p>Não. O Tether é um projeto independente da comunidade, publicado sob a licença MIT.</p></div>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div>
+        <img class="footer-emblem" src="../assets/emblem.png" alt="" width="96" height="48" loading="lazy" />
+        <p><strong>tether-bot</strong> · publicado sob a <a href="https://github.com/pablobelmiro/thether-bot/blob/main/LICENSE">licença MIT</a>.</p>
+        <p>Um projeto da comunidade, sem vínculo com a Anthropic. “Claude” e “Claude Code” são marcas registradas da Anthropic.</p>
+      </div>
+      <ul class="footer-links">
+        <li><a href="manual.html">Manual</a></li>
+        <li><a href="https://github.com/pablobelmiro/thether-bot">GitHub</a></li>
+        <li><a href="https://github.com/pablobelmiro/thether-bot/issues">Issues</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <script src="../assets/site.js" defer></script>
+</body>
+</html>

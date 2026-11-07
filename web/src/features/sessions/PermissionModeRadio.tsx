@@ -1,4 +1,4 @@
-import type { PermissionMode } from '@shared/api'
+import { PERMISSION_MODES, type PermissionMode } from '@shared/api'
 import { TriangleAlert } from 'lucide-react'
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -16,10 +16,10 @@ export function PermissionModeRadio({
   const { t } = useTranslation()
   const id = useId()
   const group = name ?? `perm-${id}`
-  const options: PermissionMode[] = ['ask', 'bypass']
+  const options = PERMISSION_MODES
   return (
     <div className="space-y-2">
-      <div role="radiogroup" className="grid gap-2 sm:grid-cols-2">
+      <div role="radiogroup" className="grid gap-2 sm:grid-cols-3">
         {options.map((mode) => (
           <label
             key={mode}
@@ -37,7 +37,12 @@ export function PermissionModeRadio({
               className="mt-0.5 size-4 shrink-0 accent-[hsl(var(--primary))]"
             />
             <span className="space-y-1">
-              <span className="block text-sm font-medium">{t(`permissionMode.${mode}.label`)}</span>
+              <span className="block text-sm font-medium">
+                {t(`permissionMode.${mode}.label`)}
+                {mode === 'auto' && (
+                  <span className="ml-2 font-mono text-[10px] uppercase tracking-label text-primary">{t('permissionMode.auto.recommended')}</span>
+                )}
+              </span>
               <span className="block text-xs text-muted-foreground">{t(`permissionMode.${mode}.description`)}</span>
             </span>
           </label>

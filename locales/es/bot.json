@@ -29,7 +29,8 @@
     "context": "📊 Contexto {{pct}}%",
     "limits": "⏱️ Límites: {{limits}}",
     "mode_bypass": "⚠️ Funciona sin pedir permiso",
-    "mode_ask": "🛡️ Pide permiso a través del bot"
+    "mode_ask": "🛡️ Pide permiso a través del bot",
+    "mode_auto": "🤖 Modo auto: un clasificador de seguridad revisa cada acción"
   },
   "session": {
     "none": "Ninguna sesión activa. Usa /{{change}} o /{{repos}}.",
@@ -107,7 +108,7 @@
   },
   "unknownCommand": "Comando desconocido. Mira /{{help}}.",
   "unsupported": "Aún no puedo manejar este tipo de mensaje. Envía texto, una foto o un archivo.",
-  "help": "<b>🤖 Claude en Telegram</b>\nCualquier texto va a la <b>sesión activa</b>. Las fotos y archivos se adjuntan a ella.\n\n<b>Acceso</b>\n/{{password}} &lt;contraseña&gt; — desbloquea el bot\n/{{lock}} — bloquéalo ahora\n\n<b>Sesiones</b>\n/{{change}} — elegir la sesión (o <code>/{{change}} nombre</code>)\n<i>  Las respuestas de otras sesiones se guardan (📬) y llegan cuando cambias.</i>\n/{{repos}} — proyectos; abre una nueva sesión\n/{{resume}} — reanuda una conversación reciente de Claude\n/{{status}} — sesión activa, modelo y contexto\n/{{screen}} — muestra la terminal ahora\n/{{cancel}} — interrumpe a Claude\n\n<b>Claude Code</b>\n/model — cambiar modelo (o <code>/model opus</code>)\n/effort — nivel de esfuerzo (o <code>/effort high</code>)\n/usage — uso del plan\n/clear — limpia el contexto de la sesión\n\n/{{lang}} — idioma\n\n<i>El bot se bloquea solo tras {{hours}} h sin uso y siempre que se reinicia.</i>",
+  "help": "<b>🤖 Claude en Telegram</b>\nCualquier texto va a la <b>sesión activa</b>. Las fotos y archivos se adjuntan a ella.\n\n<b>Acceso</b>\n/{{password}} &lt;contraseña&gt; — desbloquea el bot\n/{{lock}} — bloquéalo ahora\n\n<b>Sesiones</b>\n/{{change}} — elegir la sesión (o <code>/{{change}} nombre</code>)\n<i>  Las respuestas de otras sesiones se guardan (📬) y llegan cuando cambias.</i>\n/{{new}} &lt;ruta&gt; [nombre] — abre una sesión en cualquier directorio\n/{{repos}} — proyectos; abre una nueva sesión\n/{{resume}} — reanuda una conversación reciente de Claude\n/{{status}} — sesión activa, modelo y contexto\n/{{screen}} — muestra la terminal ahora\n/{{cancel}} — interrumpe a Claude\n\n<b>Claude Code</b>\n/model — cambiar modelo (o <code>/model opus</code>)\n/effort — nivel de esfuerzo (o <code>/effort high</code>)\n/usage — uso del plan\n/clear — limpia el contexto de la sesión\n\n/{{lang}} — idioma\n\n<i>El bot se bloquea solo tras {{hours}} h sin uso y siempre que se reinicia.</i>",
   "commands": {
     "help": "Muestra los comandos",
     "password": "Desbloquea el bot: /clave <contraseña>",
@@ -122,7 +123,8 @@
     "clear": "Limpia el contexto",
     "lock": "Bloquea el bot",
     "lang": "Idioma",
-    "resume": "Reanudar una conversación reciente"
+    "resume": "Reanudar una conversación reciente",
+    "new": "Abrir una sesión en un directorio: /nueva <ruta>"
   },
   "time": {
     "now": "ahora",
@@ -144,5 +146,8 @@
     "mode": "Se reabren con el modo por defecto: {{mode}}",
     "empty": "No se encontraron otras conversaciones en ~/.claude/projects.",
     "opening": "⏳ Reanudando <b>{{title}}</b>…"
+  },
+  "newSession": {
+    "usage": "Uso: <code>/{{new}} &lt;ruta&gt; [nombre]</code>\nEjemplo: <code>/{{new}} ~/proyectos/mi-app</code>\nRutas con espacios entre comillas: <code>/{{new}} \"~/Mis Proyectos/app\"</code>"
   }
 }

@@ -9,6 +9,10 @@
   A Telegram bot and a web dashboard for the Claude Code sessions running on your own machine.
 </p>
 
+<p align="center">
+  🌐 <b>Website:</b> <a href="https://pablobelmiro.github.io/thether-bot/">pablobelmiro.github.io/thether-bot</a>
+</p>
+
 ---
 
 Tether connects the [Claude Code](https://docs.claude.com/en/docs/claude-code) CLI on **your** computer to:
@@ -80,6 +84,7 @@ Then just type. Your message goes to the active session, and Claude's answer com
 | *any text* | Send it to the active session |
 | *photo / file* | Attach it (the caption becomes the message) |
 | `/change [name]` | Switch the active session. 📬 shows answers you haven't read yet. |
+| `/new <path> [name]` | Open a new session in any directory, e.g. `/new ~/projects/my-app` (quote paths with spaces) |
 | `/resume` | Resume any recent Claude Code conversation from this machine |
 | `/repos` | Open a new session in a recent project |
 | `/status` | Model, effort, context and plan limits of the active session |
@@ -120,10 +125,11 @@ Localized aliases also work, e.g. `/senha`, `/ajuda`, `/tela` in Portuguese and 
 
 ## Permission modes
 
-Each session runs in one of two modes, chosen when you create or resume it:
+Each session runs in one of three modes, chosen when you create or resume it:
 
 | Mode | Behavior |
 |---|---|
+| **Auto** (recommended) | Claude works on its own, and Claude Code's safety classifier reviews each action and blocks risky ones, including actions pushed by prompt injection. Decisions it hands back to you arrive as permission prompts. |
 | **Ask** (default) | Claude's permission prompts appear in the dashboard and on Telegram with buttons. Answer from anywhere; the other places update. |
 | **Bypass** | Claude runs with `--dangerously-skip-permissions` and never asks. Convenient, but only use it for folders and work you trust. |
 
@@ -140,7 +146,8 @@ Tether can make Claude run commands on your computer, so access is locked down:
   - the password is stored with scrypt;
   - the bot token is encrypted with AES-256-GCM using a local key (mode 600);
   - only token hashes are stored for dashboard logins.
-- **Process execution:** no shell strings are built from input; `tmux` and `claude` are called with argument lists.
+- **Secrets off-limits to Claude:** `tether setup` adds Claude Code deny rules for `~/.tether` and `~/.ssh`, so even a prompt injection can't read the bot token or keys through Claude's tools.
+- **Process execution:** `tmux` is called with argument lists, and the `claude` command line is built only from validated, single-quoted values.
 - **Audit log:** every login, unlock, configuration change and permission answer is recorded.
 
 Read [SECURITY.md](SECURITY.md) for the full model and recommendations. Don't expose port 4100 to the internet.

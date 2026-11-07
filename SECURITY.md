@@ -4,6 +4,26 @@ Tether controls Claude Code on your machine. Anyone who controls Tether can make
 Claude run commands as your user. In **bypass** mode that happens without any
 confirmation. The design assumes that and puts several barriers in front of it.
 
+## Who can reach what
+
+| Surface | Reachable by | Protection |
+|---|---|---|
+| Dashboard / API (port 4100) | Only programs on this computer (bound to 127.0.0.1, not even the LAN) | Password login, Host/Origin checks, JSON-only writes |
+| Telegram bot | Anyone on the internet who finds the bot's username | Own contact with an allowed phone **and** the password; idle lock |
+
+A remote attacker would need to take over your Telegram account **and** know your password. Turn on Telegram's two-step verification (Settings → Privacy and Security → Two-Step Verification): account takeover is the main remote risk.
+
+## Prompt injection
+
+Content Claude reads (web pages, issues, files from other people) can contain instructions. In bypass mode, Claude might follow them without asking. Tether's defenses:
+
+- **Auto mode (recommended):** Claude works alone, but Claude Code's safety classifier reviews each action and blocks risky ones, including actions that come from injected instructions. Decisions it hands back to you show up as permission prompts on Telegram and in the dashboard.
+- **Ask mode:** you approve every action.
+- **Secrets are off-limits to Claude:** `tether setup` adds Claude Code deny rules (`Read`/`Edit` of `~/.tether/**` and `~/.ssh/**`). Even a successful injection can't read the bot token, the password hash or the encryption key through Claude's file tools.
+- **Telegram is not end-to-end encrypted:** answers and code that pass through the bot are visible to Telegram's servers.
+
+For untrusted work, prefer Auto or Ask, and consider running the session in a container or as a separate OS user.
+
 ## Barriers
 
 | Layer | Protection |

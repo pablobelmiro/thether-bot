@@ -220,6 +220,12 @@
     }
   },
   "permissionMode": {
+    "auto": {
+      "label": "Auto",
+      "badge": "Auto · safety checks",
+      "recommended": "Recommended",
+      "description": "Claude works on its own; Claude Code's safety classifier reviews each action and blocks risky ones (including prompt injection)."
+    },
     "ask": {
       "label": "Ask",
       "badge": "Asks permission",

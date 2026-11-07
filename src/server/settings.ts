@@ -2,7 +2,7 @@
  * Typed settings on top of the key/value table.
  */
 
-import type { PermissionMode, Settings, SettingsPatch } from '../shared/api.js'
+import { PERMISSION_MODES, type PermissionMode, type Settings, type SettingsPatch } from '../shared/api.js'
 import type { Repo } from './db/repo.js'
 
 export const SUPPORTED_LOCALES = ['en', 'pt-BR', 'es'] as const
@@ -38,7 +38,7 @@ export class SettingsService {
       this.repo.setSetting('locale', l)
     }
     if (p.defaultPermissionMode !== undefined) {
-      if (p.defaultPermissionMode !== 'ask' && p.defaultPermissionMode !== 'bypass') throw new Error('Invalid permission mode')
+      if (!PERMISSION_MODES.includes(p.defaultPermissionMode)) throw new Error('Invalid permission mode')
       this.repo.setSetting('defaultPermissionMode', p.defaultPermissionMode)
     }
     if (p.idleLockHours !== undefined) {

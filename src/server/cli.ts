@@ -51,6 +51,17 @@ function writeClaudeSettings(data: Record<string, unknown>): void {
 
 type HookEntry = { matcher?: string; hooks: Array<{ type: string; command: string; timeout?: number }> }
 
+/**
+ * Claude Code deny rules that keep Claude away from Tether's secrets (bot token,
+ * password hash, encryption key) and SSH keys, even in auto/bypass mode or if a
+ * prompt injection asks for them.
+ */
+export function secretDenyRules(): string[] {
+  const home = process.env.HOME ?? ''
+  const tetherDir = env.home.startsWith(home + '/') ? '~' + env.home.slice(home.length) : env.home
+  return [`Read(${tetherDir}/**)`, `Edit(${tetherDir}/**)`, 'Read(~/.ssh/**)', 'Edit(~/.ssh/**)']
+}
+
 const isTetherHook = (h: { command?: string }) => typeof h.command === 'string' && h.command.includes('tether-hook.sh')
 
 function setup(args: string[]): void {
@@ -79,6 +90,14 @@ function setup(args: string[]): void {
   }
   data.hooks = hooks
 
+  // Protect secrets from Claude itself
+  const permissions = (data.permissions ?? {}) as { deny?: string[] }
+  const deny = new Set(permissions.deny ?? [])
+  const added = secretDenyRules().filter(r => !deny.has(r))
+  for (const r of added) deny.add(r)
+  permissions.deny = [...deny]
+  data.permissions = permissions
+
   if (withStatus) {
     const current = data.statusLine as { type?: string; command?: string } | undefined
     if (current?.command && !current.command.includes('tether-statusline.sh')) {
@@ -91,6 +110,7 @@ function setup(args: string[]): void {
 
   writeClaudeSettings(data)
   console.log(`  hooks: ${HOOK_EVENTS.length} events in ${settingsFile}`)
+  console.log(`  protected from Claude: ${secretDenyRules().join(', ')}${added.length ? '' : ' (already set)'}`)
 
   if (args.includes('--claude-md')) {
     const guide = join(env.home, 'TELEGRAM_AGENT.md')
@@ -115,6 +135,8 @@ function uninstallHooks(): void {
     if (!hooks[event].length) delete hooks[event]
   }
   data.hooks = hooks
+  const permissions = data.permissions as { deny?: string[] } | undefined
+  if (permissions?.deny) permissions.deny = permissions.deny.filter(r => !secretDenyRules().includes(r))
   const sl = data.statusLine as { command?: string } | undefined
   if (sl?.command?.includes('tether-statusline.sh')) {
     const chain = join(env.home, 'statusline-chain')
@@ -158,7 +180,7 @@ async function importEnv(file: string | undefined): Promise<void> {
       if (l) settings.patch({ locale: l })
       done.push('locale')
     }
-    if (v.TETHER_PERMISSION_MODE === 'ask' || v.TETHER_PERMISSION_MODE === 'bypass') {
+    if (v.TETHER_PERMISSION_MODE === 'ask' || v.TETHER_PERMISSION_MODE === 'auto' || v.TETHER_PERMISSION_MODE === 'bypass') {
       settings.patch({ defaultPermissionMode: v.TETHER_PERMISSION_MODE })
       done.push('permission mode')
     }

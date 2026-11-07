@@ -220,6 +220,12 @@
     }
   },
   "permissionMode": {
+    "auto": {
+      "label": "Auto",
+      "badge": "Auto · verificação",
+      "recommended": "Recomendado",
+      "description": "O Claude trabalha sozinho; o classificador de segurança do Claude Code revisa cada ação e bloqueia as arriscadas (inclusive prompt injection)."
+    },
     "ask": {
       "label": "Perguntar",
       "badge": "Pede permissão",

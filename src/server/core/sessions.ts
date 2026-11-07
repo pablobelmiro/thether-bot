@@ -586,7 +586,9 @@ export class SessionManager {
       if (l.status === 'offline') continue
       const booting = !!l.bootUntil && Date.now() < l.bootUntil
       const trustPending = l.pendingPermission?.tool === TRUST_TOOL
-      if (s.permissionMode !== 'ask' && !booting && !trustPending) continue
+      // ask: every prompt; auto: the classifier may still hand a decision to the user
+      const watchesPrompts = s.permissionMode === 'ask' || s.permissionMode === 'auto'
+      if (!watchesPrompts && !booting && !trustPending) continue
       let screen: string
       try {
         screen = await tmux.capture(s.tmuxSession, 50)
@@ -623,7 +625,7 @@ export class SessionManager {
           continue
         }
       }
-      if (s.permissionMode !== 'ask') continue
+      if (!watchesPrompts) continue
       const prompt = detectPermissionPrompt(screen)
       if (prompt && l.pendingPermission?.id !== prompt.id) {
         // New prompt, or a different one replaced the previous within a poll cycle
@@ -690,8 +692,9 @@ export function claudeCommand(mode: PermissionMode, continueConversation: boolea
     args.push('--resume', resumeId)
   } else if (continueConversation) args.push('-c')
   if (mode === 'bypass') args.push('--permission-mode=bypassPermissions', '--dangerously-skip-permissions')
+  else if (mode === 'auto') args.push('--permission-mode=auto')
   // "ask" must really ask, even if the user's own default is auto/acceptEdits
-  else args.push('--permission-mode=default')
+  else args.push('--permission-mode=manual')
   if (model) args.push('--model', model)
   // tmux runs this string through the user's shell: quote every word so nothing is expanded
   return `exec ${args.map(shellQuote).join(' ')}`

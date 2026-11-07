@@ -10,8 +10,14 @@
 
 export type SessionStatus = 'idle' | 'working' | 'waiting' | 'offline'
 
-/** bypass = Claude runs without asking (--dangerously-skip-permissions); ask = permission prompts are forwarded to you */
-export type PermissionMode = 'bypass' | 'ask'
+/**
+ * ask    = every permission prompt is forwarded to you (Telegram + dashboard)
+ * auto   = Claude works alone; Claude Code's safety classifier reviews each action and blocks risky ones
+ * bypass = never asks (--dangerously-skip-permissions)
+ */
+export type PermissionMode = 'ask' | 'auto' | 'bypass'
+
+export const PERMISSION_MODES: PermissionMode[] = ['auto', 'ask', 'bypass']
 
 export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
