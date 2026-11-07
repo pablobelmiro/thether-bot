@@ -1,5 +1,5 @@
 import type { DiscoveredTmuxSession, PermissionMode } from '@shared/api'
-import { Import, RotateCw } from 'lucide-react'
+import { RotateCw } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
@@ -8,7 +8,6 @@ import { EmptyState, Field, Spinner } from '@/components/common/page'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Separator } from '@/components/ui/separator'
 import { api } from '@/lib/api'
 import { useFormat } from '@/lib/format'
 import { useStore } from '@/lib/store'
@@ -20,11 +19,9 @@ export function AdoptDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   const fmt = useFormat()
   const navigate = useNavigate()
   const upsertSession = useStore((s) => s.upsertSession)
-  const setSessions = useStore((s) => s.setSessions)
   const [list, setList] = useState<DiscoveredTmuxSession[] | null>(null)
   const [mode, setMode] = useState<PermissionMode>('ask')
   const [busy, setBusy] = useState<string | null>(null)
-  const [importing, setImporting] = useState(false)
 
   const load = useCallback(() => {
     setList(null)
@@ -63,19 +60,6 @@ export function AdoptDialog({ open, onOpenChange }: { open: boolean; onOpenChang
     }
   }
 
-  const importVibecraft = async () => {
-    setImporting(true)
-    try {
-      const { imported } = await api.importVibecraft()
-      toast.success(t('sessions.adopt.imported', { count: imported }))
-      setSessions(await api.sessions())
-      load()
-    } catch (err) {
-      toast.error(errorMessage(err))
-    } finally {
-      setImporting(false)
-    }
-  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -142,15 +126,6 @@ export function AdoptDialog({ open, onOpenChange }: { open: boolean; onOpenChang
           </div>
         </div>
 
-        <Separator />
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-muted-foreground">{t('sessions.adopt.vibecraftHint')}</p>
-          <Button variant="outline" onClick={importVibecraft} disabled={importing}>
-            {importing ? <Spinner /> : <Import />}
-            {t('sessions.adopt.importVibecraft')}
-          </Button>
-        </div>
       </DialogContent>
     </Dialog>
   )

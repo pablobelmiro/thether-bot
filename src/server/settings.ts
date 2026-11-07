@@ -28,7 +28,6 @@ export class SettingsService {
       telegramEnabled: this.repo.getSetting('telegramEnabled', true),
       hasTelegramToken: !!token,
       telegramTokenHint: token ? token.slice(-4) : undefined,
-      vibecraftCompat: this.repo.getSetting('vibecraftCompat', true),
     }
   }
 
@@ -48,7 +47,6 @@ export class SettingsService {
       this.repo.setSetting('idleLockHours', h)
     }
     if (p.telegramEnabled !== undefined) this.repo.setSetting('telegramEnabled', !!p.telegramEnabled)
-    if (p.vibecraftCompat !== undefined) this.repo.setSetting('vibecraftCompat', !!p.vibecraftCompat)
     return this.get()
   }
 

@@ -204,8 +204,6 @@
       "createdAt": "Started {{time}}",
       "adopt": "Adopt",
       "adopted": "Adopted “{{name}}”",
-      "vibecraftHint": "Running Vibecraft? Bring its sessions over in one go.",
-      "importVibecraft": "Import from Vibecraft",
       "imported_one": "Imported {{count}} session",
       "imported_other": "Imported {{count}} sessions",
       "imported_many": "Imported {{count}} sessions"
@@ -353,9 +351,7 @@
       "defaultPermissionHint": "Preselected when you create or adopt a session.",
       "idleLock": "Idle lock",
       "idleLockHint": "The Telegram bot asks for the password again after this long without use.",
-      "hours": "hours",
-      "vibecraft": "Vibecraft compatibility",
-      "vibecraftHint": "Read Vibecraft's event log so its running sessions show up here."
+      "hours": "hours"
     },
     "telegram": {
       "enabled": "Telegram bot",

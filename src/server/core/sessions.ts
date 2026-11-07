@@ -5,7 +5,7 @@
  */
 
 import { randomUUID, randomBytes } from 'node:crypto'
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { statSync } from 'node:fs'
 import { basename, resolve } from 'node:path'
 import type {
   ActivityEvent,
@@ -39,6 +39,8 @@ interface Live {
 }
 
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
+/** Pseudo tool name for Claude Code's folder trust dialog */
+const TRUST_TOOL = 'TrustFolder'
 const MODEL_ARG = /^[A-Za-z0-9._[\]-]{1,60}$/
 /** No event for this long while "working" → assume idle (long tools still send pre/post events) */
 const WORKING_TIMEOUT_MS = 10 * 60 * 1000
@@ -46,8 +48,6 @@ const WORKING_TIMEOUT_MS = 10 * 60 * 1000
 export class SessionManager {
   private readonly sessions = new Map<string, StoredSession>()
   private readonly live = new Map<string, Live>()
-  /** Claude session ids that already sent native hook events */
-  private readonly nativeIds = new Set<string>()
   private timers: NodeJS.Timeout[] = []
 
   constructor(private readonly repo: Repo) {
@@ -211,23 +211,6 @@ export class SessionManager {
     return this.toApi(s)
   }
 
-  /** Adopt every live session listed in Vibecraft's sessions.json */
-  async importVibecraft(): Promise<number> {
-    if (!existsSync(env.vibecraftSessions)) throw new HttpError(404, `Vibecraft sessions not found at ${env.vibecraftSessions}`)
-    const data = JSON.parse(readFileSync(env.vibecraftSessions, 'utf-8')) as {
-      sessions?: Array<{ name?: string; tmuxSession?: string; claudeSessionId?: string }>
-    }
-    const live = new Set((await tmux.list()).map(t => t.tmuxSession))
-    let count = 0
-    for (const v of data.sessions ?? []) {
-      if (!v.tmuxSession || !live.has(v.tmuxSession)) continue
-      if ([...this.sessions.values()].some(s => s.tmuxSession === v.tmuxSession)) continue
-      // Vibecraft starts Claude with --dangerously-skip-permissions
-      await this.adopt(v.tmuxSession, v.name, 'bypass', v.claudeSessionId)
-      count++
-    }
-    return count
-  }
 
   // -------------------------------------------------------------------------
   // Actions
@@ -321,8 +304,17 @@ export class SessionManager {
   async respondPermission(id: string, option: string): Promise<void> {
     const s = this.require(id)
     if (!/^\d{1,2}$/.test(option)) throw new HttpError(400, 'Invalid option')
-    await tmux.keys(s.tmuxSession, option)
     const l = this.liveOf(id)
+    // Already answered elsewhere (dashboard, Telegram or terminal): don't send stray keys
+    if (!l.pendingPermission) throw new HttpError(409, 'This request is no longer pending')
+    if (!l.pendingPermission.options.some(o => o.number === option)) throw new HttpError(400, 'Invalid option')
+    if (l.pendingPermission?.tool === TRUST_TOOL) {
+      // Menu without numbers; the cursor starts on "No, exit"
+      if (option === '1') await tmux.keys(s.tmuxSession, 'Down')
+      await tmux.keys(s.tmuxSession, 'Enter')
+    } else {
+      await tmux.keys(s.tmuxSession, option)
+    }
     if (l.pendingPermission) {
       l.pendingPermission = undefined
       this.setStatus(s, 'working')
@@ -334,8 +326,9 @@ export class SessionManager {
   async answerQuestion(id: string, answer: { option?: number; text?: string }): Promise<void> {
     const s = this.require(id)
     const l = this.liveOf(id)
+    if (!l.pendingQuestion) throw new HttpError(409, 'This question is no longer pending')
     if (answer.option !== undefined) {
-      if (!Number.isInteger(answer.option) || answer.option < 1 || answer.option > 9) throw new HttpError(400, 'Invalid option')
+      if (!Number.isInteger(answer.option) || answer.option < 1 || answer.option > l.pendingQuestion.options.length) throw new HttpError(400, 'Invalid option')
       // Number keys select a menu entry immediately
       await tmux.keys(s.tmuxSession, String(answer.option))
     } else if (answer.text?.trim()) {
@@ -357,6 +350,7 @@ export class SessionManager {
     if (!l.pendingQuestion) return
     l.pendingQuestion = undefined
     this.changed(s, false)
+    hub.emit('question_resolved', this.toApi(s))
   }
 
   async terminal(id: string, lines = 0): Promise<string> {
@@ -375,9 +369,6 @@ export class SessionManager {
   // -------------------------------------------------------------------------
 
   handleEvent(e: HookEvent): void {
-    if (e.source === 'native') this.nativeIds.add(e.claudeSessionId)
-    else if (this.nativeIds.has(e.claudeSessionId)) return
-
     const s = this.link(e)
     if (!s) return
     const l = this.liveOf(s.id)
@@ -401,7 +392,7 @@ export class SessionManager {
       case 'stop':
         this.clearQuestion(s)
         this.setStatus(s, 'idle')
-        void this.finishTurn(s, e)
+        void this.finishTurn(s)
         break
       case 'session_start':
         // New conversation id (startup, /clear, resume) → new transcript
@@ -451,16 +442,14 @@ export class SessionManager {
     return l.reader
   }
 
-  private async finishTurn(s: StoredSession, e: HookEvent): Promise<void> {
-    let response = e.response ?? ''
-    if (!response) {
-      // Give Claude Code a moment to flush the transcript
-      await new Promise(r => setTimeout(r, 600))
-      const reader = this.readerFor(s)
-      if (reader) {
-        this.pushMessages(s, reader.readNew())
-        response = lastAssistantText(reader.messages(400))
-      }
+  private async finishTurn(s: StoredSession): Promise<void> {
+    let response = ''
+    // Give Claude Code a moment to flush the transcript
+    await new Promise(r => setTimeout(r, 600))
+    const reader = this.readerFor(s)
+    if (reader) {
+      this.pushMessages(s, reader.readNew())
+      response = lastAssistantText(reader.messages(400))
     }
     if (response) this.activity(s, 'response', response.replace(/\s+/g, ' ').slice(0, 160))
     hub.emit('turn_complete', this.toApi(s), response)
@@ -558,9 +547,27 @@ export class SessionManager {
         continue
       }
       if (booting) {
+        // Folder trust is the user's decision: surface it as a prompt (its default choice is "No, exit")
         if (detectTrustDialog(screen)) {
-          await tmux.keys(s.tmuxSession, 'Enter') // default option is "Yes, proceed"
+          if (!l.pendingPermission) {
+            l.pendingPermission = {
+              tool: TRUST_TOOL,
+              context: `Claude Code asks whether you trust this folder:\n${s.cwd}`,
+              options: [
+                { number: '1', label: 'Yes, I trust this folder' },
+                { number: '2', label: 'No, exit' },
+              ],
+              detectedAt: Date.now(),
+            }
+            this.setStatus(s, 'waiting', TRUST_TOOL)
+            hub.emit('permission', this.toApi(s), l.pendingPermission)
+          }
           continue
+        }
+        if (l.pendingPermission?.tool === TRUST_TOOL) {
+          l.pendingPermission = undefined
+          this.setStatus(s, 'idle')
+          hub.emit('permission', this.toApi(s), null)
         }
         if (s.permissionMode === 'bypass' && detectBypassWarning(screen)) {
           await tmux.keys(s.tmuxSession, '2')

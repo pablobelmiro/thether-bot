@@ -78,5 +78,11 @@ export function detectBypassWarning(output: string): boolean {
 
 /** Workspace trust dialog shown in a folder Claude has never opened */
 export function detectTrustDialog(output: string): boolean {
-  return /trust this folder|Do you trust the files in this folder/i.test(output) && /Yes, (I trust|proceed)/i.test(output)
+  // Must be the interactive dialog at the bottom of the screen, not text somewhere above
+  const tail = output.split('\n').filter(l => l.trim()).slice(-15).join('\n')
+  return (
+    /trust this folder|one you trust|Do you trust the files in this folder/i.test(tail) &&
+    /Yes, (I trust|proceed)/i.test(tail) &&
+    /Enter to confirm|Esc to (cancel|exit)/i.test(tail)
+  )
 }

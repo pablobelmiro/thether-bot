@@ -3,7 +3,6 @@ import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { PermissionModeRadio } from '@/features/sessions/PermissionModeRadio'
 import { LANGUAGES, setLanguage, toSupportedLanguage } from '@/lib/i18n'
 import type { PatchFn } from './SettingsPage'
@@ -11,7 +10,7 @@ import { SettingRow } from './Row'
 
 export function GeneralTab({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const { t } = useTranslation()
-  const ids = { lang: useId(), idle: useId(), vc: useId() }
+  const ids = { lang: useId(), idle: useId() }
   const [idle, setIdle] = useState(String(settings.idleLockHours))
 
   useEffect(() => setIdle(String(settings.idleLockHours)), [settings.idleLockHours])
@@ -73,10 +72,6 @@ export function GeneralTab({ settings, patch }: { settings: Settings; patch: Pat
           />
           <span className="text-sm text-muted-foreground">{t('settings.general.hours')}</span>
         </div>
-      </SettingRow>
-
-      <SettingRow title={t('settings.general.vibecraft')} description={t('settings.general.vibecraftHint')} htmlFor={ids.vc}>
-        <Switch id={ids.vc} checked={settings.vibecraftCompat} onCheckedChange={(v) => void patch({ vibecraftCompat: v })} />
       </SettingRow>
     </div>
   )

@@ -22,6 +22,7 @@ import { translator } from '../i18n.js'
 import { log } from '../env.js'
 import { escapeHtml, markdownToTelegramMessages, splitPlain, terminalToHtml } from './format.js'
 import { Lock } from './lock.js'
+import { usageReport } from '../core/usage-report.js'
 
 // ---------------------------------------------------------------------------
 // Commands and their localized aliases (all aliases always work)
@@ -89,6 +90,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
   const pendingQuestions = new Map<string, { sessionId: string; labels: string[] }>()
   const pendingOther = new Map<number, string>() // userId → sessionId awaiting free-text answer
   const permissionMessages = new Map<string, Array<{ chatId: number; messageId: number; lng: string }>>()
+  const questionMessages = new Map<string, Array<{ chatId: number; messageId: number }>>() // sessionId → sent prompts
   const typing = new Map<number, NodeJS.Timeout>()
   const lastResponse = new Map<string, string>() // sessionId → last answer
   let lastProjects: { path: string; name: string }[] = []
@@ -539,7 +541,10 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     await runCommand(ctx, `/effort ${ctx.match[1]}`)
   })
 
-  bot.command('usage', ctx => runCommand(ctx, '/usage'))
+  bot.command('usage', async ctx => {
+    const { lng } = tr(ctx)
+    await ctx.reply(`<pre>${escapeHtml(usageReport(d.sessions.list(), lng))}</pre>`, { parse_mode: 'HTML' })
+  })
 
   bot.command('clear', async ctx => {
     const s = await requireActive(ctx)
@@ -573,7 +578,12 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
   bot.callbackQuery(/^q:(\w+):(\d+|o)$/, async ctx => {
     const { t } = tr(ctx)
     const q = pendingQuestions.get(ctx.match[1])
-    if (!q) return void (await ctx.answerCallbackQuery({ text: t('question.gone') }))
+    // Answered elsewhere already? Then never send a key to the terminal.
+    if (!q || !d.sessions.get(q.sessionId)?.pendingQuestion) {
+      if (q) pendingQuestions.delete(ctx.match[1])
+      await ctx.editMessageReplyMarkup().catch(() => {})
+      return void (await ctx.answerCallbackQuery({ text: t('question.gone') }))
+    }
     await ctx.answerCallbackQuery()
     await ctx.editMessageReplyMarkup().catch(() => {})
     pendingQuestions.delete(ctx.match[1])
@@ -595,12 +605,19 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
   bot.callbackQuery(/^perm:([\w-]+):(\d+)$/, async ctx => {
     const { t } = tr(ctx)
     const s = d.sessions.get(ctx.match[1])
-    if (!s?.pendingPermission) return void (await ctx.answerCallbackQuery({ text: t('permission.gone') }))
+    if (!s?.pendingPermission) {
+      await ctx.editMessageReplyMarkup().catch(() => {})
+      return void (await ctx.answerCallbackQuery({ text: t('permission.gone') }))
+    }
     const option = s.pendingPermission.options.find(o => o.number === ctx.match[2])
     await ctx.answerCallbackQuery()
-    await d.sessions.respondPermission(s.id, ctx.match[2])
-    d.repo.audit('telegram', 'permission.answer', `${s.name}: ${option?.label ?? ctx.match[2]}`)
     await ctx.editMessageReplyMarkup().catch(() => {})
+    try {
+      await d.sessions.respondPermission(s.id, ctx.match[2])
+    } catch {
+      return void (await ctx.reply(t('permission.gone'))) // answered elsewhere a moment ago
+    }
+    d.repo.audit('telegram', 'permission.answer', `${s.name}: ${option?.label ?? ctx.match[2]}`)
     await ctx.reply(t('permission.answered', { answer: option?.label ?? ctx.match[2] }))
   })
 
@@ -691,8 +708,18 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
         const kb = new InlineKeyboard()
         labels.forEach((l, i) => kb.text(l.slice(0, 60), `q:${key}:${i}`).row())
         kb.text(t('question.other'), `q:${key}:o`)
-        await send(u.chatId, lines.join('\n'), { reply_markup: kb })
+        const id = await send(u.chatId, lines.join('\n'), { reply_markup: kb })
+        if (id) questionMessages.set(s.id, [...(questionMessages.get(s.id) ?? []), { chatId: u.chatId, messageId: id }])
       }
+    }
+
+    const onQuestionResolved = async (s: Session) => {
+      for (const [key, q] of pendingQuestions) if (q.sessionId === s.id) pendingQuestions.delete(key)
+      for (const [userId, sessionId] of pendingOther) if (sessionId === s.id) pendingOther.delete(userId)
+      for (const m of questionMessages.get(s.id) ?? []) {
+        await bot.api.editMessageReplyMarkup(m.chatId, m.messageId).catch(() => {})
+      }
+      questionMessages.delete(s.id)
     }
 
     const onPermission = async (s: Session, p: PermissionPrompt | null) => {
@@ -729,6 +756,8 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     const h2 = wrap(onQuestion)
     const h3 = wrap(onPermission)
     const h4 = wrap(onSession)
+    const h5 = wrap(onQuestionResolved)
+    hub.on('question_resolved', h5)
     hub.on('turn_complete', h1)
     hub.on('question', h2)
     hub.on('permission', h3)
@@ -738,6 +767,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
       hub.off('question', h2)
       hub.off('permission', h3)
       hub.off('session', h4)
+      hub.off('question_resolved', h5)
       for (const id of [...typing.keys()]) stopTyping(id)
     }
   }

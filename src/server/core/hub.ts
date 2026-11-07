@@ -16,6 +16,8 @@ export interface HubEvents {
   turn_complete: [Session, string]
   /** Claude is asking the user a question (AskUserQuestion tool) */
   question: [Session, PendingQuestion]
+  /** The question was answered (anywhere) or abandoned */
+  question_resolved: [Session]
   permission: [Session, PermissionPrompt | null]
   bot: [BotStatus]
   usage: [UsagePoint]

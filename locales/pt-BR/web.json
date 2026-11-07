@@ -204,8 +204,6 @@
       "createdAt": "Iniciada {{time}}",
       "adopt": "Adotar",
       "adopted": "“{{name}}” adotada",
-      "vibecraftHint": "Usa o Vibecraft? Traga as sessões dele de uma vez.",
-      "importVibecraft": "Importar do Vibecraft",
       "imported_one": "{{count}} sessão importada",
       "imported_other": "{{count}} sessões importadas",
       "imported_many": "{{count}} sessões importadas"
@@ -353,9 +351,7 @@
       "defaultPermissionHint": "Vem pré-selecionado ao criar ou adotar uma sessão.",
       "idleLock": "Bloqueio por inatividade",
       "idleLockHint": "O bot do Telegram pede a senha de novo depois desse tempo sem uso.",
-      "hours": "horas",
-      "vibecraft": "Compatibilidade com o Vibecraft",
-      "vibecraftHint": "Lê o log de eventos do Vibecraft para que as sessões dele apareçam aqui."
+      "hours": "horas"
     },
     "telegram": {
       "enabled": "Bot do Telegram",

@@ -126,5 +126,14 @@
     "minutes": "{{count}} min ago",
     "hours": "{{count}} h ago",
     "days": "{{count}} days ago"
+  },
+  "usageReport": {
+    "limits": "PLAN LIMITS",
+    "resetsIn": "resets in {{when}}",
+    "context": "CONTEXT",
+    "spent": "SPENT",
+    "total": "Total",
+    "estimate": "(per conversation, API-equivalent estimate)",
+    "noData": "No usage data yet. It appears once a session refreshes its status line (run `tether setup` if it never does)."
   }
 }

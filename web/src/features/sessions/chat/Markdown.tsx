@@ -40,6 +40,15 @@ const components: Components = {
       {children}
     </a>
   ),
+  // Images are never fetched: a crafted URL could leak data. Show a link instead.
+  img: ({ src, alt }) =>
+    typeof src === 'string' && src ? (
+      <a href={src} target="_blank" rel="noreferrer noopener">
+        🖼 {alt || src}
+      </a>
+    ) : (
+      <span>🖼 {alt}</span>
+    ),
   table: ({ children }) => (
     <div className="my-3 overflow-x-auto scrollbar-thin">
       <table>{children}</table>

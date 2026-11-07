@@ -15,7 +15,7 @@ import { SecretBox, loadOrCreateFile, randomToken } from './crypto.js'
 import { SettingsService } from './settings.js'
 import { SessionManager } from './core/sessions.js'
 import { hub } from './core/hub.js'
-import { JsonlTail, normalizeNative, normalizeVibecraft } from './core/events.js'
+import { normalizeNative } from './core/events.js'
 import { tmux } from './core/tmux.js'
 import { BotManager } from './bot/manager.js'
 import { AUTH_COOKIE, createApp, isOriginAllowed } from './http/app.js'
@@ -43,23 +43,6 @@ async function main(): Promise<void> {
     },
   })
 
-  // Vibecraft compatibility: see sessions still running with Vibecraft's hook
-  let vibecraftTail: JsonlTail | null = null
-  const syncVibecraft = () => {
-    const on = settings.get().vibecraftCompat
-    if (on && !vibecraftTail) {
-      vibecraftTail = new JsonlTail(env.vibecraftEvents, raw => {
-        const e = normalizeVibecraft(raw)
-        if (e) sessions.handleEvent(e)
-      })
-      vibecraftTail.start()
-    } else if (!on && vibecraftTail) {
-      vibecraftTail.stop()
-      vibecraftTail = null
-    }
-  }
-  syncVibecraft()
-  setInterval(syncVibecraft, 10_000)
 
   const server = serve({ fetch: app.fetch, port: env.port, hostname: env.host })
 
@@ -120,7 +103,6 @@ async function main(): Promise<void> {
     log('Shutting down…')
     setTimeout(() => process.exit(0), 8000).unref() // never hang on a stuck poll
     sessions.stop()
-    vibecraftTail?.stop()
     await bot.stop().catch(() => {})
     for (const ws of clients) ws.close()
     server.close()

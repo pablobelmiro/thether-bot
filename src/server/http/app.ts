@@ -7,7 +7,7 @@ import { Hono, type Context } from 'hono'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, extname, join, resolve, sep } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { randomUUID, createHash } from 'node:crypto'
 import type {
   AddPhoneRequest,
   AnswerRequest,
@@ -34,6 +34,7 @@ import type { SessionManager } from '../core/sessions.js'
 import { HttpError } from '../core/sessions.js'
 import { DASHBOARD_PREFIX } from '../core/transcript.js'
 import { normalizeNative } from '../core/events.js'
+import { usageReport } from '../core/usage-report.js'
 import type { BotManager } from '../bot/manager.js'
 import { env, paths, log } from '../env.js'
 import { randomToken, safeEqual } from '../crypto.js'
@@ -237,11 +238,6 @@ export function createApp(d: AppDeps): Hono {
     return c.json(s)
   })
 
-  app.post('/api/sessions/import-vibecraft', async c => {
-    const imported = await d.sessions.importVibecraft()
-    d.repo.audit('dashboard', 'session.import_vibecraft', `${imported} session(s)`)
-    return c.json({ imported })
-  })
 
   app.patch('/api/sessions/:id', async c => {
     const { name } = (await c.req.json()) as { name: string }
@@ -272,7 +268,11 @@ export function createApp(d: AppDeps): Hono {
 
   app.post('/api/sessions/:id/command', async c => {
     const { command } = (await c.req.json()) as CommandRequest
-    const output = await d.sessions.command(c.req.param('id'), String(command ?? ''))
+    const id = c.req.param('id')
+    d.sessions.require(id)
+    // Claude Code's /usage panel is noisy; answer with the compact report instead
+    if (String(command ?? '').trim() === '/usage') return c.json({ ok: true, output: usageReport(d.sessions.list(), d.settings.get().locale) })
+    const output = await d.sessions.command(id, String(command ?? ''))
     return c.json({ ok: true, output })
   })
 
@@ -478,6 +478,25 @@ const SECURITY_HEADERS = {
   'Referrer-Policy': 'no-referrer',
 }
 
+/** CSP for index.html; inline <script> blocks are allowed by their sha256 hash */
+function contentSecurityPolicy(html: string): string {
+  const hashes = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(
+    m => `'sha256-${createHash('sha256').update(m[1]).digest('base64')}'`,
+  )
+  return [
+    "default-src 'self'",
+    `script-src 'self' ${hashes.join(' ')}`.trim(),
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: blob:",
+    "connect-src 'self' ws: wss:",
+    "frame-ancestors 'none'",
+    "base-uri 'none'",
+    "form-action 'self'",
+    "object-src 'none'",
+  ].join('; ')
+}
+
 function serveStatic(urlPath: string): Response {
   const root = paths.webDist
   const index = join(root, 'index.html')
@@ -489,7 +508,10 @@ function serveStatic(urlPath: string): Response {
   if (!existsSync(file) || statSync(file).isDirectory()) file = index
   const type = MIME[extname(file)] ?? 'application/octet-stream'
   const cache = file === index ? 'no-cache' : 'public, max-age=31536000, immutable'
-  return new Response(readFileSync(file), { headers: { 'Content-Type': type, 'Cache-Control': cache, ...SECURITY_HEADERS } })
+  const body = readFileSync(file)
+  const headers: Record<string, string> = { 'Content-Type': type, 'Cache-Control': cache, ...SECURITY_HEADERS }
+  if (file === index) headers['Content-Security-Policy'] = contentSecurityPolicy(body.toString('utf-8'))
+  return new Response(body, { headers })
 }
 
 export { normalizeLocale }

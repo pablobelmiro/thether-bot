@@ -184,8 +184,6 @@ export interface Settings {
   hasTelegramToken: boolean
   /** Last 4 chars of the token, for recognition */
   telegramTokenHint?: string
-  /** Read from ~/.vibecraft/data/events.jsonl so running Vibecraft sessions are visible */
-  vibecraftCompat: boolean
 }
 
 export interface AuditEntry {
@@ -270,7 +268,7 @@ export interface AnswerRequest {
 }
 
 /** PATCH /api/settings */
-export type SettingsPatch = Partial<Pick<Settings, 'locale' | 'defaultPermissionMode' | 'idleLockHours' | 'telegramEnabled' | 'vibecraftCompat'>>
+export type SettingsPatch = Partial<Pick<Settings, 'locale' | 'defaultPermissionMode' | 'idleLockHours' | 'telegramEnabled'>>
 
 /** PUT /api/settings/telegram-token → { username } */
 export interface TelegramTokenRequest {
@@ -315,7 +313,6 @@ export interface AddPhoneRequest {
  *
  *   GET    /api/tmux/discover                 → DiscoveredTmuxSession[]  (not yet managed)
  *   POST   /api/sessions/adopt  AdoptRequest  → Session
- *   POST   /api/sessions/import-vibecraft     → { imported: number }
  *   GET    /api/projects                      → { path: string, name: string, lastUsed: number }[]
  *   GET    /api/fs/complete ?q=/home/me/pro   → string[]   (directory suggestions)
  *   GET    /api/usage ?hours=24               → UsagePoint[]  (all sessions)

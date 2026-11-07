@@ -9,8 +9,8 @@ import { openDatabase } from '../src/server/db/db.js'
 import { Repo, normalizePhone, maskPhone } from '../src/server/db/repo.js'
 import { SettingsService, normalizeLocale } from '../src/server/settings.js'
 import { parseTranscriptLines, lastAssistantText, TranscriptReader } from '../src/server/core/transcript.js'
-import { normalizeNative, normalizeVibecraft } from '../src/server/core/events.js'
-import { detectPermissionPrompt, detectBypassWarning } from '../src/server/core/permissions.js'
+import { normalizeNative } from '../src/server/core/events.js'
+import { detectPermissionPrompt, detectBypassWarning, detectTrustDialog } from '../src/server/core/permissions.js'
 import { markdownToTelegramMessages, inlineToHtml, terminalToHtml } from '../src/server/bot/format.js'
 import { Lock } from '../src/server/bot/lock.js'
 import { completeDirectory, validatePassword } from '../src/server/http/app.js'
@@ -173,12 +173,6 @@ test('normalizeNative maps Claude hook JSON', () => {
   assert.equal(normalizeNative({ payload: { hook_event_name: 'Nope', session_id: 'a' } }), null)
 })
 
-test('normalizeVibecraft maps Vibecraft events and skips unknown sessions', () => {
-  const e = normalizeVibecraft({ type: 'stop', sessionId: 'abc', timestamp: 1, response: 'hi', tmuxSession: 'vibecraft-1' })
-  assert.equal(e?.response, 'hi')
-  assert.equal(e?.source, 'vibecraft')
-  assert.equal(normalizeVibecraft({ type: 'stop', sessionId: 'unknown' }), null)
-})
 
 // --- permissions ---------------------------------------------------------------------
 
@@ -238,4 +232,43 @@ test('directory helpers', () => {
   assert.equal(validateDirectory(dir), dir)
   assert.throws(() => validateDirectory(join(dir, 'missing')))
   assert.ok(completeDirectory(tmpdir() + '/tether-test-').length > 0)
+})
+
+test('trust dialog is only detected when it is the active prompt at the bottom', () => {
+  // As shown by Claude Code 2.1 (cursor starts on "No, exit")
+  const dialog = [' Accessing workspace:', ' /home/me/project', ' Quick safety check: Is this a project you created or one you trust?', ' ❯ No, exit', '   Yes, I trust this folder', ' Enter to confirm · Esc to cancel'].join('\n')
+  assert.equal(detectTrustDialog(dialog), true)
+  const scrolledAway = dialog + '\n' + Array.from({ length: 30 }, (_, i) => `output line ${i}`).join('\n')
+  assert.equal(detectTrustDialog(scrolledAway), false)
+  assert.equal(detectTrustDialog('I trust this folder, Yes, proceed — just text'), false)
+})
+
+test('usage report: bars, reset times, context and totals', async () => {
+  const { usageReport, bar, resetIn } = await import('../src/server/core/usage-report.js')
+  assert.equal(bar(50, 10), '█████░░░░░')
+  assert.equal(resetIn(3600 + 120, 0), '1h 02m')
+  assert.equal(resetIn(2 * 86400 + 7200, 0), '2d 2h')
+  const base = { tmuxSession: 't', cwd: '/', status: 'idle', permissionMode: 'bypass', createdAt: 0, lastActivity: 0, origin: 'tether' } as const
+  const report = usageReport(
+    [
+      { ...base, id: 'a', name: 'alpha', usage: { contextPct: 20, costUsd: 10.5, fiveHour: { pct: 29, resetsAt: 3600 }, sevenDay: { pct: 60 }, updatedAt: 2 } },
+      { ...base, id: 'b', name: 'beta', usage: { contextPct: 48, costUsd: 2, updatedAt: 1 } },
+    ],
+    'en',
+    0,
+  )
+  assert.match(report, /5h {2}███░░░░░░░░░ {2}29% {2}resets in 1h 00m/)
+  assert.match(report, /alpha +██░░░░░░░░ +20%/)
+  assert.match(report, /Total +\$12\.50/)
+  assert.match(usageReport([], 'pt-BR'), /Ainda não há dados/)
+})
+
+test('stale answers are refused and never reach the terminal', async () => {
+  const { SessionManager } = await import('../src/server/core/sessions.js')
+  const { repo } = makeRepo()
+  repo.saveSession({ id: 's1', name: 'x', tmuxSession: 'tether-test-none', cwd: '/', permissionMode: 'ask', origin: 'tether', createdAt: 0, lastActivity: 0 })
+  const sm = new SessionManager(repo)
+  await assert.rejects(sm.respondPermission('s1', '1'), /no longer pending/)
+  await assert.rejects(sm.answerQuestion('s1', { option: 1 }), /no longer pending/)
+  await assert.rejects(sm.answerQuestion('s1', { text: 'hi' }), /no longer pending/)
 })

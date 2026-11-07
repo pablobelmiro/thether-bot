@@ -35,8 +35,6 @@ export const env = {
     .filter(Boolean),
   claudeBin: process.env.TETHER_CLAUDE_BIN ?? 'claude',
   claudeHome: expand(process.env.CLAUDE_CONFIG_DIR ?? '~/.claude'),
-  vibecraftEvents: expand(process.env.TETHER_VIBECRAFT_EVENTS ?? '~/.vibecraft/data/events.jsonl'),
-  vibecraftSessions: expand(process.env.TETHER_VIBECRAFT_SESSIONS ?? '~/.vibecraft/data/sessions.json'),
   debug: process.env.TETHER_DEBUG === '1',
 }
 

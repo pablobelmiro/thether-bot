@@ -126,5 +126,14 @@
     "minutes": "há {{count}} min",
     "hours": "há {{count}} h",
     "days": "há {{count}} dias"
+  },
+  "usageReport": {
+    "limits": "LIMITES DO PLANO",
+    "resetsIn": "renova em {{when}}",
+    "context": "CONTEXTO",
+    "spent": "GASTO",
+    "total": "Total",
+    "estimate": "(por conversa, estimativa equivalente à API)",
+    "noData": "Ainda não há dados de uso. Eles aparecem quando uma sessão atualiza a status line (rode `tether setup` se nunca aparecerem)."
   }
 }

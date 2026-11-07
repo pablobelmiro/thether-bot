@@ -169,7 +169,6 @@ export const api = {
   // discovery
   discoverTmux: () => request<DiscoveredTmuxSession[]>('GET', '/tmux/discover'),
   adopt: (body: AdoptRequest) => request<Session>('POST', '/sessions/adopt', { body }),
-  importVibecraft: () => request<{ imported: number }>('POST', '/sessions/import-vibecraft'),
   projects: () => request<Project[]>('GET', '/projects'),
   completePath: (q: string, signal?: AbortSignal) => request<string[]>('GET', '/fs/complete', { query: { q }, signal }),
   usage: (hours = 24) => request<UsagePoint[]>('GET', '/usage', { query: { hours } }),
