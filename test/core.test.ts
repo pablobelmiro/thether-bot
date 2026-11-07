@@ -224,7 +224,7 @@ test('lock: unlock, idle expiry and lockout', () => {
 
 test('claude command flags per permission mode', () => {
   assert.equal(claudeCommand('bypass', true), "exec 'claude' '-c' '--permission-mode=bypassPermissions' '--dangerously-skip-permissions'")
-  assert.equal(claudeCommand('ask', false, 'opus[1m]'), "exec 'claude' '--permission-mode=manual' '--model' 'opus[1m]'")
+  assert.equal(claudeCommand('ask', false, 'opus[1m]'), "exec 'claude' '--permission-mode=default' '--model' 'opus[1m]'")
   assert.equal(claudeCommand('auto', false), "exec 'claude' '--permission-mode=auto'")
 })
 

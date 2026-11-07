@@ -262,8 +262,8 @@
             <p>The password is hashed with scrypt. The bot token is encrypted with AES-256-GCM using a local key (mode 600).</p>
           </li>
           <li>
-            <span class="label">Claude can't read them</span>
-            <p><code>tether setup</code> adds Claude Code deny rules so Claude can't read or edit <code>~/.tether</code> or <code>~/.ssh</code>.</p>
+            <span class="label">Off-limits to Claude's file tools</span>
+            <p><code>tether setup</code> adds Claude Code deny rules so Claude's file tools can't read or edit <code>~/.tether</code> or <code>~/.ssh</code>. For shell commands too, turn on Claude Code's sandbox (<code>/sandbox</code>); otherwise Auto mode's classifier is the barrier.</p>
           </li>
           <li>
             <span class="label">Audit log</span>

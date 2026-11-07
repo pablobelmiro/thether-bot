@@ -262,8 +262,8 @@
             <p>A senha é armazenada com scrypt. O token do bot é criptografado com AES-256-GCM usando uma chave local (modo 600).</p>
           </li>
           <li>
-            <span class="label">Fora do alcance do Claude</span>
-            <p>O <code>tether setup</code> adiciona regras de bloqueio (deny) ao Claude Code para que o Claude não possa ler nem editar <code>~/.tether</code> ou <code>~/.ssh</code>.</p>
+            <span class="label">Fora do alcance das ferramentas do Claude</span>
+            <p>O <code>tether setup</code> adiciona regras de bloqueio (deny) ao Claude Code para que as ferramentas de arquivo do Claude não possam ler nem editar <code>~/.tether</code> ou <code>~/.ssh</code>. Para comandos de terminal também, ative o sandbox do Claude Code (<code>/sandbox</code>); sem ele, a barreira é o classificador do modo Auto.</p>
           </li>
           <li>
             <span class="label">Registro de auditoria</span>

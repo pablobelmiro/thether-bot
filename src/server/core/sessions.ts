@@ -693,8 +693,9 @@ export function claudeCommand(mode: PermissionMode, continueConversation: boolea
   } else if (continueConversation) args.push('-c')
   if (mode === 'bypass') args.push('--permission-mode=bypassPermissions', '--dangerously-skip-permissions')
   else if (mode === 'auto') args.push('--permission-mode=auto')
-  // "ask" must really ask, even if the user's own default is auto/acceptEdits
-  else args.push('--permission-mode=manual')
+  // "ask" must really ask, even if the user's own default is auto/acceptEdits.
+  // "default" works on every Claude Code version (newer ones show it as "manual").
+  else args.push('--permission-mode=default')
   if (model) args.push('--model', model)
   // tmux runs this string through the user's shell: quote every word so nothing is expanded
   return `exec ${args.map(shellQuote).join(' ')}`

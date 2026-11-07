@@ -146,7 +146,7 @@ Tether can make Claude run commands on your computer, so access is locked down:
   - the password is stored with scrypt;
   - the bot token is encrypted with AES-256-GCM using a local key (mode 600);
   - only token hashes are stored for dashboard logins.
-- **Secrets off-limits to Claude:** `tether setup` adds Claude Code deny rules for `~/.tether` and `~/.ssh`, so even a prompt injection can't read the bot token or keys through Claude's tools.
+- **Secrets off-limits to Claude's file tools:** `tether setup` adds Claude Code deny rules for `~/.tether` and `~/.ssh`. To cover shell commands too, enable Claude Code's sandbox (`/sandbox`); without it, Auto mode's classifier is the remaining barrier.
 - **Process execution:** `tmux` is called with argument lists, and the `claude` command line is built only from validated, single-quoted values.
 - **Audit log:** every login, unlock, configuration change and permission answer is recorded.
 

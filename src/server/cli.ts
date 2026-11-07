@@ -52,13 +52,15 @@ function writeClaudeSettings(data: Record<string, unknown>): void {
 type HookEntry = { matcher?: string; hooks: Array<{ type: string; command: string; timeout?: number }> }
 
 /**
- * Claude Code deny rules that keep Claude away from Tether's secrets (bot token,
- * password hash, encryption key) and SSH keys, even in auto/bypass mode or if a
- * prompt injection asks for them.
+ * Claude Code deny rules that keep Claude's file tools (Read/Edit) away from
+ * Tether's secrets (bot token, password hash, encryption key) and SSH keys.
+ * Shell commands are covered only when Claude Code's sandbox is enabled; without
+ * it, Auto mode's classifier is the remaining barrier.
  */
 export function secretDenyRules(): string[] {
   const home = process.env.HOME ?? ''
-  const tetherDir = env.home.startsWith(home + '/') ? '~' + env.home.slice(home.length) : env.home
+  // Claude Code rule paths: "~/x" is home-relative, "//x" is absolute ("/x" would be relative to the settings file)
+  const tetherDir = env.home.startsWith(home + '/') ? '~' + env.home.slice(home.length) : '/' + env.home
   return [`Read(${tetherDir}/**)`, `Edit(${tetherDir}/**)`, 'Read(~/.ssh/**)', 'Edit(~/.ssh/**)']
 }
 

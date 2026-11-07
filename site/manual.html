@@ -351,7 +351,7 @@
                 <tr><td>Network</td><td>Binds to 127.0.0.1. The <code>Host</code> header must name this server (no DNS rebinding); state-changing requests need an allowed <code>Origin</code> and a JSON body, so cross-site forms are rejected.</td></tr>
                 <tr><td>Hooks</td><td>Hook endpoints require a random token, read from a file so it never appears in the process list.</td></tr>
                 <tr><td>Secrets at rest</td><td>Password hashed with scrypt; bot token encrypted with AES-256-GCM using a local key. <code>~/.tether</code> is mode 700 and its files 600.</td></tr>
-                <tr><td>Claude's reach</td><td><code>tether setup</code> adds Claude Code deny rules so Claude can't read or edit <code>~/.tether</code> (bot token, password hash, key) or <code>~/.ssh</code>.</td></tr>
+                <tr><td>Claude's reach</td><td><code>tether setup</code> adds Claude Code deny rules so Claude's file tools can't read or edit <code>~/.tether</code> (bot token, password hash, key) or <code>~/.ssh</code>. For shell commands too, turn on Claude Code's sandbox (<code>/sandbox</code>); otherwise Auto mode's classifier is the barrier.</td></tr>
                 <tr><td>Process execution</td><td>No shell strings are built from input. <code>tmux</code> and <code>claude</code> are called with argument lists and validated values; prompts are pasted through a private tmux buffer file.</td></tr>
                 <tr><td>Audit log</td><td>Logins, unlocks, token / password / allow-list changes, session actions and permission answers are recorded.</td></tr>
               </tbody>

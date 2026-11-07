@@ -19,7 +19,7 @@ Content Claude reads (web pages, issues, files from other people) can contain in
 
 - **Auto mode (recommended):** Claude works alone, but Claude Code's safety classifier reviews each action and blocks risky ones, including actions that come from injected instructions. Decisions it hands back to you show up as permission prompts on Telegram and in the dashboard.
 - **Ask mode:** you approve every action.
-- **Secrets are off-limits to Claude:** `tether setup` adds Claude Code deny rules (`Read`/`Edit` of `~/.tether/**` and `~/.ssh/**`). Even a successful injection can't read the bot token, the password hash or the encryption key through Claude's file tools.
+- **Secrets are off-limits to Claude's file tools:** `tether setup` adds Claude Code deny rules (`Read`/`Edit` of `~/.tether/**` and `~/.ssh/**`), so Claude's Read/Edit tools can't open the bot token, the password hash or the encryption key. **These rules don't stop shell commands** (e.g. `cat` via Bash) unless Claude Code's sandbox is enabled (`/sandbox`, which applies them to subprocesses too). Without the sandbox, the barrier against a shell-based attempt is Auto mode's classifier (or your approval in Ask mode). Bypass mode has neither.
 - **Telegram is not end-to-end encrypted:** answers and code that pass through the bot are visible to Telegram's servers.
 
 For untrusted work, prefer Auto or Ask, and consider running the session in a container or as a separate OS user.
