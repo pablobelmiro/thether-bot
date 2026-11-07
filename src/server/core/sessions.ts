@@ -26,6 +26,7 @@ import { tmux, validateTmuxName } from './tmux.js'
 import { detectBypassWarning, detectPermissionPrompt, detectTrustDialog } from './permissions.js'
 import { TranscriptReader, findTranscript, lastAssistantText, TELEGRAM_PREFIX, DASHBOARD_PREFIX } from './transcript.js'
 import type { HookEvent } from './events.js'
+import { CONVERSATION_ID, listConversations } from './conversations.js'
 
 interface Live {
   status: SessionStatus
@@ -153,10 +154,15 @@ export class SessionManager {
     const cwd = validateDirectory(req.cwd)
     const mode = req.permissionMode ?? defaultMode
     if (req.model && !MODEL_ARG.test(req.model)) throw new HttpError(400, 'Invalid model name')
+    const resume = req.resumeConversationId
+    if (resume !== undefined && !CONVERSATION_ID.test(resume)) throw new HttpError(400, 'Invalid conversation id')
+    if (resume && [...this.sessions.values()].some(x => x.claudeSessionId === resume && this.liveOf(x.id).status !== 'offline')) {
+      throw new HttpError(409, 'That conversation is already open in a session')
+    }
     const name = (req.name?.trim() || basename(cwd) || 'claude').slice(0, 60)
     const tmuxSession = `tether-${randomBytes(4).toString('hex')}`
 
-    await tmux.newSession(tmuxSession, cwd, claudeCommand(mode, !!req.continueConversation, req.model))
+    await tmux.newSession(tmuxSession, cwd, claudeCommand(mode, !!req.continueConversation && !resume, req.model, resume))
 
     const now = Date.now()
     const s: StoredSession = {
@@ -166,6 +172,8 @@ export class SessionManager {
       cwd,
       permissionMode: mode,
       origin: 'tether',
+      claudeSessionId: resume,
+      transcriptPath: resume ? findTranscript(env.claudeHome, resume, cwd) : undefined,
       createdAt: now,
       lastActivity: now,
     }
@@ -176,6 +184,14 @@ export class SessionManager {
     this.activity(s, 'session', `Session started in ${cwd}`)
     log(`Session created: ${name} → tmux ${tmuxSession} (${mode})`)
     return this.toApi(s)
+  }
+
+  /** Recent conversations, marking the ones already open in a running session */
+  conversations(limit = 30) {
+    return listConversations(env.claudeHome, limit).map(c => {
+      const open = [...this.sessions.values()].find(s => s.claudeSessionId === c.id && this.liveOf(s.id).status !== 'offline')
+      return { ...c, managedSessionId: open?.id }
+    })
   }
 
   async discover(): Promise<DiscoveredTmuxSession[]> {
@@ -309,8 +325,18 @@ export class SessionManager {
     if (!l.pendingPermission) throw new HttpError(409, 'This request is no longer pending')
     if (!l.pendingPermission.options.some(o => o.number === option)) throw new HttpError(400, 'Invalid option')
     if (l.pendingPermission?.tool === TRUST_TOOL) {
-      // Menu without numbers; the cursor starts on "No, exit"
-      if (option === '1') await tmux.keys(s.tmuxSession, 'Down')
+      // Unnumbered menu: move the cursor to the chosen entry, verify on screen, then confirm (fail closed)
+      const target = option === '1' ? 'yes' : 'no'
+      const read = async () => trustMenuState(await tmux.capture(s.tmuxSession))
+      let state = await read()
+      if (!state) throw new HttpError(409, 'Trust dialog not recognized on screen')
+      const delta = state.order.indexOf(target) - state.order.indexOf(state.cursor)
+      for (let i = 0; i < Math.abs(delta); i++) await tmux.keys(s.tmuxSession, delta > 0 ? 'Down' : 'Up')
+      if (delta !== 0) {
+        await new Promise(r => setTimeout(r, 250))
+        state = await read()
+      }
+      if (state?.cursor !== target) throw new HttpError(409, 'Could not select that option; answer it in the terminal')
       await tmux.keys(s.tmuxSession, 'Enter')
     } else {
       await tmux.keys(s.tmuxSession, option)
@@ -623,9 +649,12 @@ export class HttpError extends Error {
   }
 }
 
-export function claudeCommand(mode: PermissionMode, continueConversation: boolean, model?: string): string {
+export function claudeCommand(mode: PermissionMode, continueConversation: boolean, model?: string, resumeId?: string): string {
   const args = [env.claudeBin]
-  if (continueConversation) args.push('-c')
+  if (resumeId) {
+    if (!CONVERSATION_ID.test(resumeId)) throw new HttpError(400, 'Invalid conversation id')
+    args.push('--resume', resumeId)
+  } else if (continueConversation) args.push('-c')
   if (mode === 'bypass') args.push('--permission-mode=bypassPermissions', '--dangerously-skip-permissions')
   // "ask" must really ask, even if the user's own default is auto/acceptEdits
   else args.push('--permission-mode=default')
@@ -651,6 +680,19 @@ function toolSummary(e: HookEvent): string {
   const i = e.toolInput ?? {}
   const pick = [i.command, i.file_path, i.path, i.pattern, i.url, i.query, i.description].find(v => typeof v === 'string' && v)
   return `${e.tool}${pick ? `: ${String(pick).split('\n')[0].slice(0, 120)}` : ''}`
+}
+
+/** Parse Claude Code's folder trust menu: entry order and which one has the ❯ cursor */
+export function trustMenuState(screen: string): { order: Array<'yes' | 'no'>; cursor: 'yes' | 'no' } | null {
+  const order: Array<'yes' | 'no'> = []
+  let cursor: 'yes' | 'no' | null = null
+  for (const line of screen.split('\n').slice(-20)) {
+    const kind = /Yes, (I trust|proceed)/i.test(line) ? 'yes' : /No, exit/i.test(line) ? 'no' : null
+    if (!kind) continue
+    order.push(kind)
+    if (/^\s*❯/.test(line)) cursor = kind
+  }
+  return order.length === 2 && cursor ? { order, cursor } : null
 }
 
 function stripSourcePrefix(text: string): string {

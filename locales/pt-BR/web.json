@@ -203,10 +203,20 @@
       "attached": "Conectada",
       "createdAt": "Iniciada {{time}}",
       "adopt": "Adotar",
-      "adopted": "“{{name}}” adotada",
-      "imported_one": "{{count}} sessão importada",
-      "imported_other": "{{count}} sessões importadas",
-      "imported_many": "{{count}} sessões importadas"
+      "adopted": "“{{name}}” adotada"
+    },
+    "resume": {
+      "title": "Retomar uma conversa",
+      "description": "Continue qualquer conversa recente do Claude Code desta máquina numa nova sessão. Escolha como ela deve rodar agora — não importa como foi iniciada.",
+      "permissionMode": "Rodar com",
+      "permissionModeHint": "Vale daqui em diante; o modo original não importa.",
+      "recent": "Conversas recentes",
+      "none": "Nenhuma conversa encontrada",
+      "noneHint": "O Claude Code guarda as conversas em ~/.claude/projects.",
+      "open": "Aberta",
+      "goTo": "Ir para a sessão",
+      "resume": "Retomar",
+      "resumed": "Retomada em “{{name}}”"
     }
   },
   "permissionMode": {

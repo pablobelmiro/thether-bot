@@ -34,6 +34,7 @@ const ALIASES = {
   lock: ['lock', 'travar', 'bloquear'],
   change: ['change', 'trocar', 'cambiar'],
   repos: ['repos', 'projects', 'projetos', 'proyectos'],
+  resume: ['resume', 'retomar', 'reanudar'],
   status: ['status', 'estado'],
   screen: ['screen', 'tela', 'pantalla'],
   cancel: ['cancel', 'cancelar'],
@@ -49,8 +50,8 @@ type Cmd = keyof typeof ALIASES
 /** Name shown in menus and help, per language */
 const PRIMARY: Record<string, Partial<Record<Cmd, string>>> = {
   en: {},
-  'pt-BR': { help: 'ajuda', password: 'senha', lock: 'travar', screen: 'tela', cancel: 'cancelar', lang: 'idioma' },
-  es: { help: 'ayuda', password: 'clave', lock: 'bloquear', change: 'cambiar', status: 'estado', screen: 'pantalla', cancel: 'cancelar', lang: 'idioma' },
+  'pt-BR': { help: 'ajuda', password: 'senha', lock: 'travar', screen: 'tela', cancel: 'cancelar', lang: 'idioma', resume: 'retomar' },
+  es: { help: 'ayuda', password: 'clave', lock: 'bloquear', change: 'cambiar', status: 'estado', screen: 'pantalla', cancel: 'cancelar', lang: 'idioma', resume: 'reanudar' },
 }
 
 function cmdName(lng: string, c: Cmd): string {
@@ -94,6 +95,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
   const typing = new Map<number, NodeJS.Timeout>()
   const lastResponse = new Map<string, string>() // sessionId → last answer
   let lastProjects: { path: string; name: string }[] = []
+  let lastConversations: { id: string; cwd: string; title: string }[] = []
   const contactPromptedAt = new Map<number, number>()
 
   // --- helpers ---------------------------------------------------------------
@@ -422,6 +424,39 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     try {
       const s = await d.sessions.create({ cwd: p.path, name: p.name }, d.settings.get().defaultPermissionMode)
       d.repo.audit('telegram', 'session.create', `${s.name} (${s.permissionMode})`)
+      await switchTo(ctx, s)
+    } catch (e) {
+      await ctx.reply(t('repos.failed', { error: (e as Error).message }))
+    }
+  })
+
+  bot.command([...ALIASES.resume], async ctx => {
+    const { lng, t } = tr(ctx)
+    const list = d.sessions.conversations(12).filter(c => !c.managedSessionId).slice(0, 10)
+    lastConversations = list
+    if (!list.length) return void (await ctx.reply(t('resume.empty')))
+    const lines = [`<b>${t('resume.title')}</b>`, `<i>${t('resume.mode', { mode: t(`status.mode_${d.settings.get().defaultPermissionMode}`) })}</i>`, '']
+    const kb = new InlineKeyboard()
+    list.forEach((c, i) => {
+      const dir = shortPath(c.cwd).split('/').pop() || c.cwd
+      lines.push(`${i + 1}. <b>${escapeHtml(c.title.slice(0, 70))}</b>\n   <i>${escapeHtml(shortPath(c.cwd))} · ${ago(lng, c.lastActivity)}</i>`)
+      kb.text(`▶️ ${i + 1}. ${dir}`.slice(0, 60), `res:${i}`)
+      if (i % 2 === 1) kb.row()
+    })
+    await ctx.reply(lines.join('\n'), { parse_mode: 'HTML', reply_markup: kb })
+  })
+
+  bot.callbackQuery(/^res:(\d+)$/, async ctx => {
+    await ctx.answerCallbackQuery()
+    const { t, n } = tr(ctx)
+    const c = lastConversations[Number(ctx.match[1])]
+    if (!c) return void (await ctx.reply(t('repos.stale', { ...n, repos: cmdName(tr(ctx).lng, 'resume') })))
+    await ctx.editMessageReplyMarkup().catch(() => {})
+    await ctx.reply(t('resume.opening', { title: escapeHtml(c.title.slice(0, 70)) }), { parse_mode: 'HTML' })
+    try {
+      const name = (c.cwd.split('/').pop() || 'claude').slice(0, 40)
+      const s = await d.sessions.create({ cwd: c.cwd, name, resumeConversationId: c.id }, d.settings.get().defaultPermissionMode)
+      d.repo.audit('telegram', 'session.resume', `${s.name} ← ${c.id.slice(0, 8)}`)
       await switchTo(ctx, s)
     } catch (e) {
       await ctx.reply(t('repos.failed', { error: (e as Error).message }))
@@ -776,7 +811,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     // Command menus per language
     const menu = (lng: string) => {
       const t = translator(lng)
-      const order: Cmd[] = ['help', 'password', 'change', 'repos', 'status', 'screen', 'cancel', 'model', 'effort', 'usage', 'clear', 'lock', 'lang']
+      const order: Cmd[] = ['help', 'password', 'change', 'resume', 'repos', 'status', 'screen', 'cancel', 'model', 'effort', 'usage', 'clear', 'lock', 'lang']
       return order.map(c => ({ command: cmdName(lng, c), description: t(`commands.${c}`) }))
     }
     await bot.api.setMyCommands(menu('en')).catch(() => {})

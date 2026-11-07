@@ -203,10 +203,20 @@
       "attached": "Attached",
       "createdAt": "Started {{time}}",
       "adopt": "Adopt",
-      "adopted": "Adopted “{{name}}”",
-      "imported_one": "Imported {{count}} session",
-      "imported_other": "Imported {{count}} sessions",
-      "imported_many": "Imported {{count}} sessions"
+      "adopted": "Adopted “{{name}}”"
+    },
+    "resume": {
+      "title": "Resume a conversation",
+      "description": "Continue any recent Claude Code conversation from this machine in a new session. Pick how it should run now — it doesn't matter how it was started.",
+      "permissionMode": "Run it with",
+      "permissionModeHint": "Applies from now on; the original mode doesn't matter.",
+      "recent": "Recent conversations",
+      "none": "No conversations found",
+      "noneHint": "Claude Code keeps them in ~/.claude/projects.",
+      "open": "Open",
+      "goTo": "Go to session",
+      "resume": "Resume",
+      "resumed": "Resumed in “{{name}}”"
     }
   },
   "permissionMode": {

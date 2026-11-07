@@ -1,4 +1,4 @@
-import { LayoutDashboard, Plus, Settings, Unplug } from 'lucide-react'
+import { History, LayoutDashboard, Plus, Settings, Unplug } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router-dom'
@@ -7,6 +7,7 @@ import { StatusDot } from '@/components/common/status'
 import { Button } from '@/components/ui/button'
 import { Hint } from '@/components/ui/tooltip'
 import { AdoptDialog } from '@/features/sessions/AdoptDialog'
+import { ResumeDialog } from '@/features/sessions/ResumeDialog'
 import { NewSessionDialog } from '@/features/sessions/NewSessionDialog'
 import { modelLabel } from '@/features/sessions/models'
 import { useFormat } from '@/lib/format'
@@ -24,6 +25,7 @@ export function Sidebar() {
   const sessions = useMemo(() => sortedSessions(sessionsMap), [sessionsMap])
   const [newOpen, setNewOpen] = useState(false)
   const [adoptOpen, setAdoptOpen] = useState(false)
+  const [resumeOpen, setResumeOpen] = useState(false)
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -37,6 +39,11 @@ export function Sidebar() {
       <div className="flex items-center justify-between px-6 pb-2 pt-6">
         <span className="label-mono">{t('nav.sessions')}</span>
         <div className="flex items-center">
+          <Hint label={t('sessions.resume.title')}>
+            <Button variant="ghost" size="icon-sm" onClick={() => setResumeOpen(true)} aria-label={t('sessions.resume.title')}>
+              <History />
+            </Button>
+          </Hint>
           <Hint label={t('sessions.adopt.title')}>
             <Button variant="ghost" size="icon-sm" onClick={() => setAdoptOpen(true)} aria-label={t('sessions.adopt.title')}>
               <Unplug />
@@ -107,6 +114,7 @@ export function Sidebar() {
 
       <NewSessionDialog open={newOpen} onOpenChange={setNewOpen} />
       <AdoptDialog open={adoptOpen} onOpenChange={setAdoptOpen} />
+      <ResumeDialog open={resumeOpen} onOpenChange={setResumeOpen} />
     </div>
   )
 }

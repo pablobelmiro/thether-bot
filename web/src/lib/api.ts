@@ -1,4 +1,4 @@
-import type {
+import type { ConversationSummary,
   AddPhoneRequest,
   AdoptRequest,
   AllowedPhone,
@@ -142,6 +142,7 @@ export const api = {
   // overview & sessions
   overview: () => request<Overview>('GET', '/overview'),
   sessions: () => request<Session[]>('GET', '/sessions'),
+  conversations: () => request<ConversationSummary[]>('GET', '/conversations'),
   createSession: (body: CreateSessionRequest) => request<Session>('POST', '/sessions', { body }),
   renameSession: (id: string, name: string) => request<Session>('PATCH', `/sessions/${enc(id)}`, { body: { name } }),
   removeSession: (id: string, kill: boolean) =>

@@ -124,6 +124,21 @@ export interface UsagePoint {
   sevenDayPct?: number
 }
 
+/** A Claude Code conversation found in ~/.claude/projects that can be resumed */
+export interface ConversationSummary {
+  /** Claude Code session id (file name of the transcript) */
+  id: string
+  cwd: string
+  /** Claude's auto title, or the first prompt */
+  title: string
+  firstPrompt?: string
+  /** Unix ms (transcript last modified) */
+  lastActivity: number
+  sizeBytes: number
+  /** Set when a Tether session is already running this conversation */
+  managedSessionId?: string
+}
+
 export interface DiscoveredTmuxSession {
   tmuxSession: string
   cwd: string
@@ -234,6 +249,8 @@ export interface CreateSessionRequest {
   permissionMode?: PermissionMode
   /** claude -c: continue the last conversation in that directory */
   continueConversation?: boolean
+  /** claude --resume <id>: continue a specific conversation (see GET /api/conversations) */
+  resumeConversationId?: string
   model?: string
 }
 
@@ -311,6 +328,7 @@ export interface AddPhoneRequest {
  *   POST   /api/sessions/:id/uploads  multipart/form-data (field "file") → Upload
  *   GET    /api/sessions/:id/usage  ?hours=24 → UsagePoint[]
  *
+ *   GET    /api/conversations ?limit=30       → ConversationSummary[]   (most recent first)
  *   GET    /api/tmux/discover                 → DiscoveredTmuxSession[]  (not yet managed)
  *   POST   /api/sessions/adopt  AdoptRequest  → Session
  *   GET    /api/projects                      → { path: string, name: string, lastUsed: number }[]

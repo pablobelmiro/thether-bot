@@ -272,3 +272,37 @@ test('stale answers are refused and never reach the terminal', async () => {
   await assert.rejects(sm.answerQuestion('s1', { option: 1 }), /no longer pending/)
   await assert.rejects(sm.answerQuestion('s1', { text: 'hi' }), /no longer pending/)
 })
+
+test('trust menu: finds the cursor and refuses unknown layouts', async () => {
+  const { trustMenuState } = await import('../src/server/core/sessions.js')
+  assert.deepEqual(trustMenuState(' ❯ No, exit\n   Yes, I trust this folder\n Enter to confirm'), { order: ['no', 'yes'], cursor: 'no' })
+  assert.deepEqual(trustMenuState('   No, exit\n ❯ Yes, I trust this folder'), { order: ['no', 'yes'], cursor: 'yes' })
+  assert.equal(trustMenuState('No, exit\nYes, I trust this folder'), null, 'no cursor → fail closed')
+  assert.equal(trustMenuState('something else'), null)
+})
+
+test('conversations: summarizes transcripts, newest first, skips metadata-only files', async () => {
+  const { listConversations } = await import('../src/server/core/conversations.js')
+  const { utimesSync, mkdirSync } = await import('node:fs')
+  const home = tmp()
+  const dir = join(home, 'projects', '-x')
+  mkdirSync(dir, { recursive: true })
+  const a = '11111111-1111-1111-1111-111111111111'
+  const b = '22222222-2222-2222-2222-222222222222'
+  const meta = '33333333-3333-3333-3333-333333333333'
+  const pad = line({ type: 'x', pad: 'p'.repeat(600) })
+  writeFileSync(join(dir, `${a}.jsonl`), [pad, line({ type: 'user', cwd: '/proj/a', message: { content: '[telegram] fix the bug' } })].join('\n') + '\n')
+  writeFileSync(join(dir, `${b}.jsonl`), [pad, line({ type: 'user', cwd: '/proj/b', message: { content: 'hello' } }), line({ type: 'ai-title', aiTitle: 'Nice title' })].join('\n') + '\n')
+  writeFileSync(join(dir, `${meta}.jsonl`), [pad, line({ type: 'mode' })].join('\n') + '\n')
+  utimesSync(join(dir, `${a}.jsonl`), 1000, 1000)
+  const list = listConversations(home)
+  assert.deepEqual(list.map(c => [c.id, c.cwd, c.title]), [
+    [b, '/proj/b', 'Nice title'],
+    [a, '/proj/a', 'fix the bug'],
+  ])
+})
+
+test('resume command uses --resume with a validated id', () => {
+  assert.match(claudeCommand('bypass', true, undefined, '11111111-1111-1111-1111-111111111111'), /claude --resume 11111111-1111-1111-1111-111111111111 --permission-mode=bypassPermissions/)
+  assert.throws(() => claudeCommand('ask', false, undefined, 'x; rm -rf /'))
+})

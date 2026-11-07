@@ -45,7 +45,8 @@ export function ThemeToggle() {
 export function Brand() {
   const { t } = useTranslation()
   return (
-    <Link to="/" className="flex items-baseline gap-2 focus-visible:outline-none">
+    <Link to="/" className="flex items-center gap-2.5 focus-visible:outline-none">
+      <img src="/emblem.png" alt="" aria-hidden="true" className="h-7 w-auto rounded-[3px]" width={128} height={48} />
       <span className="font-serif text-xl font-normal tracking-tight">Tether</span>
       <span className="font-mono text-[10px] uppercase tracking-label text-muted-foreground">{t('brand.subtitle')}</span>
     </Link>

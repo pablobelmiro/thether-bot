@@ -231,6 +231,8 @@ export function createApp(d: AppDeps): Hono {
 
   app.get('/api/tmux/discover', async c => c.json(await d.sessions.discover()))
 
+  app.get('/api/conversations', c => c.json(d.sessions.conversations(Math.min(Number(c.req.query('limit') ?? 30) || 30, 100))))
+
   app.post('/api/sessions/adopt', async c => {
     const body = (await c.req.json()) as AdoptRequest
     const s = await d.sessions.adopt(body.tmuxSession, body.name, body.permissionMode ?? d.settings.get().defaultPermissionMode)
