@@ -442,5 +442,13 @@
         "cli": "CLI"
       }
     }
+  },
+  "workspace": {
+    "newHere": "Nueva sesión en este directorio",
+    "pauseAll": "Pausar todas las sesiones libres aquí",
+    "pausedAll_one": "1 sesión pausada",
+    "pausedAll_other": "{{count}} sesiones pausadas",
+    "skipped": "Ocupadas, siguen ejecutándose: {{names}}",
+    "label": "Directorio de trabajo"
   }
 }

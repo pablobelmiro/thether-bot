@@ -1,4 +1,4 @@
-import { BookOpen, FolderGit2, History, LayoutDashboard, Plus, Settings, Unplug } from 'lucide-react'
+import { BookOpen, ChevronDown, Folder, FolderGit2, History, LayoutDashboard, Pause, Plus, Settings, Unplug } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router-dom'
@@ -12,6 +12,10 @@ import { NewSessionDialog } from '@/features/sessions/NewSessionDialog'
 import { modelLabel } from '@/features/sessions/models'
 import { useFormat } from '@/lib/format'
 import { sortedSessions, useStore } from '@/lib/store'
+import { api } from '@/lib/api'
+import { errorMessage } from '@/lib/utils'
+import { toast } from 'sonner'
+import type { Session } from '@shared/api'
 import { cn } from '@/lib/utils'
 
 const navItem =
@@ -32,6 +36,27 @@ export function Sidebar() {
   const loaded = useStore((s) => s.sessionsLoaded)
   const sessions = useMemo(() => sortedSessions(sessionsMap), [sessionsMap])
   const [newOpen, setNewOpen] = useState(false)
+  const [newCwd, setNewCwd] = useState<string | undefined>(undefined)
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  // Sessions grouped by working directory; most recently active directory first
+  const groups = useMemo(() => {
+    const map = new Map<string, Session[]>()
+    for (const s of sessions) map.set(s.workspace, [...(map.get(s.workspace) ?? []), s])
+    return [...map.entries()].sort((a, b) => Math.max(...b[1].map(x => x.lastActivity)) - Math.max(...a[1].map(x => x.lastActivity)))
+  }, [sessions])
+  const openNew = (cwd?: string) => {
+    setNewCwd(cwd)
+    setNewOpen(true)
+  }
+  const pauseAll = async (path: string) => {
+    try {
+      const r = await api.pauseWorkspace(path)
+      toast.success(t('workspace.pausedAll', { count: r.paused.length }))
+      if (r.skipped.length) toast.info(t('workspace.skipped', { names: r.skipped.join(', ') }))
+    } catch (err) {
+      toast.error(errorMessage(err))
+    }
+  }
   const [adoptOpen, setAdoptOpen] = useState(false)
   const [resumeOpen, setResumeOpen] = useState(false)
 
@@ -58,7 +83,7 @@ export function Sidebar() {
             </Button>
           </Hint>
           <Hint label={t('sessions.new.title')}>
-            <Button variant="ghost" size="icon-sm" onClick={() => setNewOpen(true)} aria-label={t('sessions.new.title')}>
+            <Button variant="ghost" size="icon-sm" onClick={() => openNew()} aria-label={t('sessions.new.title')}>
               <Plus />
             </Button>
           </Hint>
@@ -69,48 +94,89 @@ export function Sidebar() {
         {loaded && sessions.length === 0 && (
           <div className="space-y-3 px-3 py-4 text-sm text-muted-foreground">
             <p>{t('sessions.emptySidebar')}</p>
-            <Button variant="outline" size="sm" onClick={() => setNewOpen(true)}>
+            <Button variant="outline" size="sm" onClick={() => openNew()}>
               <Plus />
               {t('sessions.new.title')}
             </Button>
           </div>
         )}
-        <ul className="space-y-px">
-          {sessions.map((s) => (
-            <li key={s.id}>
-              <NavLink
-                to={`/sessions/${encodeURIComponent(s.id)}`}
-                className={({ isActive }) =>
-                  cn(
-                    'group block px-3 py-2.5 transition-colors duration-150 hover:bg-accent focus-visible:bg-accent focus-visible:outline-none',
-                    isActive && 'bg-accent',
-                  )
-                }
-              >
-                <div className="flex items-center gap-2.5">
-                  <StatusDot status={s.status} />
-                  <span className="min-w-0 flex-1 truncate text-sm">{s.name}</span>
-                  {(s.pendingPermission || s.pendingQuestion) && (
-                    <span
-                      className="size-2 shrink-0 rounded-full bg-status-waiting ring-2 ring-status-waiting/25"
-                      title={s.pendingPermission ? t('sessions.needsPermission') : t('sessions.needsAnswer')}
-                      aria-label={s.pendingPermission ? t('sessions.needsPermission') : t('sessions.needsAnswer')}
-                    />
+        <div className="space-y-3">
+          {groups.map(([path, list]) => {
+            const name = path.split('/').filter(Boolean).pop() ?? path
+            const running = list.filter(x => x.status !== 'paused' && x.status !== 'offline').length
+            const isCollapsed = collapsed[path]
+            return (
+              <section key={path}>
+                <div className="group/ws flex items-center gap-1 px-3 py-1">
+                  <button
+                    type="button"
+                    onClick={() => setCollapsed(c => ({ ...c, [path]: !c[path] }))}
+                    className="flex min-w-0 flex-1 items-center gap-1.5 text-left focus-visible:outline-none"
+                    title={path}
+                    aria-expanded={!isCollapsed}
+                  >
+                    <ChevronDown className={cn('size-3 shrink-0 text-muted-foreground transition-transform', isCollapsed && '-rotate-90')} />
+                    <Folder className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate font-mono text-[11px] uppercase tracking-label text-muted-foreground">{name}</span>
+                    <span className="font-mono text-[10px] tabular-nums text-muted-foreground/70">
+                      {running}/{list.length}
+                    </span>
+                  </button>
+                  <Hint label={t('workspace.newHere')}>
+                    <Button variant="ghost" size="icon-sm" onClick={() => openNew(path)} aria-label={t('workspace.newHere')}>
+                      <Plus />
+                    </Button>
+                  </Hint>
+                  {running > 0 && (
+                    <Hint label={t('workspace.pauseAll')}>
+                      <Button variant="ghost" size="icon-sm" onClick={() => void pauseAll(path)} aria-label={t('workspace.pauseAll')}>
+                        <Pause />
+                      </Button>
+                    </Hint>
                   )}
                 </div>
-                <div className="mt-1.5 flex items-center gap-2 pl-[18px]">
-                  <span className="truncate font-mono text-[10px] uppercase tracking-label text-muted-foreground">
-                    {modelLabel(s.usage?.model) ?? t('sessions.modelUnknown')}
-                  </span>
-                  <ContextBar pct={s.usage?.contextPct} status={s.status} className="ml-auto w-14" />
-                  <span className="w-8 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
-                    {s.usage ? fmt.percent(s.usage.contextPct) : '—'}
-                  </span>
-                </div>
-              </NavLink>
-            </li>
-          ))}
-        </ul>
+                {!isCollapsed && (
+                  <ul className="space-y-px">
+                    {list.map((s) => (
+                  <li key={s.id}>
+                    <NavLink
+                      to={`/sessions/${encodeURIComponent(s.id)}`}
+                      className={({ isActive }) =>
+                        cn(
+                          'group block px-3 py-2.5 transition-colors duration-150 hover:bg-accent focus-visible:bg-accent focus-visible:outline-none',
+                          isActive && 'bg-accent',
+                        )
+                      }
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <StatusDot status={s.status} />
+                        <span className="min-w-0 flex-1 truncate text-sm">{s.name}</span>
+                        {(s.pendingPermission || s.pendingQuestion) && (
+                          <span
+                            className="size-2 shrink-0 rounded-full bg-status-waiting ring-2 ring-status-waiting/25"
+                            title={s.pendingPermission ? t('sessions.needsPermission') : t('sessions.needsAnswer')}
+                            aria-label={s.pendingPermission ? t('sessions.needsPermission') : t('sessions.needsAnswer')}
+                          />
+                        )}
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-2 pl-[18px]">
+                        <span className="truncate font-mono text-[10px] uppercase tracking-label text-muted-foreground">
+                          {modelLabel(s.usage?.model) ?? t('sessions.modelUnknown')}
+                        </span>
+                        <ContextBar pct={s.usage?.contextPct} status={s.status} className="ml-auto w-14" />
+                        <span className="w-8 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
+                          {s.usage ? fmt.percent(s.usage.contextPct) : '—'}
+                        </span>
+                      </div>
+                    </NavLink>
+                  </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )
+          })}
+        </div>
       </div>
 
       <div className="border-t border-border p-3">
@@ -128,7 +194,7 @@ export function Sidebar() {
         </a>
       </div>
 
-      <NewSessionDialog open={newOpen} onOpenChange={setNewOpen} />
+      <NewSessionDialog open={newOpen} onOpenChange={setNewOpen} initialCwd={newCwd} />
       <AdoptDialog open={adoptOpen} onOpenChange={setAdoptOpen} />
       <ResumeDialog open={resumeOpen} onOpenChange={setResumeOpen} />
     </div>

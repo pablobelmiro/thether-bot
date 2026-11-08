@@ -360,3 +360,28 @@ test('pause: refuses busy sessions and sessions whose conversation is unknown', 
   const sm2 = new SessionManager(repo)
   assert.equal(sm2.get('p2')?.status, 'paused', 'paused state survives a restart')
 })
+
+test('workspaces: grouping, unique names, legacy rows get the git root', async () => {
+  const { SessionManager, guessWorkspace } = await import('../src/server/core/sessions.js')
+  const { execFileSync } = await import('node:child_process')
+  const { mkdirSync } = await import('node:fs')
+  const repoDir = tmp()
+  execFileSync('git', ['init', '-q', repoDir])
+  const sub = join(repoDir, 'articles')
+  mkdirSync(sub)
+  assert.equal(guessWorkspace(sub), execFileSync('git', ['-C', repoDir, 'rev-parse', '--show-toplevel'], { encoding: 'utf-8' }).trim())
+  assert.equal(guessWorkspace(tmpdir()), tmpdir(), 'not a repo → the directory itself')
+
+  const { repo } = makeRepo()
+  const base = { permissionMode: 'auto' as const, origin: 'tether' as const, claudeSessionId: undefined, createdAt: 0 }
+  repo.saveSession({ ...base, id: 'a', name: 'app', tmuxSession: 't-a', workspace: '/w/app', cwd: '/w/app', lastActivity: 5 })
+  repo.saveSession({ ...base, id: 'b', name: 'app 2', tmuxSession: 't-b', workspace: '/w/app', cwd: '/w/app/src', lastActivity: 9 })
+  repo.saveSession({ ...base, id: 'c', name: 'other', tmuxSession: 't-c', workspace: '/w/other', cwd: '/w/other', lastActivity: 1 })
+  const sm = new SessionManager(repo)
+  const ws = sm.workspaces()
+  assert.deepEqual(ws.map(w => [w.name, w.sessions]), [['app', 2], ['other', 1]], 'most recent first')
+  assert.deepEqual(sm.sessionsIn('/w/app').map(s => s.name).sort(), ['app', 'app 2'])
+  assert.equal((sm as unknown as { uniqueName: (b: string) => string }).uniqueName('app'), 'app 3')
+  const r = await sm.pauseWorkspace('/w/app')
+  assert.deepEqual(r, { paused: [], skipped: ['app', 'app 2'] }, 'no known conversation → not paused, reported as skipped')
+})

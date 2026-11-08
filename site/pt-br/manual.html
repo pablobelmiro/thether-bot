@@ -110,7 +110,7 @@
             <li>instala as dependências e compila o projeto;</li>
             <li>cria o link do comando <code>tether</code> em <code>~/.local/bin</code>;</li>
             <li>roda o <code>tether setup</code>: adiciona os hooks do Tether e o repassador da linha de status ao <code>~/.claude/settings.json</code> (guardando um backup), adiciona regras de bloqueio que protegem os seus segredos e acrescenta uma linha ao <code>~/.claude/CLAUDE.md</code> para que o Claude formate bem as respostas para o Telegram;</li>
-            <li>no Linux, oferece rodar o Tether como um serviço de usuário do systemd, que inicia sozinho e reinicia em caso de falha.</li>
+            <li>no Linux, oferece rodar o Tether como um serviço de usuário do systemd, que inicia sozinho e reinicia em caso de falha. Reiniciar ou parar o serviço não derruba as sessões do Claude que estão rodando.</li>
           </ol>
 
           <h3>Opções do instalador</h3>
@@ -189,6 +189,16 @@
             <dd>Aparece enquanto a sessão ativa está trabalhando.</dd>
           </dl>
 
+          <h3 id="workspaces">Diretórios de trabalho e sessões</h3>
+          <p>As sessões são agrupadas pelo <strong>diretório de trabalho</strong> em que foram criadas. Um diretório pode ter várias sessões do Claude; o Tether dá os nomes sozinho: <em>meu-app</em>, <em>meu-app 2</em>, <em>meu-app 3</em>. Sessões criadas antes dos diretórios existirem ficam na raiz do repositório git da pasta delas.</p>
+          <dl>
+            <dt><code>/trocar</code></dt>
+            <dd>Lista os seus diretórios de trabalho com as sessões <em>rodando/total</em> e o total de não lidas 📬. Toque em um para ver as sessões dele; se ele tiver só uma, você troca direto para ela. <code>/trocar nome</code> procura primeiro o nome exato de uma sessão e, se não achar, o nome de um diretório.</dd>
+            <dt><code>/sessoes</code></dt>
+            <dd>Lista as sessões do diretório atual. Toque em uma para trocar, em <em>➕ Nova sessão aqui</em> para abrir outro Claude na mesma pasta, ou em <em>⏸️ Pausar todas</em>.</dd>
+          </dl>
+          <p><strong>Pausar.</strong> <code>/pausar [nome]</code> pausa uma sessão ociosa: o processo do Claude é encerrado para liberar memória, mas a sessão continua na lista (⏸️) e a resposta traz um botão <em>▶️ Retomar</em>. Retomar continua a mesma conversa, e o estado pausado sobrevive a reinícios. <code>/pausar todas</code> pausa todas as sessões ociosas do diretório atual; as ocupadas continuam rodando e aparecem na resposta. Para pausar uma sessão ocupada, espere ela terminar ou use <code>/cancelar</code> antes.</p>
+
           <h3>Bloqueio</h3>
           <p>O bot se trava sozinho depois de um período sem uso (12 horas por padrão, configurável em <em>Configurações → Geral</em>) e sempre que o Tether reinicia. Use <code>/travar</code> para travá-lo na hora. Enquanto está travado, o bot <strong>não mostra conteúdo</strong>: só avisa “nova resposta de <em>X</em>” ou “<em>X</em> precisa da sua resposta”. As respostas esperam na caixa de entrada, e os pedidos pendentes são reenviados depois do desbloqueio. Cinco senhas erradas bloqueiam aquele usuário por 15 minutos.</p>
         </section>
@@ -205,10 +215,13 @@
                 <tr><td><code>/start</code></td><td>Começo: pede que você compartilhe o contato e depois mostra a ajuda.</td></tr>
                 <tr><td><code>/senha &lt;senha&gt;</code><span class="alias"><code>/password</code> · <code>/clave</code></span></td><td>Desbloqueia o bot. A mensagem é apagada na hora.</td></tr>
                 <tr><td><code>/travar</code><span class="alias"><code>/lock</code> · <code>/bloquear</code></span></td><td>Trava o bot agora.</td></tr>
-                <tr><td><code>/trocar [nome]</code><span class="alias"><code>/change</code> · <code>/cambiar</code></span></td><td>Troca a sessão ativa. Sem nome, mostra uma lista; 📬 marca as sessões com respostas não lidas.</td></tr>
+                <tr><td><code>/trocar [nome]</code><span class="alias"><code>/change</code> · <code>/cambiar</code></span></td><td>Troca de diretório de trabalho. Sem nome, lista os diretórios com as sessões rodando/total e o total de não lidas 📬; escolher um abre as sessões dele, ou troca direto se houver só uma. Um nome procura uma sessão exata e, senão, um diretório. Veja <a href="#workspaces">Diretórios de trabalho</a>.</td></tr>
+                <tr><td><code>/sessoes</code><span class="alias"><code>/sessions</code> · <code>/sesiones</code></span></td><td>Sessões do diretório atual: trocar, <em>➕ Nova sessão aqui</em>, <em>⏸️ Pausar todas</em>.</td></tr>
                 <tr><td><code>/nova &lt;caminho&gt; [nome]</code><span class="alias"><code>/new</code> · <code>/nueva</code></span></td><td>Cria uma sessão em qualquer diretório, por exemplo <code>/nova ~/projetos/meu-app</code>.</td></tr>
                 <tr><td><code>/repos</code><span class="alias"><code>/projetos</code> · <code>/projects</code> · <code>/proyectos</code></span></td><td>Lista os projetos recentes: troque para um deles ou abra uma nova sessão nele.</td></tr>
                 <tr><td><code>/retomar</code><span class="alias"><code>/resume</code> · <code>/reanudar</code></span></td><td>Retoma qualquer conversa recente do Claude Code desta máquina.</td></tr>
+                <tr><td><code>/pausar [nome]</code><span class="alias"><code>/pause</code></span></td><td>Pausa uma sessão ociosa (a ativa, por padrão): encerra o processo do Claude para liberar memória e guarda a conversa. <em>▶️ Retomar</em> continua de onde parou.</td></tr>
+                <tr><td><code>/pausar todas</code><span class="alias"><code>/pause all</code></span></td><td>Pausa todas as sessões ociosas do diretório atual. As ocupadas continuam rodando e são informadas.</td></tr>
                 <tr><td><code>/status</code><span class="alias"><code>/estado</code></span></td><td>Sessão ativa: estado, modelo, esforço, contexto, limites do plano e modo de permissão.</td></tr>
                 <tr><td><code>/usage</code></td><td>Limites do plano (5 h / 7 d) com barras e horário de renovação, contexto por sessão e gasto (estimativa equivalente à API).</td></tr>
                 <tr><td><code>/tela</code><span class="alias"><code>/screen</code> · <code>/pantalla</code></span></td><td>Captura do terminal da sessão.</td></tr>
@@ -230,7 +243,7 @@
           <h2 id="h-inbox">A caixa de entrada 📬</h2>
           <p>As respostas das outras sessões não se perdem. Enquanto você conversa com a sessão A, uma resposta da sessão B fica guardada na sua caixa de entrada, e você recebe um aviso curto:</p>
           <p><em>✅ <strong>B</strong> terminou · 📬 1 não lida — <code>/trocar B</code> para ver.</em></p>
-          <p>Quando você troca para B, o bot primeiro entrega tudo o que chegou enquanto você estava fora e, em seguida, você passa a conversar com B. Na lista do <code>/trocar</code>, 📬 marca as sessões com respostas não lidas. A caixa de entrada fica salva em disco, então sobrevive a reinícios.</p>
+          <p>Quando você troca para B, o bot primeiro entrega tudo o que chegou enquanto você estava fora e, em seguida, você passa a conversar com B. Na lista do <code>/trocar</code>, 📬 mostra o total de não lidas de cada diretório, e o <code>/sessoes</code> marca cada sessão com respostas não lidas. A caixa de entrada fica salva em disco, então sobrevive a reinícios.</p>
         </section>
 
         <!-- 08 -->
@@ -252,14 +265,18 @@
           <p>Mostra as pastas que você já usou. Toque em <em>💬 nome</em> para ir para uma sessão em andamento, ou em <em>➕ Nova</em> para abrir outra sessão ali.</p>
 
           <h3>Continue uma conversa antiga: <code>/retomar</code></h3>
-          <p>Lista as conversas recentes do Claude Code encontradas em <code>~/.claude/projects</code>, inclusive as iniciadas num terminal comum. Toque em uma e o Tether roda <code>claude --resume</code> numa nova sessão do tmux, no modo de permissão padrão. Uma conversa que começou num modo pode ser retomada em outro.</p>
+          <p>Lista as conversas recentes do Claude Code encontradas em <code>~/.claude/projects</code>, inclusive as iniciadas num terminal comum. Toque em uma e o Tether roda <code>claude --resume</code> numa nova sessão do tmux, no modo de permissão padrão. Uma conversa que começou num modo pode ser retomada em outro. Se a conversa já pertence a uma sessão, o Tether reinicia essa sessão em vez de criar uma duplicada.</p>
         </section>
 
         <!-- 09 -->
         <section id="dashboard" aria-labelledby="h-dashboard">
           <span class="sec-num">09</span>
           <h2 id="h-dashboard">O painel</h2>
-          <p>Abra <code>http://127.0.0.1:4100</code> e entre com a sua senha. O login dura 7 dias. A barra lateral lista as suas sessões com o estado de cada uma: <em>Ociosa</em>, <em>Trabalhando</em>, <em>Aguardando</em> (você) ou <em>Offline</em>.</p>
+          <p>Abra <code>http://127.0.0.1:4100</code> e entre com a sua senha. O login dura 7 dias. A barra lateral lista as suas sessões com o estado de cada uma: <em>Ociosa</em>, <em>Trabalhando</em>, <em>Aguardando</em> (você), <em>Offline</em> ou <em>Pausada</em> (cinza).</p>
+
+          <h3 id="dash-workspaces">Diretórios de trabalho e sessões</h3>
+          <p>Na barra lateral, as sessões ficam agrupadas sob <strong>cabeçalhos de diretório</strong> recolhíveis: um ícone de pasta, o nome do diretório e <em>rodando/total</em>. Cada grupo tem <strong>Nova sessão aqui</strong> (+), que abre outro Claude na mesma pasta, e <strong>Pausar todas</strong> (⏸), que aparece quando algo ali está rodando; as sessões ocupadas continuam rodando. O rodapé da barra lateral tem links para este manual, no idioma do painel, e para o GitHub.</p>
+          <p>Para pausar uma sessão, use <strong>Pausar</strong> no painel lateral da sessão, ao lado de Reiniciar e Remover. O botão só fica ativo quando a sessão está ociosa. Uma sessão pausada mantém o lugar e a conversa, e mostra <strong>Retomar</strong> em vez de Pausar.</p>
 
           <h3>Visão geral</h3>
           <ul>
@@ -287,13 +304,13 @@
           <p>Uma visualização ao vivo, somente leitura, da janela do tmux, atualizada a cada 1,5 segundo. Útil para telas que o Tether não transforma em botões.</p>
 
           <h3>Ações da sessão</h3>
-          <p>Renomear, <strong>limpar contexto</strong> (roda <code>/clear</code>; a conversa anterior continua na transcrição), <strong>reiniciar</strong> (para e inicia o Claude de novo na mesma pasta) e <strong>remover</strong> (o Tether deixa de gerenciar a sessão; você também pode encerrar a sessão do tmux). As transcrições em disco nunca são apagadas.</p>
+          <p>Renomear, <strong>limpar contexto</strong> (roda <code>/clear</code>; a conversa anterior continua na transcrição), <strong>reiniciar</strong> (para e inicia o Claude de novo na mesma pasta), <strong>pausar</strong> / <strong>retomar</strong> (veja acima) e <strong>remover</strong> (o Tether deixa de gerenciar a sessão; você também pode encerrar a sessão do tmux). As transcrições em disco nunca são apagadas.</p>
 
           <h3>Nova sessão (+)</h3>
           <p>Digite o <strong>diretório de trabalho</strong>: as sugestões vêm desta máquina, e <kbd>Tab</kbd> completa o caminho. Os projetos recentes aparecem listados para escolher com um clique. Também dá para definir um nome, o modo de permissão e o modelo, e marcar <em>Continuar a última conversa</em> para retomar a conversa mais recente daquela pasta (<code>claude -c</code>).</p>
 
           <h3>Retomar (🕘)</h3>
-          <p>Continue qualquer conversa recente do Claude Code desta máquina numa nova sessão. Escolha o modo de permissão com que ela deve rodar agora; não importa como ela foi iniciada.</p>
+          <p>Continue qualquer conversa recente do Claude Code desta máquina numa nova sessão. Escolha o modo de permissão com que ela deve rodar agora; não importa como ela foi iniciada. Se a conversa já pertence a uma sessão, essa sessão é reiniciada em vez de duplicada.</p>
 
           <h3>Adotar (⇄)</h3>
           <p>Assuma uma sessão do Claude Code que você mesmo iniciou dentro do tmux. O Tether lista as sessões do tmux que ele ainda não gerencia; informe como aquele Claude foi iniciado (em qual modo de permissão) para ele saber se deve esperar pedidos de permissão.</p>
@@ -440,6 +457,8 @@ TETHER_PERMISSION_MODE=auto</code></pre>
             <dd>Dois programas estão usando o mesmo token de bot. Pare o outro: só um Tether por token.</dd>
             <dt>As sessões mostram “modelo desconhecido” ou nenhum % de contexto</dt>
             <dd>O repassador da linha de status ainda não está ativo naquela sessão. Rode <code>tether setup</code> e reinicie a sessão.</dd>
+            <dt>Depois de reiniciar o computador, todas as sessões estão offline</dt>
+            <dd>As sessões do tmux não sobrevivem ao reinício. Envie <code>/trocar</code>, escolha a sessão e toque em <strong>🔄 Reiniciar sessão</strong>: ela continua a mesma conversa. Reiniciar no painel faz o mesmo.</dd>
             <dt>Uma sessão que eu mesmo iniciei não aparece</dt>
             <dd>Inicie-a dentro do tmux e use <strong>Adotar</strong> no painel. Ou use <strong>Retomar</strong> para reabrir a conversa.</dd>
             <dt>As respostas não chegam depois de um <code>/clear</code></dt>

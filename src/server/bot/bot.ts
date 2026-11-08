@@ -37,6 +37,7 @@ const ALIASES = {
   resume: ['resume', 'retomar', 'reanudar'],
   new: ['new', 'nova', 'nueva'],
   pause: ['pause', 'pausar'],
+  sessions: ['sessions', 'sessoes', 'sesiones'],
   status: ['status', 'estado'],
   screen: ['screen', 'tela', 'pantalla'],
   cancel: ['cancel', 'cancelar'],
@@ -52,8 +53,8 @@ type Cmd = keyof typeof ALIASES
 /** Name shown in menus and help, per language */
 const PRIMARY: Record<string, Partial<Record<Cmd, string>>> = {
   en: {},
-  'pt-BR': { help: 'ajuda', password: 'senha', lock: 'travar', screen: 'tela', cancel: 'cancelar', lang: 'idioma', resume: 'retomar', new: 'nova', pause: 'pausar' },
-  es: { help: 'ayuda', password: 'clave', lock: 'bloquear', change: 'cambiar', status: 'estado', screen: 'pantalla', cancel: 'cancelar', lang: 'idioma', resume: 'reanudar', new: 'nueva', pause: 'pausar' },
+  'pt-BR': { help: 'ajuda', password: 'senha', lock: 'travar', screen: 'tela', cancel: 'cancelar', lang: 'idioma', resume: 'retomar', new: 'nova', pause: 'pausar', sessions: 'sessoes' },
+  es: { help: 'ayuda', password: 'clave', lock: 'bloquear', change: 'cambiar', status: 'estado', screen: 'pantalla', cancel: 'cancelar', lang: 'idioma', resume: 'reanudar', new: 'nueva', pause: 'pausar', sessions: 'sesiones' },
 }
 
 function cmdName(lng: string, c: Cmd): string {
@@ -357,32 +358,117 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     await ctx.reply(translator(lng)('lang.set'))
   })
 
+  const lastWorkspaces = new Map<number, string[]>() // per user, for callback indexes
+  const DOT: Record<string, string> = { idle: '🟢', working: '🔵', waiting: '🟡', paused: '⏸️', offline: '🔴' }
+  const wsIndex = (userId: number, path: string) => {
+    const list = lastWorkspaces.get(userId) ?? []
+    let i = list.indexOf(path)
+    if (i === -1) {
+      list.push(path)
+      i = list.length - 1
+      lastWorkspaces.set(userId, list)
+    }
+    return i
+  }
+
+  /** Sessions of one working directory, with switch / new here / pause all */
+  async function showSessions(ctx: Context, workspace: string): Promise<void> {
+    const u = me(ctx)
+    const { t } = tr(ctx)
+    const list = d.sessions.sessionsIn(workspace)
+    const i = wsIndex(u.userId, workspace)
+    const kb = new InlineKeyboard()
+    for (const s of list) {
+      const unread = d.repo.inboxCount(u.userId, s.id)
+      const mark = s.id === u.activeSessionId ? '✅ ' : ''
+      kb.text(`${mark}${DOT[s.status] ?? '⚪'} ${s.name}${unread ? ` 📬${unread}` : ''}${s.pendingPermission || s.pendingQuestion ? ' 🛡️' : ''}`, `chg:${s.id}`).row()
+    }
+    kb.text(t('workspace.newHere'), `wsnew:${i}`)
+    if (list.some(s => s.status !== 'paused' && s.status !== 'offline')) kb.text(t('workspace.pauseAll'), `wspause:${i}`)
+    await ctx.reply(t('workspace.sessions', { name: escapeHtml(workspace.split('/').pop() || workspace), path: escapeHtml(shortPath(workspace)) }), {
+      parse_mode: 'HTML',
+      reply_markup: kb,
+    })
+  }
+
+  // /change — pick a working directory (or /change <session or directory name>)
   bot.command([...ALIASES.change], async ctx => {
     const u = me(ctx)
     const { t, n } = tr(ctx)
     const arg = ctx.match.trim()
     if (arg) {
-      const s = d.sessions.findByName(arg)
-      if (!s) {
-        await ctx.reply(t('session.notFound', { ...n, query: arg }))
-        return
+      const q = arg.toLowerCase()
+      const exact = d.sessions.list().find(s => s.name.toLowerCase() === q)
+      const ws = d.sessions.workspaces().find(w => w.name.toLowerCase() === q) ?? d.sessions.workspaces().find(w => w.name.toLowerCase().startsWith(q))
+      if (exact) return void (await switchTo(ctx, exact))
+      if (ws) {
+        const inside = d.sessions.sessionsIn(ws.path)
+        return void (await (inside.length === 1 ? switchTo(ctx, inside[0]) : showSessions(ctx, ws.path)))
       }
-      await switchTo(ctx, s)
-      return
+      const s = d.sessions.findByName(arg)
+      if (!s) return void (await ctx.reply(t('session.notFound', { ...n, query: arg })))
+      return void (await switchTo(ctx, s))
     }
-    const list = d.sessions.list()
-    if (!list.length) {
-      await ctx.reply(t('session.empty', n))
-      return
-    }
+    const workspaces = d.sessions.workspaces()
+    if (!workspaces.length) return void (await ctx.reply(t('session.empty', n)))
+    const active = activeOf(u)
     const kb = new InlineKeyboard()
-    for (const s of list) {
-      const unread = d.repo.inboxCount(u.userId, s.id)
-      const mark = s.id === u.activeSessionId ? '✅ ' : ''
-      const dot = { idle: '🟢', working: '🔵', waiting: '🟡', paused: '⏸️', offline: '🔴' }[s.status]
-      kb.text(`${mark}${dot} ${s.name}${unread ? ` 📬${unread}` : ''}${s.pendingPermission ? ' 🛡️' : ''}`, `chg:${s.id}`).row()
+    for (const w of workspaces) {
+      const unread = d.sessions.sessionsIn(w.path).reduce((sum, s) => sum + d.repo.inboxCount(u.userId, s.id), 0)
+      const mark = active?.workspace === w.path ? '✅ ' : ''
+      kb.text(`${mark}📁 ${w.name} · ${w.running}/${w.sessions}${unread ? ` 📬${unread}` : ''}`, `ws:${wsIndex(u.userId, w.path)}`).row()
     }
-    await ctx.reply(t('session.choose'), { reply_markup: kb })
+    await ctx.reply(t('workspace.choose'), { reply_markup: kb })
+  })
+
+  bot.callbackQuery(/^ws:(\d+)$/, async ctx => {
+    await ctx.answerCallbackQuery()
+    const path = lastWorkspaces.get(ctx.from.id)?.[Number(ctx.match[1])]
+    if (!path) return void (await ctx.reply(tr(ctx).t('session.gone')))
+    await ctx.editMessageReplyMarkup().catch(() => {})
+    const inside = d.sessions.sessionsIn(path)
+    if (inside.length === 1) await switchTo(ctx, inside[0])
+    else await showSessions(ctx, path)
+  })
+
+  // /sessions — sessions in the current working directory
+  bot.command([...ALIASES.sessions], async ctx => {
+    const { t, n } = tr(ctx)
+    const active = activeOf(me(ctx))
+    if (!active) return void (await ctx.reply(t('session.none', n)))
+    await showSessions(ctx, active.workspace)
+  })
+
+  bot.callbackQuery(/^wsnew:(\d+)$/, async ctx => {
+    await ctx.answerCallbackQuery()
+    const { t } = tr(ctx)
+    const path = lastWorkspaces.get(ctx.from.id)?.[Number(ctx.match[1])]
+    if (!path) return void (await ctx.reply(t('session.gone')))
+    await ctx.editMessageReplyMarkup().catch(() => {})
+    try {
+      const s = await d.sessions.create({ cwd: path }, d.settings.get().defaultPermissionMode)
+      d.repo.audit('telegram', 'session.create', `${s.name} (${s.permissionMode}) ${s.cwd}`)
+      await switchTo(ctx, s)
+    } catch (e) {
+      await ctx.reply(t('repos.failed', { error: (e as Error).message }))
+    }
+  })
+
+  async function pauseAll(ctx: Context, path: string): Promise<void> {
+    const { t } = tr(ctx)
+    const r = await d.sessions.pauseWorkspace(path)
+    d.repo.audit('telegram', 'workspace.pause', `${path}: ${r.paused.length} paused, ${r.skipped.length} busy`)
+    const lines = [t('workspace.pausedAll', { count: r.paused.length, name: escapeHtml(path.split('/').pop() || path) })]
+    if (r.skipped.length) lines.push(t('workspace.skipped', { names: escapeHtml(r.skipped.join(', ')) }))
+    await ctx.reply(lines.join('\n'), { parse_mode: 'HTML' })
+  }
+
+  bot.callbackQuery(/^wspause:(\d+)$/, async ctx => {
+    await ctx.answerCallbackQuery()
+    const path = lastWorkspaces.get(ctx.from.id)?.[Number(ctx.match[1])]
+    if (!path) return void (await ctx.reply(tr(ctx).t('session.gone')))
+    await ctx.editMessageReplyMarkup().catch(() => {})
+    await pauseAll(ctx, path)
   })
 
   bot.callbackQuery(/^chg:(.+)$/, async ctx => {
@@ -537,6 +623,11 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
   bot.command([...ALIASES.pause], async ctx => {
     const { t, n } = tr(ctx)
     const arg = ctx.match.trim()
+    if (/^(all|todas|todos|tudo)$/i.test(arg)) {
+      const active = activeOf(me(ctx))
+      if (!active) return void (await ctx.reply(t('session.none', n)))
+      return void (await pauseAll(ctx, active.workspace))
+    }
     const s = arg ? d.sessions.findByName(arg) : activeOf(me(ctx))
     if (!s) return void (await ctx.reply(arg ? t('session.notFound', { ...n, query: arg }) : t('session.none', n)))
     try {
@@ -910,7 +1001,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     // Command menus per language
     const menu = (lng: string) => {
       const t = translator(lng)
-      const order: Cmd[] = ['help', 'password', 'change', 'new', 'resume', 'repos', 'pause', 'status', 'screen', 'cancel', 'model', 'effort', 'usage', 'clear', 'lock', 'lang']
+      const order: Cmd[] = ['help', 'password', 'change', 'sessions', 'new', 'resume', 'repos', 'pause', 'status', 'screen', 'cancel', 'model', 'effort', 'usage', 'clear', 'lock', 'lang']
       return order.map(c => ({ command: cmdName(lng, c), description: t(`commands.${c}`) }))
     }
     await bot.api.setMyCommands(menu('en')).catch(() => {})

@@ -83,13 +83,15 @@ Then just type. Your message goes to the active session, and Claude's answer com
 |---|---|
 | *any text* | Send it to the active session |
 | *photo / file* | Attach it (the caption becomes the message) |
-| `/change [name]` | Switch the active session. 📬 shows answers you haven't read yet. |
+| `/change [name]` | Choose a **working directory** (📬 shows answers you haven't read yet). Opens its sessions, or switches directly if there's only one. With a name: that session, or that directory. |
+| `/sessions` | Sessions in the current directory: switch, **➕ new session here**, **⏸️ pause all** |
 | `/new <path> [name]` | Open a new session in any directory, e.g. `/new ~/projects/my-app` (quote paths with spaces) |
 | `/resume` | Resume any recent Claude Code conversation from this machine |
 | `/repos` | Open a new session in a recent project |
 | `/status` | Model, effort, context and plan limits of the active session |
 | `/usage` | Plan limits (5h / 7d) with bars, context per session, money spent |
 | `/pause [name]` | Pause an idle session: stops its Claude process, keeps it in the list. Resume continues the same conversation. |
+| `/pause all` | Pause every idle session in the current directory (busy ones keep running) |
 | `/screen` | Snapshot of the terminal |
 | `/model`, `/effort` | Change model or effort (buttons, or pass a value) |
 | `/clear` | Clear the session's context (asks for confirmation) |
@@ -99,6 +101,8 @@ Then just type. Your message goes to the active session, and Claude's answer com
 | `/help` | Show everything |
 
 Localized aliases also work, e.g. `/senha`, `/ajuda`, `/tela` in Portuguese and `/clave`, `/ayuda`, `/pantalla` in Spanish.
+
+**Working directories.** Sessions are grouped by the folder they were created in, and one folder can run several Claude sessions (named `app`, `app 2`, …). `/change` picks the folder, and `/sessions` picks the session inside it. The dashboard sidebar shows the same grouping, with *new session here* and *pause all* on each folder.
 
 **Answers from other sessions** don't get lost. While you're in session A, answers from session B go to an inbox (📬), and you receive them when you `/change` to B.
 

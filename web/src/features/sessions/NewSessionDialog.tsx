@@ -17,7 +17,16 @@ import { cn, errorMessage } from '@/lib/utils'
 import { MODEL_OPTIONS } from './models'
 import { PermissionModeRadio } from './PermissionModeRadio'
 
-export function NewSessionDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export function NewSessionDialog({
+  open,
+  onOpenChange,
+  initialCwd,
+}: {
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  /** Pre-fill the directory ("New session here") */
+  initialCwd?: string
+}) {
   const { t } = useTranslation()
   const fmt = useFormat()
   const navigate = useNavigate()
@@ -39,7 +48,7 @@ export function NewSessionDialog({ open, onOpenChange }: { open: boolean; onOpen
   useEffect(() => {
     if (!open) return
     setName('')
-    setCwd('')
+    setCwd(initialCwd ?? '')
     setCont(false)
     setModel('default')
     setSuggestions([])

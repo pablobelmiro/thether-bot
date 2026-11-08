@@ -41,6 +41,8 @@ export interface StoredSession {
   id: string
   name: string
   tmuxSession: string
+  /** Where the session was created; empty for rows from older versions (filled on load) */
+  workspace?: string
   cwd: string
   permissionMode: PermissionMode
   origin: 'tether' | 'adopted'
@@ -219,6 +221,7 @@ export class Repo {
       id: String(r.id),
       name: String(r.name),
       tmuxSession: String(r.tmux_session),
+      workspace: str(r.workspace),
       cwd: String(r.cwd),
       permissionMode: String(r.permission_mode) as PermissionMode,
       origin: String(r.origin) as 'tether' | 'adopted',
@@ -234,9 +237,9 @@ export class Repo {
   saveSession(s: StoredSession): void {
     this.db
       .prepare(
-        `INSERT INTO sessions(id, name, tmux_session, cwd, permission_mode, origin, claude_session_id, transcript_path, usage_json, paused, created_at, last_activity)
-         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET name = excluded.name, tmux_session = excluded.tmux_session, cwd = excluded.cwd,
+        `INSERT INTO sessions(id, name, tmux_session, workspace, cwd, permission_mode, origin, claude_session_id, transcript_path, usage_json, paused, created_at, last_activity)
+         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET name = excluded.name, tmux_session = excluded.tmux_session, workspace = excluded.workspace, cwd = excluded.cwd,
            permission_mode = excluded.permission_mode, claude_session_id = excluded.claude_session_id,
            transcript_path = excluded.transcript_path, usage_json = excluded.usage_json, paused = excluded.paused,
            last_activity = excluded.last_activity`,
@@ -245,6 +248,7 @@ export class Repo {
         s.id,
         s.name,
         s.tmuxSession,
+        s.workspace ?? s.cwd,
         s.cwd,
         s.permissionMode,
         s.origin,

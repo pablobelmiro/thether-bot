@@ -110,7 +110,7 @@
             <li>installs the dependencies and builds the project;</li>
             <li>links the <code>tether</code> command into <code>~/.local/bin</code>;</li>
             <li>runs <code>tether setup</code>: adds Tether's hooks and status line forwarder to <code>~/.claude/settings.json</code> (keeping a backup), adds deny rules that protect your secrets, and appends one line to <code>~/.claude/CLAUDE.md</code> so Claude formats answers well for Telegram;</li>
-            <li>on Linux, offers to run Tether as a systemd user service that starts automatically and restarts on failure.</li>
+            <li>on Linux, offers to run Tether as a systemd user service that starts automatically and restarts on failure. Restarting or stopping the service doesn't stop your running Claude sessions.</li>
           </ol>
 
           <h3>Installer flags</h3>
@@ -189,6 +189,16 @@
             <dd>Shown while the active session is working.</dd>
           </dl>
 
+          <h3 id="workspaces">Working directories &amp; sessions</h3>
+          <p>Sessions are grouped by the <strong>working directory</strong> they were created in. One directory can hold several Claude sessions; Tether names them automatically: <em>my-app</em>, <em>my-app 2</em>, <em>my-app 3</em>. Sessions created before directories existed are placed under the git repository root of their folder.</p>
+          <dl>
+            <dt><code>/change</code></dt>
+            <dd>Lists your working directories with <em>running/total</em> sessions and the 📬 unread total. Tap one to see its sessions; if it has only one, you switch straight to it. <code>/change name</code> matches a session name exactly, otherwise a directory name.</dd>
+            <dt><code>/sessions</code></dt>
+            <dd>Lists the sessions of the current directory. Tap one to switch, <em>➕ New session here</em> to open another Claude in the same folder, or <em>⏸️ Pause all</em>.</dd>
+          </dl>
+          <p><strong>Pausing.</strong> <code>/pause [name]</code> pauses an idle session: its Claude process stops to free memory, but the session stays in the list (⏸️) and the reply has a <em>▶️ Resume</em> button. Resume continues the same conversation, and the paused state survives restarts. <code>/pause all</code> pauses every idle session in the current directory; busy ones are left running and listed in the reply. To pause a busy session, wait for it to finish or <code>/cancel</code> first.</p>
+
           <h3>Locking</h3>
           <p>The bot locks itself after a period without use (12 hours by default, configurable in <em>Settings → General</em>) and every time Tether restarts. Use <code>/lock</code> to lock it now. While it's locked, the bot shows <strong>no content</strong>: it only says “new answer from <em>X</em>” or “<em>X</em> needs your answer”. Answers wait in the inbox, and pending prompts are sent again after you unlock. Five wrong passwords block that user for 15 minutes.</p>
         </section>
@@ -205,10 +215,13 @@
                 <tr><td><code>/start</code></td><td>Begin: asks you to share your contact, then shows the help.</td></tr>
                 <tr><td><code>/password &lt;password&gt;</code><span class="alias"><code>/senha</code> · <code>/clave</code></span></td><td>Unlock the bot. The message is deleted right away.</td></tr>
                 <tr><td><code>/lock</code><span class="alias"><code>/travar</code> · <code>/bloquear</code></span></td><td>Lock the bot now.</td></tr>
-                <tr><td><code>/change [name]</code><span class="alias"><code>/trocar</code> · <code>/cambiar</code></span></td><td>Switch the active session. Without a name, shows a list; 📬 marks sessions with unread answers.</td></tr>
+                <tr><td><code>/change [name]</code><span class="alias"><code>/trocar</code> · <code>/cambiar</code></span></td><td>Switch working directory. Without a name, lists directories with running/total sessions and 📬 unread totals; picking one opens its sessions, or switches directly if it has only one. A name matches a session exactly, otherwise a directory. See <a href="#workspaces">Working directories</a>.</td></tr>
+                <tr><td><code>/sessions</code><span class="alias"><code>/sessoes</code> · <code>/sesiones</code></span></td><td>Sessions of the current directory: switch, <em>➕ New session here</em>, <em>⏸️ Pause all</em>.</td></tr>
                 <tr><td><code>/new &lt;path&gt; [name]</code><span class="alias"><code>/nova</code> · <code>/nueva</code></span></td><td>Create a session in any directory, e.g. <code>/new ~/projects/my-app</code>.</td></tr>
                 <tr><td><code>/repos</code><span class="alias"><code>/projects</code> · <code>/projetos</code> · <code>/proyectos</code></span></td><td>List recent projects: switch to one, or open a new session in it.</td></tr>
                 <tr><td><code>/resume</code><span class="alias"><code>/retomar</code> · <code>/reanudar</code></span></td><td>Resume any recent Claude Code conversation from this machine.</td></tr>
+                <tr><td><code>/pause [name]</code><span class="alias"><code>/pausar</code></span></td><td>Pause an idle session (the active one by default): stops its Claude process to free memory and keeps the conversation. <em>▶️ Resume</em> continues it.</td></tr>
+                <tr><td><code>/pause all</code><span class="alias"><code>/pausar todas</code></span></td><td>Pause every idle session in the current directory. Busy sessions are left running and reported.</td></tr>
                 <tr><td><code>/status</code><span class="alias"><code>/estado</code></span></td><td>Active session: state, model, effort, context, plan limits and permission mode.</td></tr>
                 <tr><td><code>/usage</code></td><td>Plan limits (5 h / 7 d) with bars and reset times, context per session, and money spent (API-equivalent estimate).</td></tr>
                 <tr><td><code>/screen</code><span class="alias"><code>/tela</code> · <code>/pantalla</code></span></td><td>Snapshot of the session's terminal.</td></tr>
@@ -230,7 +243,7 @@
           <h2 id="h-inbox">The 📬 inbox</h2>
           <p>Answers from other sessions don't get lost. While you're talking to session A, an answer from session B is kept in your inbox, and you get a short notice:</p>
           <p><em>✅ <strong>B</strong> finished · 📬 1 unread — <code>/change B</code> to read it.</em></p>
-          <p>When you switch to B, the bot first delivers everything that arrived while you were away, then you're talking to B. In the <code>/change</code> list, 📬 marks the sessions that have unread answers. The inbox is stored on disk, so it survives restarts.</p>
+          <p>When you switch to B, the bot first delivers everything that arrived while you were away, then you're talking to B. In the <code>/change</code> list, 📬 shows the unread total of each directory, and <code>/sessions</code> marks each session that has unread answers. The inbox is stored on disk, so it survives restarts.</p>
         </section>
 
         <!-- 08 -->
@@ -252,14 +265,18 @@
           <p>Shows the folders you've used before. Tap <em>💬 name</em> to switch to a running session, or <em>➕ New</em> to open another session there.</p>
 
           <h3>Pick up an old conversation: <code>/resume</code></h3>
-          <p>Lists recent Claude Code conversations found in <code>~/.claude/projects</code>, including ones started in a plain terminal. Tap one and Tether runs <code>claude --resume</code> in a new tmux session, in the default permission mode. A conversation that began in one mode can be resumed in another.</p>
+          <p>Lists recent Claude Code conversations found in <code>~/.claude/projects</code>, including ones started in a plain terminal. Tap one and Tether runs <code>claude --resume</code> in a new tmux session, in the default permission mode. A conversation that began in one mode can be resumed in another. If the conversation already belongs to a session, Tether restarts that session instead of creating a duplicate.</p>
         </section>
 
         <!-- 09 -->
         <section id="dashboard" aria-labelledby="h-dashboard">
           <span class="sec-num">09</span>
           <h2 id="h-dashboard">The dashboard</h2>
-          <p>Open <code>http://127.0.0.1:4100</code> and sign in with your password. The login lasts 7 days. The sidebar lists your sessions with their state: <em>Idle</em>, <em>Working</em>, <em>Waiting</em> (for you) or <em>Offline</em>.</p>
+          <p>Open <code>http://127.0.0.1:4100</code> and sign in with your password. The login lasts 7 days. The sidebar lists your sessions with their state: <em>Idle</em>, <em>Working</em>, <em>Waiting</em> (for you), <em>Offline</em> or <em>Paused</em> (gray).</p>
+
+          <h3 id="dash-workspaces">Working directories &amp; sessions</h3>
+          <p>In the sidebar, sessions are grouped under collapsible <strong>directory headers</strong>: a folder icon, the directory name and <em>running/total</em>. Each group has <strong>New session here</strong> (+), which opens another Claude in the same folder, and <strong>Pause all</strong> (⏸), shown while something in it is running; busy sessions are left running. The sidebar footer links to this manual, in the dashboard's language, and to GitHub.</p>
+          <p>To pause one session, use <strong>Pause</strong> in the session side panel, next to Restart and Remove. It's enabled only while the session is idle. A paused session keeps its place and its conversation, and shows <strong>Resume</strong> instead.</p>
 
           <h3>Overview</h3>
           <ul>
@@ -287,13 +304,13 @@
           <p>A read-only live view of the tmux pane, refreshed every 1.5 seconds. Useful for prompts Tether doesn't turn into buttons.</p>
 
           <h3>Session actions</h3>
-          <p>Rename, <strong>clear context</strong> (runs <code>/clear</code>; the old conversation stays in its transcript), <strong>restart</strong> (stops and starts Claude in the same folder) and <strong>remove</strong> (Tether stops managing the session; you can also kill the tmux session). Transcripts on disk are never deleted.</p>
+          <p>Rename, <strong>clear context</strong> (runs <code>/clear</code>; the old conversation stays in its transcript), <strong>restart</strong> (stops and starts Claude in the same folder), <strong>pause</strong> / <strong>resume</strong> (see above) and <strong>remove</strong> (Tether stops managing the session; you can also kill the tmux session). Transcripts on disk are never deleted.</p>
 
           <h3>New session (+)</h3>
           <p>Type the <strong>working directory</strong>: suggestions come from this machine, and <kbd>Tab</kbd> completes the path. Recent projects are listed for one-click picking. You can also set a name, the permission mode and the model, and choose <em>Continue last conversation</em> to resume the most recent conversation in that folder (<code>claude -c</code>).</p>
 
           <h3>Resume (🕘)</h3>
-          <p>Continue any recent Claude Code conversation from this machine in a new session. Choose the permission mode it should run with now; how it was started doesn't matter.</p>
+          <p>Continue any recent Claude Code conversation from this machine in a new session. Choose the permission mode it should run with now; how it was started doesn't matter. If the conversation already belongs to a session, that session is restarted instead of duplicated.</p>
 
           <h3>Adopt (⇄)</h3>
           <p>Take over a Claude Code session you started yourself inside tmux. Tether lists the tmux sessions it doesn't manage yet; tell it how that Claude was started (which permission mode) so it knows whether to expect permission prompts.</p>
@@ -440,6 +457,8 @@ TETHER_PERMISSION_MODE=auto</code></pre>
             <dd>Two programs are using the same bot token. Stop the other one: only one Tether per token.</dd>
             <dt>Sessions show “unknown model” or no context %</dt>
             <dd>The status line forwarder isn't active for that session yet. Run <code>tether setup</code>, then restart the session.</dd>
+            <dt>After a reboot all sessions are offline</dt>
+            <dd>The tmux sessions didn't survive the reboot. Send <code>/change</code>, pick the session and tap <strong>🔄 Restart session</strong>: it continues the same conversation. Restart in the dashboard does the same.</dd>
             <dt>A session I started myself isn't listed</dt>
             <dd>Start it inside tmux, then use <strong>Adopt</strong> in the dashboard. Or use <strong>Resume</strong> to reopen its conversation.</dd>
             <dt>Answers don't arrive after <code>/clear</code></dt>

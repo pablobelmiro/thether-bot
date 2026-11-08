@@ -85,7 +85,7 @@
             </div>
             <h3>Telegram, on your phone</h3>
             <ul class="check-list">
-              <li>Talk to any session and switch between them.</li>
+              <li>Talk to any session and switch between working directories.</li>
               <li>Receive Claude's answers as they finish.</li>
               <li>Answer its questions and approve permissions with buttons.</li>
               <li>Send photos and files.</li>
@@ -98,7 +98,7 @@
             </div>
             <h3>A dashboard, in your browser</h3>
             <ul class="check-list">
-              <li>Every session, with a full chat and attachments.</li>
+              <li>Every session, grouped by working directory, with a full chat and attachments.</li>
               <li>Slash commands and model / effort switching.</li>
               <li>Context and plan-limit charts.</li>
               <li>A live terminal view.</li>
@@ -158,8 +158,8 @@
         <div class="grid-3">
           <article class="card">
             <span class="num">01</span>
-            <h3>Many sessions</h3>
-            <p>Run one Claude per project and switch with <code>/change</code>. Answers from other sessions wait in a 📬 inbox.</p>
+            <h3>Working directories</h3>
+            <p>Sessions are grouped by folder, with as many Claudes per folder as you like. Switch with <code>/change</code>, list a folder's sessions with <code>/sessions</code>. Other answers wait in a 📬 inbox.</p>
           </article>
           <article class="card">
             <span class="num">02</span>
@@ -168,8 +168,8 @@
           </article>
           <article class="card">
             <span class="num">03</span>
-            <h3>Resume anything</h3>
-            <p>Pick up any recent Claude Code conversation from this machine, even ones started in the terminal.</p>
+            <h3>Pause and resume</h3>
+            <p>Pause an idle session with <code>/pause</code> to free memory, then resume the same conversation later. Or pick up any recent Claude Code conversation, even ones started in the terminal.</p>
           </article>
           <article class="card">
             <span class="num">04</span>
@@ -312,7 +312,7 @@
           </details>
           <details>
             <summary>Does my computer need to stay on?</summary>
-            <div><p>Yes. Claude runs on your machine, so it has to be on and awake. On Linux the installer can set Tether up as a background service that starts automatically.</p></div>
+            <div><p>Yes. Claude runs on your machine, so it has to be on and awake. On Linux the installer can set Tether up as a background service that starts automatically; restarting it doesn't stop your sessions.</p></div>
           </details>
           <details>
             <summary>Can I still use the terminal?</summary>

@@ -81,6 +81,9 @@ export interface Session {
   id: string
   name: string
   tmuxSession: string
+  /** Working directory the session belongs to (where it was created; sessions are grouped by it) */
+  workspace: string
+  /** Claude's current directory (may be a subfolder of the workspace) */
   cwd: string
   status: SessionStatus
   permissionMode: PermissionMode
@@ -136,6 +139,21 @@ export interface UsagePoint {
   contextPct: number
   fiveHourPct?: number
   sevenDayPct?: number
+}
+
+/** A working directory and the sessions running in it */
+export interface Workspace {
+  path: string
+  name: string
+  sessions: number
+  /** Sessions not paused/offline */
+  running: number
+}
+
+/** POST /api/workspaces/pause → which sessions were paused and which were busy */
+export interface PauseWorkspaceResult {
+  paused: string[]
+  skipped: string[]
 }
 
 /** A Claude Code conversation found in ~/.claude/projects that can be resumed */
@@ -345,6 +363,8 @@ export interface AddPhoneRequest {
  *   POST   /api/sessions/:id/uploads  multipart/form-data (field "file") → Upload
  *   GET    /api/sessions/:id/usage  ?hours=24 → UsagePoint[]
  *
+ *   GET    /api/workspaces                    → Workspace[]
+ *   POST   /api/workspaces/pause  { path }    → PauseWorkspaceResult   (pauses every idle session there)
  *   GET    /api/conversations ?limit=30       → ConversationSummary[]   (most recent first)
  *   GET    /api/tmux/discover                 → DiscoveredTmuxSession[]  (not yet managed)
  *   POST   /api/sessions/adopt  AdoptRequest  → Session

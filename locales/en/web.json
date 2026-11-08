@@ -442,5 +442,13 @@
         "cli": "CLI"
       }
     }
+  },
+  "workspace": {
+    "newHere": "New session in this directory",
+    "pauseAll": "Pause all idle sessions here",
+    "pausedAll_one": "Paused 1 session",
+    "pausedAll_other": "Paused {{count}} sessions",
+    "skipped": "Busy, left running: {{names}}",
+    "label": "Working directory"
   }
 }

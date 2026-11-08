@@ -6,6 +6,7 @@
 
 import { randomUUID, randomBytes } from 'node:crypto'
 import { statSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { basename, join, resolve, sep } from 'node:path'
 import type {
   ActivityEvent,
@@ -17,6 +18,7 @@ import type {
   PermissionPrompt,
   Session,
   SessionStatus,
+  Workspace,
   SessionUsage,
 } from '../../shared/api.js'
 import type { Repo, StoredSession } from '../db/repo.js'
@@ -55,6 +57,10 @@ export class SessionManager {
 
   constructor(private readonly repo: Repo) {
     for (const s of repo.listSessions()) {
+      if (!s.workspace) {
+        s.workspace = guessWorkspace(s.cwd)
+        repo.saveSession(s)
+      }
       this.sessions.set(s.id, s)
       this.live.set(s.id, { status: s.paused ? 'paused' : 'offline' })
     }
@@ -112,6 +118,7 @@ export class SessionManager {
       id: s.id,
       name: s.name,
       tmuxSession: s.tmuxSession,
+      workspace: s.workspace ?? s.cwd,
       cwd: s.cwd,
       status: l.status,
       permissionMode: s.permissionMode,
@@ -167,7 +174,7 @@ export class SessionManager {
         return this.restart(owner.id) // e.g. after a reboot: bring the same session back
       }
     }
-    const name = (req.name?.trim() || basename(cwd) || 'claude').slice(0, 60)
+    const name = this.uniqueName((req.name?.trim() || basename(cwd) || 'claude').slice(0, 60))
     const tmuxSession = `tether-${randomBytes(4).toString('hex')}`
 
     await tmux.newSession(tmuxSession, cwd, claudeCommand(mode, !!req.continueConversation && !resume, req.model, resume), tmuxEnv())
@@ -177,6 +184,7 @@ export class SessionManager {
       id: randomUUID(),
       name,
       tmuxSession,
+      workspace: cwd,
       cwd,
       permissionMode: mode,
       origin: 'tether',
@@ -192,6 +200,52 @@ export class SessionManager {
     this.activity(s, 'session', `Session started in ${cwd}`)
     log(`Session created: ${name} → tmux ${tmuxSession} (${mode})`)
     return this.toApi(s)
+  }
+
+  /** Sessions grouped by working directory, most recently active first */
+  workspaces(): Workspace[] {
+    const groups = new Map<string, StoredSession[]>()
+    for (const s of this.sessions.values()) {
+      const w = s.workspace ?? s.cwd
+      groups.set(w, [...(groups.get(w) ?? []), s])
+    }
+    return [...groups.entries()]
+      .map(([path, list]) => ({
+        path,
+        name: basename(path) || path,
+        sessions: list.length,
+        running: list.filter(x => !['paused', 'offline'].includes(this.liveOf(x.id).status)).length,
+        last: Math.max(...list.map(x => x.lastActivity)),
+      }))
+      .sort((a, b) => b.last - a.last)
+      .map(({ last: _last, ...w }) => w)
+  }
+
+  sessionsIn(workspace: string): Session[] {
+    return this.list().filter(s => s.workspace === workspace)
+  }
+
+  /** Pause every idle session in a working directory; busy ones are left alone */
+  async pauseWorkspace(workspace: string): Promise<{ paused: string[]; skipped: string[] }> {
+    const paused: string[] = []
+    const skipped: string[] = []
+    for (const s of this.sessionsIn(workspace)) {
+      if (s.status === 'paused') continue
+      try {
+        await this.pause(s.id)
+        paused.push(s.name)
+      } catch {
+        skipped.push(s.name)
+      }
+    }
+    return { paused, skipped }
+  }
+
+  /** "app", then "app 2", "app 3"… so sessions in one directory stay distinguishable */
+  private uniqueName(base: string): string {
+    const names = new Set([...this.sessions.values()].map(s => s.name.toLowerCase()))
+    if (!names.has(base.toLowerCase())) return base
+    for (let i = 2; ; i++) if (!names.has(`${base} ${i}`.toLowerCase())) return `${base} ${i}`
   }
 
   /** Recent conversations, marking the ones already open in a running session */
@@ -218,6 +272,7 @@ export class SessionManager {
       id: randomUUID(),
       name: (name?.trim() || basename(found.cwd) || tmuxSession).slice(0, 60),
       tmuxSession,
+      workspace: guessWorkspace(found.cwd),
       cwd: found.cwd,
       permissionMode: mode,
       origin: 'adopted',
@@ -846,6 +901,17 @@ export function questionOnScreen(screen: string, question: string): boolean {
     block.unshift(lines[i])
   }
   return flat(block.join(' ')).includes(probe)
+}
+
+/** Older sessions had no workspace: use the git repository root of their directory, else the directory */
+export function guessWorkspace(dir: string): string {
+  try {
+    const root = execFileSync('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000 }).trim()
+    if (root) return root
+  } catch {
+    /* not a git repository */
+  }
+  return dir
 }
 
 function stripSourcePrefix(text: string): string {

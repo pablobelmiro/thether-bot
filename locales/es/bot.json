@@ -114,11 +114,11 @@
   },
   "unknownCommand": "Comando desconocido. Mira /{{help}}.",
   "unsupported": "Aún no puedo manejar este tipo de mensaje. Envía texto, una foto o un archivo.",
-  "help": "<b>🤖 Claude en Telegram</b>\nCualquier texto va a la <b>sesión activa</b>. Las fotos y archivos se adjuntan a ella.\n\n<b>Acceso</b>\n/{{password}} &lt;contraseña&gt; — desbloquea el bot\n/{{lock}} — bloquéalo ahora\n\n<b>Sesiones</b>\n/{{change}} — elegir la sesión (o <code>/{{change}} nombre</code>)\n<i>  Las respuestas de otras sesiones se guardan (📬) y llegan cuando cambias.</i>\n/{{new}} &lt;ruta&gt; [nombre] — abre una sesión en cualquier directorio\n/{{repos}} — proyectos; abre una nueva sesión\n/{{resume}} — reanuda una conversación reciente de Claude\n/{{pause}} [nombre] — pausa una sesión inactiva (conserva la conversación)\n/{{status}} — sesión activa, modelo y contexto\n/{{screen}} — muestra la terminal ahora\n/{{cancel}} — interrumpe a Claude\n\n<b>Claude Code</b>\n/model — cambiar modelo (o <code>/model opus</code>)\n/effort — nivel de esfuerzo (o <code>/effort high</code>)\n/usage — uso del plan\n/clear — limpia el contexto de la sesión\n\n/{{lang}} — idioma\n\n<i>El bot se bloquea solo tras {{hours}} h sin uso y siempre que se reinicia.</i>",
+  "help": "<b>🤖 Claude en Telegram</b>\nCualquier texto va a la <b>sesión activa</b>. Las fotos y archivos se adjuntan a ella.\n\n<b>Acceso</b>\n/{{password}} &lt;contraseña&gt; — desbloquea el bot\n/{{lock}} — bloquéalo ahora\n\n<b>Sesiones</b>\n/{{change}} — elegir el directorio de trabajo (o <code>/{{change}} nombre</code>)\n/{{sessions}} — sesiones del directorio actual: cambiar, nueva aquí, pausar todas\n<i>  Las respuestas de otras sesiones se guardan (📬) y llegan cuando cambias.</i>\n/{{new}} &lt;ruta&gt; [nombre] — abre una sesión en cualquier directorio\n/{{repos}} — proyectos; abre una nueva sesión\n/{{resume}} — reanuda una conversación reciente de Claude\n/{{pause}} [nombre] — pausa una sesión inactiva (conserva la conversación)\n<code>/{{pause}} todas</code> — pausa todas las sesiones libres del directorio actual\n/{{status}} — sesión activa, modelo y contexto\n/{{screen}} — muestra la terminal ahora\n/{{cancel}} — interrumpe a Claude\n\n<b>Claude Code</b>\n/model — cambiar modelo (o <code>/model opus</code>)\n/effort — nivel de esfuerzo (o <code>/effort high</code>)\n/usage — uso del plan\n/clear — limpia el contexto de la sesión\n\n/{{lang}} — idioma\n\n<i>El bot se bloquea solo tras {{hours}} h sin uso y siempre que se reinicia.</i>",
   "commands": {
     "help": "Muestra los comandos",
     "password": "Desbloquea el bot: /clave <contraseña>",
-    "change": "Cambiar de sesión",
+    "change": "Cambiar de directorio de trabajo",
     "repos": "Proyectos / nueva sesión",
     "status": "Sesión activa, modelo y contexto",
     "screen": "Muestra la terminal ahora",
@@ -131,7 +131,8 @@
     "lang": "Idioma",
     "resume": "Reanudar una conversación reciente",
     "new": "Abrir una sesión en un directorio: /nueva <ruta>",
-    "pause": "Pausar una sesión inactiva"
+    "pause": "Pausar una sesión inactiva",
+    "sessions": "Sesiones del directorio actual"
   },
   "time": {
     "now": "ahora",
@@ -161,5 +162,14 @@
     "done": "⏸️ <b>{{name}}</b> pausada. La conversación se conserva; toca Reanudar (o usa /cambiar) para continuar.",
     "notIdle": "<b>{{name}}</b> está ocupada. Páusala cuando esté libre, o usa /cancelar antes.",
     "failed": "No se pudo pausar: {{error}}"
+  },
+  "workspace": {
+    "choose": "Elige el directorio de trabajo (sesiones activas/total):",
+    "sessions": "📁 <b>{{name}}</b>\n<i>{{path}}</i>\nSesiones en este directorio:",
+    "newHere": "➕ Nueva sesión aquí",
+    "pauseAll": "⏸️ Pausar todas",
+    "pausedAll_one": "⏸️ 1 sesión pausada en <b>{{name}}</b>.",
+    "pausedAll_other": "⏸️ {{count}} sesiones pausadas en <b>{{name}}</b>.",
+    "skipped": "Ocupadas, siguen ejecutándose: {{names}}"
   }
 }

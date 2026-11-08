@@ -97,6 +97,10 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE sessions ADD COLUMN paused INTEGER NOT NULL DEFAULT 0;
   `,
+  // 3 — stable working directory sessions are grouped by
+  `
+  ALTER TABLE sessions ADD COLUMN workspace TEXT;
+  `,
 ]
 
 export type DB = DatabaseSync

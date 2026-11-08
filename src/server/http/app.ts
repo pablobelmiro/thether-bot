@@ -248,6 +248,15 @@ export function createApp(d: AppDeps): Hono {
 
   app.get('/api/tmux/discover', async c => c.json(await d.sessions.discover()))
 
+  app.get('/api/workspaces', c => c.json(d.sessions.workspaces()))
+
+  app.post('/api/workspaces/pause', async c => {
+    const { path } = (await c.req.json()) as { path: string }
+    const result = await d.sessions.pauseWorkspace(String(path ?? ''))
+    d.repo.audit('dashboard', 'workspace.pause', `${path}: ${result.paused.length} paused, ${result.skipped.length} busy`)
+    return c.json(result)
+  })
+
   app.get('/api/conversations', c => c.json(d.sessions.conversations(Math.min(Number(c.req.query('limit') ?? 30) || 30, 100))))
 
   app.post('/api/sessions/adopt', async c => {
