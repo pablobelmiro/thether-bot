@@ -33,6 +33,8 @@ interface Live {
   currentTool?: string
   pendingPermission?: PermissionPrompt
   pendingQuestion?: PendingQuestion
+  /** All questions of the current AskUserQuestion call */
+  questionQueue?: PendingQuestion[]
   reader?: TranscriptReader
   /** Started by us recently: auto-accept first-run dialogs */
   bootUntil?: number
@@ -273,9 +275,17 @@ export class SessionManager {
   }
 
   /** Send a user message. `prefix` tags where it came from (shown in the chat). */
-  async prompt(id: string, text: string, prefix: string, attachments: string[] = []): Promise<void> {
+  /**
+   * Send a user message. While Claude waits on a question, a plain message would land
+   * inside the question form, so it becomes the answer instead (returns 'answered').
+   */
+  async prompt(id: string, text: string, prefix: string, attachments: string[] = []): Promise<'sent' | 'answered'> {
     const s = this.require(id)
     if (this.liveOf(id).status === 'offline') throw new HttpError(409, 'Session is offline')
+    if (this.liveOf(id).pendingQuestion && !attachments.length && text.trim()) {
+      await this.answerQuestion(id, { text })
+      return 'answered'
+    }
     let body = text.trim()
     if (attachments.length) {
       const list = attachments.map(p => `- ${p}`).join('\n')
@@ -285,6 +295,7 @@ export class SessionManager {
     await tmux.paste(s.tmuxSession, prefix + body)
     s.lastActivity = Date.now()
     this.changed(s)
+    return 'sent'
   }
 
   /**
@@ -362,22 +373,45 @@ export class SessionManager {
   async answerQuestion(id: string, answer: { option?: number; text?: string }): Promise<void> {
     const s = this.require(id)
     const l = this.liveOf(id)
-    if (!l.pendingQuestion) throw new HttpError(409, 'This question is no longer pending')
+    const q = l.pendingQuestion
+    if (!q) throw new HttpError(409, 'This question is no longer pending')
+    // Fail closed: the question must be the live menu before any key is sent.
+    // The hook can arrive just before the menu renders, so wait briefly for it.
+    let visible = false
+    for (let i = 0; i < 6 && !visible; i++) {
+      if (i) await new Promise(r => setTimeout(r, 500))
+      visible = questionOnScreen(await tmux.capture(s.tmuxSession, 60), q.question)
+    }
+    if (!visible) throw new HttpError(409, 'This question is not on screen; answer it in the terminal')
     if (answer.option !== undefined) {
-      if (!Number.isInteger(answer.option) || answer.option < 1 || answer.option > l.pendingQuestion.options.length) throw new HttpError(400, 'Invalid option')
-      // Number keys select a menu entry immediately
+      if (q.multiSelect) throw new HttpError(400, 'Multi-select questions take a typed answer here')
+      if (!Number.isInteger(answer.option) || answer.option < 1 || answer.option > q.options.length) throw new HttpError(400, 'Invalid option')
+      // Number keys select a menu entry immediately (and move to the next question)
       await tmux.keys(s.tmuxSession, String(answer.option))
     } else if (answer.text?.trim()) {
-      // Free text: pick "Type something" (the entry after the listed options), then type
-      const otherIdx = (l.pendingQuestion?.options.length ?? 0) + 1
-      if (l.pendingQuestion && otherIdx <= 9) {
-        await tmux.keys(s.tmuxSession, String(otherIdx))
-        await new Promise(r => setTimeout(r, 300))
-      }
+      // Typing on the menu fills the "Type something" entry; Enter confirms it
       await tmux.paste(s.tmuxSession, answer.text.trim())
     } else {
       throw new HttpError(400, 'Answer is empty')
     }
+
+    const next = l.questionQueue?.[(q.index ?? 0) + 1]
+    if (next) {
+      // Several questions at once: hand out the next one
+      this.clearQuestion(s)
+      l.pendingQuestion = next
+      this.setStatus(s, 'waiting', 'AskUserQuestion')
+      this.changed(s, false)
+      hub.emit('question', this.toApi(s), next)
+      return
+    }
+    if ((q.total ?? 1) > 1) {
+      // Last of several: Claude Code shows a review screen; confirm it
+      await new Promise(r => setTimeout(r, 600))
+      const screen = await tmux.capture(s.tmuxSession, 30)
+      if (/Ready to submit your answers\?/i.test(screen) && /❯\s*1\.\s*Submit answers/i.test(screen)) await tmux.keys(s.tmuxSession, '1')
+    }
+    l.questionQueue = undefined
     this.clearQuestion(s)
   }
 
@@ -502,14 +536,25 @@ export class SessionManager {
   }
 
   private emitQuestion(s: StoredSession, e: HookEvent): void {
-    const questions = Array.isArray(e.toolInput?.questions) ? (e.toolInput!.questions as Array<Record<string, unknown>>) : []
-    const q = questions[0]
-    if (!q || typeof q.question !== 'string') return
-    const options = Array.isArray(q.options)
-      ? (q.options as Array<Record<string, unknown>>).map(o => ({ label: String(o.label ?? ''), description: typeof o.description === 'string' ? o.description : undefined }))
-      : []
-    const pending: PendingQuestion = { question: q.question, header: typeof q.header === 'string' ? q.header : undefined, options, askedAt: Date.now() }
-    this.liveOf(s.id).pendingQuestion = pending
+    const raw = Array.isArray(e.toolInput?.questions) ? (e.toolInput!.questions as Array<Record<string, unknown>>) : []
+    const queue: PendingQuestion[] = raw
+      .filter(q => typeof q.question === 'string')
+      .map((q, i, all) => ({
+        question: q.question as string,
+        header: typeof q.header === 'string' ? q.header : undefined,
+        options: Array.isArray(q.options)
+          ? (q.options as Array<Record<string, unknown>>).map(o => ({ label: String(o.label ?? ''), description: typeof o.description === 'string' ? o.description : undefined }))
+          : [],
+        multiSelect: q.multiSelect === true,
+        index: i,
+        total: all.length,
+        askedAt: Date.now(),
+      }))
+    if (!queue.length) return
+    const l = this.liveOf(s.id)
+    l.questionQueue = queue
+    const pending = queue[0]
+    l.pendingQuestion = pending
     this.setStatus(s, 'waiting', 'AskUserQuestion')
     this.changed(s, false)
     hub.emit('question', this.toApi(s), pending)
@@ -735,6 +780,35 @@ export function trustMenuState(screen: string): { order: Array<'yes' | 'no'>; cu
 function isUnder(path: string, dir: string): boolean {
   const p = resolve(path)
   return p.startsWith(resolve(dir) + sep)
+}
+
+/**
+ * Is this question the active menu at the bottom of the terminal?
+ * The text must sit right above the option list of a live menu (footer visible) —
+ * not just anywhere on screen, e.g. inside the prompt that asked for it.
+ */
+export function questionOnScreen(screen: string, question: string): boolean {
+  const flat = (t: string) => t.replace(/[│\s]+/g, ' ').trim().toLowerCase()
+  const probe = flat(question).slice(0, 40)
+  if (!probe) return false
+  const lines = screen.split('\n')
+  const footer = lines.map(l => /Enter to select|Esc to cancel/i.test(l)).lastIndexOf(true)
+  if (footer === -1) return false
+  let first = -1
+  for (let i = footer; i >= Math.max(0, footer - 40); i--) {
+    if (/^\s*❯?\s*1\.\s/.test(lines[i])) {
+      first = i
+      break
+    }
+  }
+  if (first === -1) return false
+  // The question text sits between the menu header (tabs ☐/☒/✔, a ─── rule or the ❯ prompt) and option 1
+  const block: string[] = []
+  for (let i = first - 1; i >= Math.max(0, first - 12); i--) {
+    if (/[☐☒✔]|─{5,}|^\s*❯/.test(lines[i])) break
+    block.unshift(lines[i])
+  }
+  return flat(block.join(' ')).includes(probe)
 }
 
 function stripSourcePrefix(text: string): string {

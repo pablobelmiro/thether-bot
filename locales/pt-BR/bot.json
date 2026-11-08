@@ -89,7 +89,10 @@
     "write": "✍️ Escreva sua resposta:",
     "answered": "→ {{answer}}",
     "gone": "Essa pergunta já foi respondida.",
-    "failed": "Falha ao responder: {{error}}"
+    "failed": "Falha ao responder: {{error}}",
+    "answeredByText": "→ Respondi a pergunta pendente com: <i>{{answer}}</i>",
+    "multiSelect": "☑️ Múltipla escolha: escreva suas opções (ex.: “A e C”).",
+    "typeHint": "Dica: o que você escrever agora responde esta pergunta."
   },
   "permission": {
     "title": "🛡️ <b>{{name}}</b> quer usar <b>{{tool}}</b>",

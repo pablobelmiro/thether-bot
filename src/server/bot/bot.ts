@@ -705,8 +705,9 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     const s = await requireActive(ctx)
     if (!s) return
     try {
-      await d.sessions.prompt(s.id, text, TELEGRAM_PREFIX)
-      await ctx.react('👀').catch(() => {})
+      const result = await d.sessions.prompt(s.id, text, TELEGRAM_PREFIX)
+      if (result === 'answered') await ctx.reply(t('question.answeredByText', { answer: escapeHtml(text.slice(0, 100)) }), { parse_mode: 'HTML' })
+      else await ctx.react('👀').catch(() => {})
     } catch (e) {
       await ctx.reply(t('session.sendFailed', { name: s.name, error: (e as Error).message }))
     }
@@ -753,10 +754,13 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     const lng = localeOf(u)
     const t = translator(lng)
     const who = u.activeSessionId === s.id ? '' : `<b>${escapeHtml(s.name)}</b> · `
-    const lines = [t('question.title', { who, header: q.header ? `<b>${escapeHtml(q.header)}</b> — ` : '', question: escapeHtml(q.question) })]
+    const step = (q.total ?? 1) > 1 ? `(${(q.index ?? 0) + 1}/${q.total}) ` : ''
+    const lines = [t('question.title', { who: who + step, header: q.header ? `<b>${escapeHtml(q.header)}</b> — ` : '', question: escapeHtml(q.question) })]
     for (const o of q.options) lines.push(`• <b>${escapeHtml(o.label)}</b>${o.description ? ` — ${escapeHtml(o.description)}` : ''}`)
+    if (q.multiSelect) lines.push('', t('question.multiSelect'))
+    lines.push('', `<i>${t('question.typeHint')}</i>`)
     const kb = new InlineKeyboard()
-    q.options.forEach((o, i) => kb.text(o.label.slice(0, 60), `q:${key}:${i}`).row())
+    if (!q.multiSelect) q.options.forEach((o, i) => kb.text(o.label.slice(0, 60), `q:${key}:${i}`).row())
     kb.text(t('question.other'), `q:${key}:o`)
     const id = await send(u.chatId, lines.join('\n'), { reply_markup: kb })
     if (id) questionMessages.set(s.id, [...(questionMessages.get(s.id) ?? []), { chatId: u.chatId, messageId: id }])

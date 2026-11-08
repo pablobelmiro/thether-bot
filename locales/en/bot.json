@@ -89,7 +89,10 @@
     "write": "✍️ Type your answer:",
     "answered": "→ {{answer}}",
     "gone": "This question was already answered.",
-    "failed": "Couldn't answer: {{error}}"
+    "failed": "Couldn't answer: {{error}}",
+    "answeredByText": "→ Answered the pending question with: <i>{{answer}}</i>",
+    "multiSelect": "☑️ Multiple choice: type your choices (e.g. “A and C”).",
+    "typeHint": "Tip: anything you type now answers this question."
   },
   "permission": {
     "title": "🛡️ <b>{{name}}</b> wants to use <b>{{tool}}</b>",

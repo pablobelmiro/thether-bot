@@ -284,8 +284,8 @@ export function createApp(d: AppDeps): Hono {
       .map(a => uploads.get(a))
       .filter((u): u is Upload & { sessionId: string } => !!u && u.sessionId === id)
       .map(u => u.path)
-    await d.sessions.prompt(id, String(body.text ?? ''), DASHBOARD_PREFIX, files)
-    return c.json({ ok: true })
+    const result = await d.sessions.prompt(id, String(body.text ?? ''), DASHBOARD_PREFIX, files)
+    return c.json({ ok: true, answeredQuestion: result === 'answered' })
   })
 
   app.post('/api/sessions/:id/command', async c => {

@@ -339,3 +339,13 @@ test('HTTP guard: host check, JSON-only writes, origin check', async () => {
   const ok = await app.request('/api/auth/state', { headers: base })
   assert.equal(ok.status, 200)
 })
+
+test('questionOnScreen matches wrapped question text and rejects others', async () => {
+  const { questionOnScreen } = await import('../src/server/core/sessions.js')
+  const menu = ['❯ Use AskUserQuestion: question "Which color?" and "Which size?"', '←  ☒ Color  ☐ Size  ✔ Submit  →', 'Which size?', '❯ 1. Small', '  2. Large', '  3. Type something.', 'Enter to select · Tab/Arrow keys to navigate · Esc to cancel'].join('\n')
+  assert.equal(questionOnScreen(menu, 'Which size?'), true)
+  assert.equal(questionOnScreen(menu, 'Which color?'), false, 'only in the prompt echo, not the live menu')
+  const thinking = ['❯ Use AskUserQuestion: question "Which color?"', '· Stewing… (1s)', '❯ '].join('\n')
+  assert.equal(questionOnScreen(thinking, 'Which color?'), false, 'no menu yet')
+  assert.equal(questionOnScreen(menu, ''), false)
+})

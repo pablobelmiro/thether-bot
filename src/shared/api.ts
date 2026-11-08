@@ -67,6 +67,11 @@ export interface PendingQuestion {
   question: string
   header?: string
   options: { label: string; description?: string }[]
+  /** Position when Claude asks several questions at once (0-based) */
+  index?: number
+  total?: number
+  /** Multi-select questions can only be answered with free text here */
+  multiSelect?: boolean
   /** Unix ms */
   askedAt: number
 }
