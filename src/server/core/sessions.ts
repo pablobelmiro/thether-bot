@@ -158,8 +158,13 @@ export class SessionManager {
     if (req.model && !MODEL_ARG.test(req.model)) throw new HttpError(400, 'Invalid model name')
     const resume = req.resumeConversationId
     if (resume !== undefined && !CONVERSATION_ID.test(resume)) throw new HttpError(400, 'Invalid conversation id')
-    if (resume && [...this.sessions.values()].some(x => x.claudeSessionId === resume && this.liveOf(x.id).status !== 'offline')) {
-      throw new HttpError(409, 'That conversation is already open in a session')
+    if (resume) {
+      // One session per conversation: reuse the session that already owns it
+      const owner = [...this.sessions.values()].find(x => x.claudeSessionId === resume)
+      if (owner) {
+        if (this.liveOf(owner.id).status !== 'offline') throw new HttpError(409, 'That conversation is already open in a session')
+        return this.restart(owner.id) // e.g. after a reboot: bring the same session back
+      }
     }
     const name = (req.name?.trim() || basename(cwd) || 'claude').slice(0, 60)
     const tmuxSession = `tether-${randomBytes(4).toString('hex')}`

@@ -256,6 +256,8 @@ ExecStart=${entry}
 Environment="PATH=${process.env.PATH}"
 ${envLines}
 Restart=always
+# Stopping Tether must not kill tmux and the Claude sessions it started
+KillMode=process
 RestartSec=5
 
 [Install]
