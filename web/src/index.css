@@ -35,6 +35,7 @@
     --status-working: 210 55% 32%;
     --status-waiting: 36 75% 44%;
     --status-offline: 8 38% 50%;
+    --status-paused: 40 6% 52%;
 
     --chart-1: 210 55% 30%;
     --chart-2: 105 22% 40%;
@@ -79,6 +80,7 @@
     --status-working: 210 45% 66%;
     --status-waiting: 38 65% 58%;
     --status-offline: 8 40% 58%;
+    --status-paused: 45 6% 60%;
 
     --chart-1: 210 45% 68%;
     --chart-2: 105 20% 58%;

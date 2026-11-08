@@ -89,6 +89,7 @@ Then just type. Your message goes to the active session, and Claude's answer com
 | `/repos` | Open a new session in a recent project |
 | `/status` | Model, effort, context and plan limits of the active session |
 | `/usage` | Plan limits (5h / 7d) with bars, context per session, money spent |
+| `/pause [name]` | Pause an idle session: stops its Claude process, keeps it in the list. Resume continues the same conversation. |
 | `/screen` | Snapshot of the terminal |
 | `/model`, `/effort` | Change model or effort (buttons, or pass a value) |
 | `/clear` | Clear the session's context (asks for confirmation) |

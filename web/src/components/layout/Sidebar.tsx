@@ -1,4 +1,4 @@
-import { History, LayoutDashboard, Plus, Settings, Unplug } from 'lucide-react'
+import { BookOpen, FolderGit2, History, LayoutDashboard, Plus, Settings, Unplug } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router-dom'
@@ -17,8 +17,16 @@ import { cn } from '@/lib/utils'
 const navItem =
   'flex items-center gap-3 px-3 py-2 text-sm transition-colors duration-150 hover:bg-accent focus-visible:outline-none focus-visible:bg-accent'
 
+/** User manual on the project website, in the dashboard's language */
+const DOCS_BASE = 'https://pablobelmiro.github.io/thether-bot/'
+function docsUrl(lang: string): string {
+  if (lang.toLowerCase().startsWith('pt')) return `${DOCS_BASE}pt-br/manual.html`
+  if (lang.toLowerCase().startsWith('es')) return `${DOCS_BASE}es/manual.html`
+  return `${DOCS_BASE}manual.html`
+}
+
 export function Sidebar() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const fmt = useFormat()
   const sessionsMap = useStore((s) => s.sessions)
   const loaded = useStore((s) => s.sessionsLoaded)
@@ -110,6 +118,14 @@ export function Sidebar() {
           <Settings className="size-4 text-muted-foreground" />
           {t('nav.settings')}
         </NavLink>
+        <a href={docsUrl(i18n.language)} target="_blank" rel="noreferrer noopener" className={navItem}>
+          <BookOpen className="size-4 text-muted-foreground" />
+          {t('nav.docs')}
+        </a>
+        <a href="https://github.com/pablobelmiro/thether-bot" target="_blank" rel="noreferrer noopener" className={navItem}>
+          <FolderGit2 className="size-4 text-muted-foreground" />
+          GitHub
+        </a>
       </div>
 
       <NewSessionDialog open={newOpen} onOpenChange={setNewOpen} />

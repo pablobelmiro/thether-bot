@@ -36,6 +36,7 @@ const ALIASES = {
   repos: ['repos', 'projects', 'projetos', 'proyectos'],
   resume: ['resume', 'retomar', 'reanudar'],
   new: ['new', 'nova', 'nueva'],
+  pause: ['pause', 'pausar'],
   status: ['status', 'estado'],
   screen: ['screen', 'tela', 'pantalla'],
   cancel: ['cancel', 'cancelar'],
@@ -51,8 +52,8 @@ type Cmd = keyof typeof ALIASES
 /** Name shown in menus and help, per language */
 const PRIMARY: Record<string, Partial<Record<Cmd, string>>> = {
   en: {},
-  'pt-BR': { help: 'ajuda', password: 'senha', lock: 'travar', screen: 'tela', cancel: 'cancelar', lang: 'idioma', resume: 'retomar', new: 'nova' },
-  es: { help: 'ayuda', password: 'clave', lock: 'bloquear', change: 'cambiar', status: 'estado', screen: 'pantalla', cancel: 'cancelar', lang: 'idioma', resume: 'reanudar', new: 'nueva' },
+  'pt-BR': { help: 'ajuda', password: 'senha', lock: 'travar', screen: 'tela', cancel: 'cancelar', lang: 'idioma', resume: 'retomar', new: 'nova', pause: 'pausar' },
+  es: { help: 'ayuda', password: 'clave', lock: 'bloquear', change: 'cambiar', status: 'estado', screen: 'pantalla', cancel: 'cancelar', lang: 'idioma', resume: 'reanudar', new: 'nueva', pause: 'pausar' },
 }
 
 function cmdName(lng: string, c: Cmd): string {
@@ -274,10 +275,11 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
       await ctx.reply(t('session.none', n))
       return undefined
     }
-    if (s.status === 'offline') {
-      await ctx.reply(t('session.offline', { name: escapeHtml(s.name) }), {
+    if (s.status === 'offline' || s.status === 'paused') {
+      const paused = s.status === 'paused'
+      await ctx.reply(t(paused ? 'session.paused' : 'session.offline', { name: escapeHtml(s.name) }), {
         parse_mode: 'HTML',
-        reply_markup: new InlineKeyboard().text(t('session.restartButton'), `rst:${s.id}`),
+        reply_markup: new InlineKeyboard().text(t(paused ? 'session.resumeButton' : 'session.restartButton'), `rst:${s.id}`),
       })
       return undefined
     }
@@ -377,7 +379,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     for (const s of list) {
       const unread = d.repo.inboxCount(u.userId, s.id)
       const mark = s.id === u.activeSessionId ? '✅ ' : ''
-      const dot = { idle: '🟢', working: '🔵', waiting: '🟡', offline: '🔴' }[s.status]
+      const dot = { idle: '🟢', working: '🔵', waiting: '🟡', paused: '⏸️', offline: '🔴' }[s.status]
       kb.text(`${mark}${dot} ${s.name}${unread ? ` 📬${unread}` : ''}${s.pendingPermission ? ' 🛡️' : ''}`, `chg:${s.id}`).row()
     }
     await ctx.reply(t('session.choose'), { reply_markup: kb })
@@ -528,6 +530,25 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
       await ctx.reply(terminalToHtml(await d.sessions.terminal(s.id), undefined, tr(ctx).t('screen.empty')), { parse_mode: 'HTML' })
     } catch (e) {
       await ctx.reply(tr(ctx).t('screen.failed', { error: (e as Error).message }))
+    }
+  })
+
+  // /pause [name] — stop an idle session's Claude process; /change + Resume brings it back
+  bot.command([...ALIASES.pause], async ctx => {
+    const { t, n } = tr(ctx)
+    const arg = ctx.match.trim()
+    const s = arg ? d.sessions.findByName(arg) : activeOf(me(ctx))
+    if (!s) return void (await ctx.reply(arg ? t('session.notFound', { ...n, query: arg }) : t('session.none', n)))
+    try {
+      await d.sessions.pause(s.id)
+      d.repo.audit('telegram', 'session.pause', s.name)
+      await ctx.reply(t('pause.done', { name: escapeHtml(s.name) }), {
+        parse_mode: 'HTML',
+        reply_markup: new InlineKeyboard().text(t('session.resumeButton'), `rst:${s.id}`),
+      })
+    } catch (e) {
+      const msg = (e as Error).message
+      await ctx.reply(/idle/.test(msg) ? t('pause.notIdle', { name: escapeHtml(s.name) }) : t('pause.failed', { error: msg }), { parse_mode: 'HTML' })
     }
   })
 
@@ -889,7 +910,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     // Command menus per language
     const menu = (lng: string) => {
       const t = translator(lng)
-      const order: Cmd[] = ['help', 'password', 'change', 'new', 'resume', 'repos', 'status', 'screen', 'cancel', 'model', 'effort', 'usage', 'clear', 'lock', 'lang']
+      const order: Cmd[] = ['help', 'password', 'change', 'new', 'resume', 'repos', 'pause', 'status', 'screen', 'cancel', 'model', 'effort', 'usage', 'clear', 'lock', 'lang']
       return order.map(c => ({ command: cmdName(lng, c), description: t(`commands.${c}`) }))
     }
     await bot.api.setMyCommands(menu('en')).catch(() => {})

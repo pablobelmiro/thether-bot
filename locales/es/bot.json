@@ -30,7 +30,8 @@
     "limits": "⏱️ Límites: {{limits}}",
     "mode_bypass": "⚠️ Funciona sin pedir permiso",
     "mode_ask": "🛡️ Pide permiso a través del bot",
-    "mode_auto": "🤖 Modo auto: un clasificador de seguridad revisa cada acción"
+    "mode_auto": "🤖 Modo auto: un clasificador de seguridad revisa cada acción",
+    "paused": "⏸️ pausada"
   },
   "session": {
     "none": "Ninguna sesión activa. Usa /{{change}} o /{{repos}}.",
@@ -49,7 +50,9 @@
     "finished_one": "✅ <b>{{name}}</b> terminó · 📬 1 sin leer — <code>/{{change}} {{name}}</code> para verla.",
     "finished_other": "✅ <b>{{name}}</b> terminó · 📬 {{count}} sin leer — <code>/{{change}} {{name}}</code> para verlas.",
     "emptyAnswer": "✅ Terminó (sin texto en la respuesta).",
-    "sendFailed": "No se pudo enviar a {{name}}: {{error}}"
+    "sendFailed": "No se pudo enviar a {{name}}: {{error}}",
+    "paused": "⏸️ <b>{{name}}</b> está pausada.",
+    "resumeButton": "▶️ Reanudar"
   },
   "repos": {
     "title": "📁 Proyectos",
@@ -111,7 +114,7 @@
   },
   "unknownCommand": "Comando desconocido. Mira /{{help}}.",
   "unsupported": "Aún no puedo manejar este tipo de mensaje. Envía texto, una foto o un archivo.",
-  "help": "<b>🤖 Claude en Telegram</b>\nCualquier texto va a la <b>sesión activa</b>. Las fotos y archivos se adjuntan a ella.\n\n<b>Acceso</b>\n/{{password}} &lt;contraseña&gt; — desbloquea el bot\n/{{lock}} — bloquéalo ahora\n\n<b>Sesiones</b>\n/{{change}} — elegir la sesión (o <code>/{{change}} nombre</code>)\n<i>  Las respuestas de otras sesiones se guardan (📬) y llegan cuando cambias.</i>\n/{{new}} &lt;ruta&gt; [nombre] — abre una sesión en cualquier directorio\n/{{repos}} — proyectos; abre una nueva sesión\n/{{resume}} — reanuda una conversación reciente de Claude\n/{{status}} — sesión activa, modelo y contexto\n/{{screen}} — muestra la terminal ahora\n/{{cancel}} — interrumpe a Claude\n\n<b>Claude Code</b>\n/model — cambiar modelo (o <code>/model opus</code>)\n/effort — nivel de esfuerzo (o <code>/effort high</code>)\n/usage — uso del plan\n/clear — limpia el contexto de la sesión\n\n/{{lang}} — idioma\n\n<i>El bot se bloquea solo tras {{hours}} h sin uso y siempre que se reinicia.</i>",
+  "help": "<b>🤖 Claude en Telegram</b>\nCualquier texto va a la <b>sesión activa</b>. Las fotos y archivos se adjuntan a ella.\n\n<b>Acceso</b>\n/{{password}} &lt;contraseña&gt; — desbloquea el bot\n/{{lock}} — bloquéalo ahora\n\n<b>Sesiones</b>\n/{{change}} — elegir la sesión (o <code>/{{change}} nombre</code>)\n<i>  Las respuestas de otras sesiones se guardan (📬) y llegan cuando cambias.</i>\n/{{new}} &lt;ruta&gt; [nombre] — abre una sesión en cualquier directorio\n/{{repos}} — proyectos; abre una nueva sesión\n/{{resume}} — reanuda una conversación reciente de Claude\n/{{pause}} [nombre] — pausa una sesión inactiva (conserva la conversación)\n/{{status}} — sesión activa, modelo y contexto\n/{{screen}} — muestra la terminal ahora\n/{{cancel}} — interrumpe a Claude\n\n<b>Claude Code</b>\n/model — cambiar modelo (o <code>/model opus</code>)\n/effort — nivel de esfuerzo (o <code>/effort high</code>)\n/usage — uso del plan\n/clear — limpia el contexto de la sesión\n\n/{{lang}} — idioma\n\n<i>El bot se bloquea solo tras {{hours}} h sin uso y siempre que se reinicia.</i>",
   "commands": {
     "help": "Muestra los comandos",
     "password": "Desbloquea el bot: /clave <contraseña>",
@@ -127,7 +130,8 @@
     "lock": "Bloquea el bot",
     "lang": "Idioma",
     "resume": "Reanudar una conversación reciente",
-    "new": "Abrir una sesión en un directorio: /nueva <ruta>"
+    "new": "Abrir una sesión en un directorio: /nueva <ruta>",
+    "pause": "Pausar una sesión inactiva"
   },
   "time": {
     "now": "ahora",
@@ -152,5 +156,10 @@
   },
   "newSession": {
     "usage": "Uso: <code>/{{new}} &lt;ruta&gt; [nombre]</code>\nEjemplo: <code>/{{new}} ~/proyectos/mi-app</code>\nRutas con espacios entre comillas: <code>/{{new}} \"~/Mis Proyectos/app\"</code>"
+  },
+  "pause": {
+    "done": "⏸️ <b>{{name}}</b> pausada. La conversación se conserva; toca Reanudar (o usa /cambiar) para continuar.",
+    "notIdle": "<b>{{name}}</b> está ocupada. Páusala cuando esté libre, o usa /cancelar antes.",
+    "failed": "No se pudo pausar: {{error}}"
   }
 }

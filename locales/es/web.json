@@ -22,7 +22,8 @@
     "menu": "Menú",
     "overview": "Resumen",
     "sessions": "Sesiones",
-    "settings": "Ajustes"
+    "settings": "Ajustes",
+    "docs": "Documentación"
   },
   "theme": {
     "toDark": "Cambiar al modo oscuro",
@@ -44,7 +45,8 @@
     "idle": "Inactiva",
     "working": "Trabajando",
     "waiting": "Esperando",
-    "offline": "Sin conexión"
+    "offline": "Sin conexión",
+    "paused": "Pausada"
   },
   "auth": {
     "password": "Contraseña",
@@ -344,6 +346,18 @@
       "description": "Tether deja de gestionar esta sesión. Sus transcripciones en disco no se borran.",
       "kill": "Cerrar también la sesión de tmux",
       "killHint": "Termina la sesión de tmux «{{tmux}}» y el proceso de Claude Code que contiene."
+    },
+    "pause": "Pausar",
+    "resume": "Reanudar",
+    "paused": "“{{name}}” pausada",
+    "pauseIdleOnly": "Solo una sesión libre se puede pausar",
+    "confirmPause": {
+      "title": "¿Pausar “{{name}}”?",
+      "description": "Detiene Claude Code en esta sesión para liberar memoria. La sesión sigue en la lista y la conversación se conserva: Reanudar continúa exactamente donde se quedó."
+    },
+    "confirmResume": {
+      "title": "¿Reanudar esta sesión?",
+      "description": "Vuelve a iniciar Claude Code en la misma carpeta y continúa la misma conversación."
     }
   },
   "terminal": {

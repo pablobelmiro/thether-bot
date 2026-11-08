@@ -148,6 +148,7 @@ export const api = {
   removeSession: (id: string, kill: boolean) =>
     request<{ ok: true }>('DELETE', `/sessions/${enc(id)}`, { query: kill ? { kill: 1 } : undefined }),
   restartSession: (id: string) => request<Session>('POST', `/sessions/${enc(id)}/restart`),
+  pauseSession: (id: string) => request<Session>('POST', `/sessions/${enc(id)}/pause`),
   prompt: (id: string, body: PromptRequest) => request<{ ok: true }>('POST', `/sessions/${enc(id)}/prompt`, { body }),
   command: (id: string, command: string) =>
     request<{ ok: true; output: string }>('POST', `/sessions/${enc(id)}/command`, { body: { command } }),

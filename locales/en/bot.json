@@ -30,7 +30,8 @@
     "limits": "⏱️ Limits: {{limits}}",
     "mode_bypass": "⚠️ Runs without asking permission",
     "mode_ask": "🛡️ Asks permission through the bot",
-    "mode_auto": "🤖 Auto mode: a safety classifier reviews each action"
+    "mode_auto": "🤖 Auto mode: a safety classifier reviews each action",
+    "paused": "⏸️ paused"
   },
   "session": {
     "none": "No active session. Use /{{change}} or /{{repos}}.",
@@ -49,7 +50,9 @@
     "finished_one": "✅ <b>{{name}}</b> finished · 📬 1 unread — <code>/{{change}} {{name}}</code> to read it.",
     "finished_other": "✅ <b>{{name}}</b> finished · 📬 {{count}} unread — <code>/{{change}} {{name}}</code> to read them.",
     "emptyAnswer": "✅ Done (no text in the answer).",
-    "sendFailed": "Couldn't send to {{name}}: {{error}}"
+    "sendFailed": "Couldn't send to {{name}}: {{error}}",
+    "paused": "⏸️ <b>{{name}}</b> is paused.",
+    "resumeButton": "▶️ Resume"
   },
   "repos": {
     "title": "📁 Projects",
@@ -111,7 +114,7 @@
   },
   "unknownCommand": "Unknown command. See /{{help}}.",
   "unsupported": "I can't handle this kind of message yet. Send text, a photo or a file.",
-  "help": "<b>🤖 Claude on Telegram</b>\nAny text goes to the <b>active session</b>. Photos and files are attached to it.\n\n<b>Access</b>\n/{{password}} &lt;password&gt; — unlock the bot\n/{{lock}} — lock it now\n\n<b>Sessions</b>\n/{{change}} — choose the session (or <code>/{{change}} name</code>)\n<i>  Answers from other sessions are kept (📬) and delivered when you switch.</i>\n/{{new}} &lt;path&gt; [name] — open a session in any directory\n/{{repos}} — projects; open a new session\n/{{resume}} — resume a recent Claude conversation\n/{{status}} — active session, model and context\n/{{screen}} — show the terminal now\n/{{cancel}} — interrupt Claude\n\n<b>Claude Code</b>\n/model — change model (or <code>/model opus</code>)\n/effort — effort level (or <code>/effort high</code>)\n/usage — plan usage\n/clear — clear the session context\n\n/{{lang}} — language\n\n<i>The bot locks itself after {{hours}} h without use and whenever it restarts.</i>",
+  "help": "<b>🤖 Claude on Telegram</b>\nAny text goes to the <b>active session</b>. Photos and files are attached to it.\n\n<b>Access</b>\n/{{password}} &lt;password&gt; — unlock the bot\n/{{lock}} — lock it now\n\n<b>Sessions</b>\n/{{change}} — choose the session (or <code>/{{change}} name</code>)\n<i>  Answers from other sessions are kept (📬) and delivered when you switch.</i>\n/{{new}} &lt;path&gt; [name] — open a session in any directory\n/{{repos}} — projects; open a new session\n/{{resume}} — resume a recent Claude conversation\n/{{pause}} [name] — pause an idle session (keeps the conversation)\n/{{status}} — active session, model and context\n/{{screen}} — show the terminal now\n/{{cancel}} — interrupt Claude\n\n<b>Claude Code</b>\n/model — change model (or <code>/model opus</code>)\n/effort — effort level (or <code>/effort high</code>)\n/usage — plan usage\n/clear — clear the session context\n\n/{{lang}} — language\n\n<i>The bot locks itself after {{hours}} h without use and whenever it restarts.</i>",
   "commands": {
     "help": "Show the commands",
     "password": "Unlock the bot: /password <password>",
@@ -127,7 +130,8 @@
     "lock": "Lock the bot",
     "lang": "Language",
     "resume": "Resume a recent conversation",
-    "new": "Open a session in a directory: /new <path>"
+    "new": "Open a session in a directory: /new <path>",
+    "pause": "Pause an idle session"
   },
   "time": {
     "now": "just now",
@@ -152,5 +156,10 @@
   },
   "newSession": {
     "usage": "Usage: <code>/{{new}} &lt;path&gt; [name]</code>\nExample: <code>/{{new}} ~/projects/my-app</code>\nQuote paths with spaces: <code>/{{new}} \"~/My Projects/app\"</code>"
+  },
+  "pause": {
+    "done": "⏸️ <b>{{name}}</b> paused. Its conversation is kept; tap Resume (or /change) to continue.",
+    "notIdle": "<b>{{name}}</b> is busy. Pause it when it's idle, or /cancel first.",
+    "failed": "Couldn't pause: {{error}}"
   }
 }

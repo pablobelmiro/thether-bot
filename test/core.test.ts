@@ -349,3 +349,14 @@ test('questionOnScreen matches wrapped question text and rejects others', async 
   assert.equal(questionOnScreen(thinking, 'Which color?'), false, 'no menu yet')
   assert.equal(questionOnScreen(menu, ''), false)
 })
+
+test('pause: refuses busy sessions and sessions whose conversation is unknown', async () => {
+  const { SessionManager } = await import('../src/server/core/sessions.js')
+  const { repo } = makeRepo()
+  repo.saveSession({ id: 'p1', name: 'x', tmuxSession: 'tether-pause-none', cwd: '/', permissionMode: 'auto', origin: 'tether', createdAt: 0, lastActivity: 0 })
+  const sm = new SessionManager(repo)
+  await assert.rejects(sm.pause('p1'), /conversation isn't known/)
+  repo.saveSession({ id: 'p2', name: 'y', tmuxSession: 'tether-pause-none2', cwd: '/', permissionMode: 'auto', origin: 'tether', claudeSessionId: '11111111-1111-1111-1111-111111111111', paused: true, createdAt: 0, lastActivity: 0 })
+  const sm2 = new SessionManager(repo)
+  assert.equal(sm2.get('p2')?.status, 'paused', 'paused state survives a restart')
+})

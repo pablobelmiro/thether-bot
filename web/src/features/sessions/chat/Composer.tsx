@@ -94,7 +94,7 @@ export function Composer({
   }, [text])
 
   const working = session.status === 'working'
-  const offline = session.status === 'offline'
+  const offline = session.status === 'offline' || session.status === 'paused'
 
   // ---------------------------------------------------------------- uploads
   const addFiles = useCallback(

@@ -1,5 +1,5 @@
 import type { EffortLevel, Session } from '@shared/api'
-import { Check, Eraser, Pencil, RotateCw, SquareTerminal, Trash2, X } from 'lucide-react'
+import { Check, Eraser, Pause, Pencil, Play, RotateCw, SquareTerminal, Trash2, X } from 'lucide-react'
 import { useEffect, useId, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
@@ -34,7 +34,7 @@ import { EFFORT_OPTIONS, MODEL_OPTIONS, modelAlias } from './models'
 import { TerminalSheet } from './TerminalSheet'
 import { useSessionCommand } from './useSessionCommand'
 
-type Confirm = 'clear' | 'restart' | 'remove' | null
+type Confirm = 'clear' | 'restart' | 'remove' | 'pause' | null
 
 function Section({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
@@ -109,6 +109,9 @@ export function SessionPanel({ session }: { session: Session }) {
       } else if (confirm === 'restart') {
         upsertSession(await api.restartSession(session.id))
         toast.success(t('panel.restarted'))
+      } else if (confirm === 'pause') {
+        upsertSession(await api.pauseSession(session.id))
+        toast.success(t('panel.paused', { name: session.name }))
       } else if (confirm === 'remove') {
         await api.removeSession(session.id, kill)
         removeSession(session.id)
@@ -283,9 +286,27 @@ export function SessionPanel({ session }: { session: Session }) {
             <Eraser />
             {t('panel.clear')}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setConfirm('restart')} className="justify-start">
-            <RotateCw />
-            {t('panel.restart')}
+          {session.status === 'paused' ? (
+            <Button variant="outline" size="sm" onClick={() => setConfirm('restart')} className="justify-start">
+              <Play />
+              {t('panel.resume')}
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => setConfirm('restart')} className="justify-start">
+              <RotateCw />
+              {t('panel.restart')}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setConfirm('pause')}
+            className="justify-start"
+            disabled={session.status !== 'idle'}
+            title={session.status !== 'idle' ? t('panel.pauseIdleOnly') : undefined}
+          >
+            <Pause />
+            {t('panel.pause')}
           </Button>
           <Button
             variant="outline"
@@ -314,14 +335,26 @@ export function SessionPanel({ session }: { session: Session }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {confirm === 'clear' ? t('panel.confirmClear.title') : confirm === 'restart' ? t('panel.confirmRestart.title') : t('panel.confirmRemove.title', { name: session.name })}
+              {confirm === 'clear'
+                ? t('panel.confirmClear.title')
+                : confirm === 'pause'
+                  ? t('panel.confirmPause.title', { name: session.name })
+                  : confirm === 'restart'
+                    ? session.status === 'paused'
+                      ? t('panel.confirmResume.title')
+                      : t('panel.confirmRestart.title')
+                    : t('panel.confirmRemove.title', { name: session.name })}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirm === 'clear'
                 ? t('panel.confirmClear.description')
-                : confirm === 'restart'
-                  ? t('panel.confirmRestart.description')
-                  : t('panel.confirmRemove.description')}
+                : confirm === 'pause'
+                  ? t('panel.confirmPause.description')
+                  : confirm === 'restart'
+                    ? session.status === 'paused'
+                      ? t('panel.confirmResume.description')
+                      : t('panel.confirmRestart.description')
+                    : t('panel.confirmRemove.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {confirm === 'remove' && (

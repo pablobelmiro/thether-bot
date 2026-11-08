@@ -271,6 +271,12 @@ export function createApp(d: AppDeps): Hono {
     return c.json({ ok: true })
   })
 
+  app.post('/api/sessions/:id/pause', async c => {
+    const s = await d.sessions.pause(c.req.param('id'))
+    d.repo.audit('dashboard', 'session.pause', s.name)
+    return c.json(s)
+  })
+
   app.post('/api/sessions/:id/restart', async c => {
     const s = await d.sessions.restart(c.req.param('id'))
     d.repo.audit('dashboard', 'session.restart', s.name)

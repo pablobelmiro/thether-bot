@@ -6,6 +6,7 @@ export const statusDotClass: Record<SessionStatus, string> = {
   idle: 'bg-status-idle',
   working: 'bg-status-working',
   waiting: 'bg-status-waiting',
+  paused: 'bg-status-paused',
   offline: 'bg-status-offline',
 }
 
@@ -13,6 +14,7 @@ export const statusTextClass: Record<SessionStatus, string> = {
   idle: 'text-status-idle',
   working: 'text-status-working',
   waiting: 'text-status-waiting',
+  paused: 'text-status-paused',
   offline: 'text-status-offline',
 }
 
@@ -20,6 +22,7 @@ export const statusBorderClass: Record<SessionStatus, string> = {
   idle: 'border-status-idle/40',
   working: 'border-status-working/40',
   waiting: 'border-status-waiting/50',
+  paused: 'border-status-paused/40',
   offline: 'border-status-offline/40',
 }
 
@@ -28,6 +31,7 @@ export const statusColor: Record<SessionStatus, string> = {
   idle: 'hsl(var(--status-idle))',
   working: 'hsl(var(--status-working))',
   waiting: 'hsl(var(--status-waiting))',
+  paused: 'hsl(var(--status-paused))',
   offline: 'hsl(var(--status-offline))',
 }
 

@@ -40,6 +40,7 @@ export default {
           working: token('status-working'),
           waiting: token('status-waiting'),
           offline: token('status-offline'),
+          paused: token('status-paused'),
         },
         terminal: { DEFAULT: token('terminal'), foreground: token('terminal-foreground') },
       },

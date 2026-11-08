@@ -56,7 +56,7 @@ export class SessionManager {
   constructor(private readonly repo: Repo) {
     for (const s of repo.listSessions()) {
       this.sessions.set(s.id, s)
-      this.live.set(s.id, { status: 'offline' })
+      this.live.set(s.id, { status: s.paused ? 'paused' : 'offline' })
     }
   }
 
@@ -162,7 +162,8 @@ export class SessionManager {
       // One session per conversation: reuse the session that already owns it
       const owner = [...this.sessions.values()].find(x => x.claudeSessionId === resume)
       if (owner) {
-        if (this.liveOf(owner.id).status !== 'offline') throw new HttpError(409, 'That conversation is already open in a session')
+        const st = this.liveOf(owner.id).status
+        if (st !== 'offline' && st !== 'paused') throw new HttpError(409, 'That conversation is already open in a session')
         return this.restart(owner.id) // e.g. after a reboot: bring the same session back
       }
     }
@@ -260,6 +261,7 @@ export class SessionManager {
 
   async restart(id: string): Promise<Session> {
     const s = this.require(id)
+    s.paused = false
     await tmux.kill(s.tmuxSession)
     // Resume this session's own conversation; -c (latest in the folder) only as a fallback
     const resumeId = s.claudeSessionId && CONVERSATION_ID.test(s.claudeSessionId) ? s.claudeSessionId : undefined
@@ -281,12 +283,38 @@ export class SessionManager {
 
   /** Send a user message. `prefix` tags where it came from (shown in the chat). */
   /**
+   * Pause an idle session: stop its Claude process (frees memory and tokens) but keep
+   * it in the list. Restart resumes the same conversation.
+   */
+  async pause(id: string): Promise<Session> {
+    const s = this.require(id)
+    const l = this.liveOf(id)
+    if (l.status === 'paused') return this.toApi(s)
+    if (l.status !== 'idle' && l.status !== 'offline') throw new HttpError(409, 'Only an idle session can be paused')
+    if (!s.claudeSessionId || !CONVERSATION_ID.test(s.claudeSessionId)) {
+      throw new HttpError(409, "This session's conversation isn't known yet, so it couldn't be resumed later")
+    }
+    s.paused = true
+    l.pendingPermission = undefined
+    l.pendingQuestion = undefined
+    l.reader = undefined
+    await tmux.kill(s.tmuxSession)
+    l.status = 'paused'
+    l.currentTool = undefined
+    this.changed(s)
+    this.activity(s, 'session', 'Session paused')
+    log(`Session paused: ${s.name}`)
+    return this.toApi(s)
+  }
+
+  /**
    * Send a user message. While Claude waits on a question, a plain message would land
    * inside the question form, so it becomes the answer instead (returns 'answered').
    */
   async prompt(id: string, text: string, prefix: string, attachments: string[] = []): Promise<'sent' | 'answered'> {
     const s = this.require(id)
     if (this.liveOf(id).status === 'offline') throw new HttpError(409, 'Session is offline')
+    if (this.liveOf(id).status === 'paused') throw new HttpError(409, 'Session is paused')
     if (this.liveOf(id).pendingQuestion && !attachments.length && text.trim()) {
       await this.answerQuestion(id, { text })
       return 'answered'
@@ -616,6 +644,10 @@ export class SessionManager {
     const alive = new Set((await tmux.list()).map(t => t.tmuxSession))
     for (const s of this.sessions.values()) {
       const l = this.liveOf(s.id)
+      if (s.paused) {
+        if (l.status !== 'paused') this.setStatus(s, 'paused')
+        continue
+      }
       if (!alive.has(s.tmuxSession)) {
         if (l.status !== 'offline') {
           l.pendingPermission = undefined
@@ -633,7 +665,7 @@ export class SessionManager {
   private async pollTerminals(): Promise<void> {
     for (const s of this.sessions.values()) {
       const l = this.liveOf(s.id)
-      if (l.status === 'offline') continue
+      if (l.status === 'offline' || l.status === 'paused') continue
       const booting = !!l.bootUntil && Date.now() < l.bootUntil
       const trustPending = l.pendingPermission?.tool === TRUST_TOOL
       // ask: every prompt; auto: the classifier may still hand a decision to the user
@@ -695,7 +727,7 @@ export class SessionManager {
   /** Push new transcript entries to subscribers, even without hook events */
   private pollTranscripts(): void {
     for (const s of this.sessions.values()) {
-      if (this.liveOf(s.id).status === 'offline') continue
+      if (this.liveOf(s.id).status === 'offline' || this.liveOf(s.id).status === 'paused') continue
       const reader = this.readerFor(s)
       if (reader) this.pushMessages(s, reader.readNew())
     }

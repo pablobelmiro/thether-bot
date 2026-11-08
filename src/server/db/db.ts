@@ -93,6 +93,10 @@ const MIGRATIONS: string[] = [
     last_used INTEGER NOT NULL
   );
   `,
+  // 2 — sessions paused on purpose by the user
+  `
+  ALTER TABLE sessions ADD COLUMN paused INTEGER NOT NULL DEFAULT 0;
+  `,
 ]
 
 export type DB = DatabaseSync

@@ -8,7 +8,8 @@
 // Core domain
 // ---------------------------------------------------------------------------
 
-export type SessionStatus = 'idle' | 'working' | 'waiting' | 'offline'
+/** paused = stopped on purpose by the user (resume brings back the same conversation) */
+export type SessionStatus = 'idle' | 'working' | 'waiting' | 'paused' | 'offline'
 
 /**
  * ask    = every permission prompt is forwarded to you (Telegram + dashboard)
@@ -332,7 +333,8 @@ export interface AddPhoneRequest {
  *   POST   /api/sessions        CreateSessionRequest → Session
  *   PATCH  /api/sessions/:id    { name }      → Session
  *   DELETE /api/sessions/:id    ?kill=1       → { ok: true }   (kill=1 also kills the tmux session)
- *   POST   /api/sessions/:id/restart          → Session
+ *   POST   /api/sessions/:id/restart          → Session   (also resumes a paused session)
+ *   POST   /api/sessions/:id/pause            → Session   (idle sessions only)
  *   POST   /api/sessions/:id/prompt   PromptRequest → { ok: true }
  *   POST   /api/sessions/:id/command  CommandRequest → { ok: true, output: string }
  *   POST   /api/sessions/:id/cancel           → { ok: true }
