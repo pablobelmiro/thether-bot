@@ -14,6 +14,7 @@ import { Repo } from './db/repo.js'
 import { SecretBox, loadOrCreateFile, randomToken } from './crypto.js'
 import { SettingsService } from './settings.js'
 import { SessionManager } from './core/sessions.js'
+import { runDoctorChecks } from './core/doctor.js'
 import { hub } from './core/hub.js'
 import { normalizeNative } from './core/events.js'
 import { tmux } from './core/tmux.js'
@@ -44,6 +45,7 @@ async function main(): Promise<void> {
       const e = normalizeNative(body)
       if (e) sessions.handleEvent(e)
     },
+    doctor: runDoctorChecks,
   })
 
 

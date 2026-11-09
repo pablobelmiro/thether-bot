@@ -1,17 +1,49 @@
-import type { PermissionMode, Settings } from '@shared/api'
+import type { ConnectionTestResult, DoctorCheck, PermissionMode, Settings } from '@shared/api'
+import { Check, RotateCw, X } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
+import { Spinner } from '@/components/common/page'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PermissionModeRadio } from '@/features/sessions/PermissionModeRadio'
 import { LANGUAGES, setLanguage, toSupportedLanguage } from '@/lib/i18n'
+import { api } from '@/lib/api'
+import { errorMessage } from '@/lib/utils'
 import type { PatchFn } from './SettingsPage'
-import { SettingRow } from './Row'
+import { SectionTitle, SettingRow } from './Row'
 
 export function GeneralTab({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const { t } = useTranslation()
   const ids = { lang: useId(), idle: useId() }
   const [idle, setIdle] = useState(String(settings.idleLockHours))
+
+  const [checks, setChecks] = useState<DoctorCheck[] | null>(null)
+  const [e2eResult, setE2eResult] = useState<ConnectionTestResult | null>(null)
+  const [busy, setBusy] = useState<'doctor' | 'e2e' | null>(null)
+
+  const runDoctor = async () => {
+    setBusy('doctor')
+    try {
+      setChecks(await api.doctor())
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const runE2E = async () => {
+    setBusy('e2e')
+    try {
+      setE2eResult(await api.doctorE2E())
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setBusy(null)
+    }
+  }
 
   useEffect(() => setIdle(String(settings.idleLockHours)), [settings.idleLockHours])
 
@@ -73,6 +105,60 @@ export function GeneralTab({ settings, patch }: { settings: Settings; patch: Pat
           <span className="text-sm text-muted-foreground">{t('settings.general.hours')}</span>
         </div>
       </SettingRow>
+
+      <SectionTitle description={t('settings.general.connectionHint')}>{t('settings.general.connection')}</SectionTitle>
+      <div className="border border-border bg-card">
+        <div className="flex items-center justify-between gap-4 p-4">
+          <div>
+            <p className="text-sm font-medium">{t('settings.general.quickCheck')}</p>
+            <p className="text-xs text-muted-foreground">{t('settings.general.quickCheckHint')}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={runDoctor} disabled={busy !== null}>
+            {busy === 'doctor' ? <Spinner /> : <RotateCw />}
+            {t('settings.general.runCheck')}
+          </Button>
+        </div>
+        {checks && (
+          <ul className="divide-y divide-border border-t border-border">
+            {checks.map((c) => (
+              <li key={c.id} className="flex items-center gap-3 px-4 py-2 text-sm">
+                {c.ok ? <Check className="size-4 shrink-0 text-success" /> : <X className="size-4 shrink-0 text-destructive" />}
+                <span className="flex-1">{c.label}</span>
+                {!c.ok && c.hint && <span className="text-xs text-muted-foreground">{c.hint}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="flex items-center justify-between gap-4 border-t border-border p-4">
+          <div>
+            <p className="text-sm font-medium">{t('settings.general.e2eTest')}</p>
+            <p className="text-xs text-muted-foreground">{t('settings.general.e2eTestHint')}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={runE2E} disabled={busy !== null}>
+            {busy === 'e2e' ? <Spinner /> : <RotateCw />}
+            {t('settings.general.runTest')}
+          </Button>
+        </div>
+        {e2eResult && (
+          <div className="space-y-2 border-t border-border p-4">
+            <div className="flex items-center gap-2 text-sm">
+              {e2eResult.ok ? <Check className="size-4 shrink-0 text-success" /> : <X className="size-4 shrink-0 text-destructive" />}
+              <span className="font-medium">{e2eResult.ok ? t('settings.general.e2eOk') : t('settings.general.e2eFailed')}</span>
+              <span className="text-xs text-muted-foreground">({(e2eResult.durationMs / 1000).toFixed(1)}s)</span>
+            </div>
+            <ul className="space-y-1">
+              {e2eResult.steps.map((s, i) => (
+                <li key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {s.ok ? <Check className="size-3.5 shrink-0 text-success" /> : <X className="size-3.5 shrink-0 text-destructive" />}
+                  {s.label}
+                </li>
+              ))}
+            </ul>
+            {e2eResult.error && <p className="text-xs text-destructive">{e2eResult.error}</p>}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

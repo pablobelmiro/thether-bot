@@ -8,8 +8,10 @@ import type { ConversationSummary,
   BotStatus,
   ChangePasswordRequest,
   ChatMessage,
+  ConnectionTestResult,
   CreateSessionRequest,
   DiscoveredTmuxSession,
+  DoctorCheck,
   LoginRequest,
   Overview,
   PromptRequest,
@@ -142,7 +144,8 @@ export const api = {
   // overview & sessions
   overview: () => request<Overview>('GET', '/overview'),
   sessions: () => request<Session[]>('GET', '/sessions'),
-  conversations: () => request<ConversationSummary[]>('GET', '/conversations'),
+  conversations: (opts?: { limit?: number; cwd?: string }) =>
+    request<ConversationSummary[]>('GET', '/conversations', { query: { limit: opts?.limit, cwd: opts?.cwd } }),
   createSession: (body: CreateSessionRequest) => request<Session>('POST', '/sessions', { body }),
   renameSession: (id: string, name: string) => request<Session>('PATCH', `/sessions/${enc(id)}`, { body: { name } }),
   removeSession: (id: string, kill: boolean) =>
@@ -190,5 +193,9 @@ export const api = {
   botRestart: () => request<BotStatus>('POST', '/bot/restart'),
   botStop: () => request<BotStatus>('POST', '/bot/stop'),
   audit: (limit = 100) => request<AuditEntry[]>('GET', '/audit', { query: { limit } }),
+
+  // connection check
+  doctor: () => request<DoctorCheck[]>('GET', '/doctor'),
+  doctorE2E: () => request<ConnectionTestResult>('POST', '/doctor/e2e'),
 }
 

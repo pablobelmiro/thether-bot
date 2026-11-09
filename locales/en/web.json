@@ -213,6 +213,7 @@
       "permissionMode": "Run it with",
       "permissionModeHint": "Applies from now on; the original mode doesn't matter.",
       "recent": "Recent conversations",
+      "filterPlaceholder": "Filter by directory…",
       "none": "No conversations found",
       "noneHint": "Claude Code keeps them in ~/.claude/projects.",
       "open": "Open",
@@ -381,7 +382,17 @@
       "defaultPermissionHint": "Preselected when you create or adopt a session.",
       "idleLock": "Idle lock",
       "idleLockHint": "The Telegram bot asks for the password again after this long without use.",
-      "hours": "hours"
+      "hours": "hours",
+      "connection": "Connection",
+      "connectionHint": "Check whether Claude Code is properly connected to Tether.",
+      "quickCheck": "Quick check",
+      "quickCheckHint": "Verifies Node version, tmux, the Claude CLI, and hook/status-line setup. Instant.",
+      "e2eTest": "Full test",
+      "e2eTestHint": "Boots a real Claude session, clears the startup dialogs, and waits for a reply. Takes up to a couple of minutes.",
+      "runCheck": "Run check",
+      "runTest": "Run test",
+      "e2eOk": "Connection works",
+      "e2eFailed": "Connection test failed"
     },
     "telegram": {
       "enabled": "Telegram bot",

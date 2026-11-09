@@ -303,6 +303,38 @@ test('conversations: summarizes transcripts, newest first, skips metadata-only f
   ])
 })
 
+test('conversations: a cwd filter keeps matches out of other projects, limit applies after filtering', async () => {
+  const { listConversations } = await import('../src/server/core/conversations.js')
+  const { utimesSync, mkdirSync } = await import('node:fs')
+  const home = tmp()
+  const pad = line({ type: 'x', pad: 'p'.repeat(600) })
+
+  // Unrelated project, most recently touched of all three files.
+  const other = join(home, 'projects', '-home-user-other-app')
+  mkdirSync(other, { recursive: true })
+  const o = '44444444-4444-4444-4444-444444444444'
+  writeFileSync(join(other, `${o}.jsonl`), [pad, line({ type: 'user', cwd: '/home/user/other-app', message: { content: 'unrelated' } })].join('\n') + '\n')
+  utimesSync(join(other, `${o}.jsonl`), 3000, 3000)
+
+  // Matches the filter, but both older than the unrelated project above.
+  const fn = join(home, 'projects', '-home-user-Documents-econopro-fonts-new')
+  mkdirSync(fn, { recursive: true })
+  const older = '55555555-5555-5555-5555-555555555555'
+  const newer = '66666666-6666-6666-6666-666666666666'
+  writeFileSync(join(fn, `${older}.jsonl`), [pad, line({ type: 'user', cwd: '/home/user/Documents/econopro/fonts_new', message: { content: 'oldest fix' } })].join('\n') + '\n')
+  writeFileSync(join(fn, `${newer}.jsonl`), [pad, line({ type: 'user', cwd: '/home/user/Documents/econopro/fonts_new', message: { content: 'newer fix' } })].join('\n') + '\n')
+  utimesSync(join(fn, `${older}.jsonl`), 1000, 1000)
+  utimesSync(join(fn, `${newer}.jsonl`), 2000, 2000)
+
+  // Without a filter, the small limit is dominated by the unrelated, newer project.
+  assert.deepEqual(listConversations(home, 1).map(c => c.id), [o])
+
+  // With a filter, the limit applies only within the matches: both fonts_new entries
+  // are candidates, and the newest of THOSE wins — the unrelated project never competes.
+  assert.deepEqual(listConversations(home, 1, 'fonts_new').map(c => c.id), [newer])
+  assert.deepEqual(listConversations(home, 10, 'fonts_new').map(c => c.id), [newer, older])
+})
+
 test('resume command uses --resume with a validated id', () => {
   assert.match(claudeCommand('bypass', true, undefined, '11111111-1111-1111-1111-111111111111'), /'claude' '--resume' '11111111-1111-1111-1111-111111111111' '--permission-mode=bypassPermissions'/)
   assert.throws(() => claudeCommand('ask', false, undefined, 'x; rm -rf /'))
@@ -338,6 +370,54 @@ test('HTTP guard: host check, JSON-only writes, origin check', async () => {
   assert.equal(badHost.status, 403)
   const ok = await app.request('/api/auth/state', { headers: base })
   assert.equal(ok.status, 200)
+})
+
+test('GET /api/conversations forwards the cwd query param through to sessions.conversations', async () => {
+  const { createApp, AUTH_COOKIE } = await import('../src/server/http/app.js')
+  const { repo } = makeRepo()
+  const settings = new SettingsService(repo)
+  const calls: Array<[number, string | undefined]> = []
+  const sessions = { conversations: (limit: number, cwd?: string) => { calls.push([limit, cwd]); return [] } }
+  const app = createApp({ repo, settings, sessions: sessions as never, bot: { status: () => ({ state: 'stopped' }) } as never, hookToken: 'x', onHookEvent: () => {} })
+  const token = 'test-token'
+  repo.createAuthSession(token, 3600_000)
+  const base = { 'Host': '127.0.0.1:4100', Cookie: `${AUTH_COOKIE}=${token}` }
+  const r1 = await app.request('/api/conversations', { headers: base })
+  const r2 = await app.request('/api/conversations?cwd=fonts_new', { headers: base })
+  assert.equal(r1.status, 200)
+  assert.equal(r2.status, 200)
+  assert.deepEqual(calls, [[30, undefined], [30, 'fonts_new']])
+})
+
+test('GET /api/doctor runs the injected quick check; POST /api/doctor/e2e runs the injected connection test', async () => {
+  const { createApp, AUTH_COOKIE } = await import('../src/server/http/app.js')
+  const { repo } = makeRepo()
+  const settings = new SettingsService(repo)
+  const checks = [{ id: 'tmux', label: 'tmux', ok: true }]
+  const result = { ok: true, steps: [{ label: 'Session created', ok: true }], durationMs: 42 }
+  let e2eCalls = 0
+  const sessions = { testConnection: async () => { e2eCalls++; return result } }
+  const app = createApp({
+    repo,
+    settings,
+    sessions: sessions as never,
+    bot: { status: () => ({ state: 'stopped' }) } as never,
+    hookToken: 'x',
+    onHookEvent: () => {},
+    doctor: () => checks,
+  })
+  const token = 'test-token'
+  repo.createAuthSession(token, 3600_000)
+  const base = { 'Host': '127.0.0.1:4100', Cookie: `${AUTH_COOKIE}=${token}` }
+
+  const quick = await app.request('/api/doctor', { headers: base })
+  assert.equal(quick.status, 200)
+  assert.deepEqual(await quick.json(), checks)
+
+  const e2e = await app.request('/api/doctor/e2e', { method: 'POST', headers: base })
+  assert.equal(e2e.status, 200)
+  assert.deepEqual(await e2e.json(), result)
+  assert.equal(e2eCalls, 1)
 })
 
 test('questionOnScreen matches wrapped question text and rejects others', async () => {
@@ -384,4 +464,30 @@ test('workspaces: grouping, unique names, legacy rows get the git root', async (
   assert.equal((sm as unknown as { uniqueName: (b: string) => string }).uniqueName('app'), 'app 3')
   const r = await sm.pauseWorkspace('/w/app')
   assert.deepEqual(r, { paused: [], skipped: ['app', 'app 2'] }, 'no known conversation → not paused, reported as skipped')
+})
+
+test('doctor: evaluates pass/fail per check from plain facts, no I/O', async () => {
+  const { evaluateDoctorChecks } = await import('../src/server/core/doctor.js')
+  const allGood = evaluateDoctorChecks({
+    nodeVersion: '22.13.0',
+    hasTmux: true,
+    hasClaude: true,
+    hooksInstalled: true,
+    statusLineInstalled: true,
+  })
+  assert.ok(allGood.every(c => c.ok), 'all facts true → every check passes')
+  assert.deepEqual(allGood.map(c => c.id), ['node', 'tmux', 'claude', 'hooks', 'statusLine'])
+
+  const bad = evaluateDoctorChecks({
+    nodeVersion: '20.1.0',
+    hasTmux: false,
+    hasClaude: false,
+    hooksInstalled: false,
+    statusLineInstalled: false,
+  })
+  assert.deepEqual(bad.map(c => c.ok), [false, false, false, false, false])
+  assert.ok(bad.every(c => c.ok || !!c.hint), 'every failing check carries a hint')
+
+  const nodeTooOld = evaluateDoctorChecks({ nodeVersion: '22.12.9', hasTmux: true, hasClaude: true, hooksInstalled: true, statusLineInstalled: true })
+  assert.equal(nodeTooOld.find(c => c.id === 'node')?.ok, false, '22.13 is the minimum, 22.12.x fails')
 })

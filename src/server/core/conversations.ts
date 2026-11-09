@@ -78,7 +78,12 @@ export function summarizeConversation(file: string, id: string): Omit<Conversati
   }
 }
 
-export function listConversations(claudeHome: string, limit = 30): Omit<ConversationSummary, 'managedSessionId'>[] {
+/** Claude Code collapses every run of non-alphanumeric characters in the project path to "-" */
+function normalizeForMatch(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+}
+
+export function listConversations(claudeHome: string, limit = 30, dirFilter?: string): Omit<ConversationSummary, 'managedSessionId'>[] {
   const root = join(claudeHome, 'projects')
   const files: { file: string; id: string; mtime: number }[] = []
   let dirs: string[] = []
@@ -86,6 +91,10 @@ export function listConversations(claudeHome: string, limit = 30): Omit<Conversa
     dirs = readdirSync(root)
   } catch {
     return []
+  }
+  if (dirFilter) {
+    const needle = normalizeForMatch(dirFilter)
+    dirs = dirs.filter(d => normalizeForMatch(d).includes(needle))
   }
   for (const dir of dirs) {
     let names: string[] = []

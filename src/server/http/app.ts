@@ -16,6 +16,7 @@ import type {
   ChangePasswordRequest,
   CommandRequest,
   CreateSessionRequest,
+  DoctorCheck,
   LoginRequest,
   Overview,
   PermissionResponseRequest,
@@ -50,6 +51,8 @@ export interface AppDeps {
   bot: BotManager
   hookToken: string
   onHookEvent: (body: unknown) => void
+  /** Quick environment check ("is Claude properly connected?"), shown on the dashboard */
+  doctor: () => DoctorCheck[]
 }
 
 // ---------------------------------------------------------------------------
@@ -257,7 +260,11 @@ export function createApp(d: AppDeps): Hono {
     return c.json(result)
   })
 
-  app.get('/api/conversations', c => c.json(d.sessions.conversations(Math.min(Number(c.req.query('limit') ?? 30) || 30, 100))))
+  app.get('/api/conversations', c => c.json(d.sessions.conversations(Math.min(Number(c.req.query('limit') ?? 30) || 30, 100), c.req.query('cwd'))))
+
+  // --- connection check ---------------------------------------------------------
+  app.get('/api/doctor', c => c.json(d.doctor()))
+  app.post('/api/doctor/e2e', async c => c.json(await d.sessions.testConnection()))
 
   app.post('/api/sessions/adopt', async c => {
     const body = (await c.req.json()) as AdoptRequest

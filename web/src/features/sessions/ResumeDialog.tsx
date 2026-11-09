@@ -8,6 +8,7 @@ import { EmptyState, Field, Spinner } from '@/components/common/page'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { api } from '@/lib/api'
 import { useFormat } from '@/lib/format'
 import { useStore } from '@/lib/store'
@@ -23,10 +24,12 @@ export function ResumeDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const [list, setList] = useState<ConversationSummary[] | null>(null)
   const [mode, setMode] = useState<PermissionMode>('ask')
   const [busy, setBusy] = useState<string | null>(null)
+  const [dirFilter, setDirFilter] = useState('')
 
-  const load = useCallback(() => {
+  const load = useCallback((cwd: string) => {
     setList(null)
-    api.conversations().then(setList, (err) => {
+    const opts = cwd ? { cwd, limit: 100 } : undefined
+    api.conversations(opts).then(setList, (err) => {
       setList([])
       toast.error(errorMessage(err))
     })
@@ -34,9 +37,16 @@ export function ResumeDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
   useEffect(() => {
     if (!open) return
-    load()
+    setDirFilter('')
     api.settings().then((s) => setMode(s.defaultPermissionMode), () => undefined)
-  }, [open, load])
+  }, [open])
+
+  // Debounce the directory filter so each keystroke doesn't fire a request.
+  useEffect(() => {
+    if (!open) return
+    const id = setTimeout(() => load(dirFilter), 250)
+    return () => clearTimeout(id)
+  }, [open, dirFilter, load])
 
   const resume = async (c: ConversationSummary) => {
     setBusy(c.id)
@@ -67,9 +77,15 @@ export function ResumeDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         </Field>
 
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <span className="label-mono">{t('sessions.resume.recent')}</span>
-            <Button variant="ghost" size="sm" onClick={load} disabled={list === null}>
+            <Input
+              value={dirFilter}
+              onChange={(e) => setDirFilter(e.target.value)}
+              placeholder={t('sessions.resume.filterPlaceholder')}
+              className="h-8 max-w-xs"
+            />
+            <Button variant="ghost" size="sm" onClick={() => load(dirFilter)} disabled={list === null}>
               <RotateCw />
               {t('common.refresh')}
             </Button>

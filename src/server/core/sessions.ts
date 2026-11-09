@@ -5,12 +5,15 @@
  */
 
 import { randomUUID, randomBytes } from 'node:crypto'
-import { statSync } from 'node:fs'
+import { mkdtempSync, rmSync, statSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
+import { tmpdir } from 'node:os'
 import { basename, join, resolve, sep } from 'node:path'
 import type {
   ActivityEvent,
   ChatMessage,
+  ConnectionTestResult,
+  ConnectionTestStep,
   CreateSessionRequest,
   DiscoveredTmuxSession,
   PermissionMode,
@@ -248,12 +251,64 @@ export class SessionManager {
     for (let i = 2; ; i++) if (!names.has(`${base} ${i}`.toLowerCase())) return `${base} ${i}`
   }
 
-  /** Recent conversations, marking the ones already open in a running session */
-  conversations(limit = 30) {
-    return listConversations(env.claudeHome, limit).map(c => {
+  /** Recent conversations, marking the ones already open in a running session. `cwd` filters by project directory. */
+  conversations(limit = 30, cwd?: string) {
+    return listConversations(env.claudeHome, limit, cwd).map(c => {
       const open = [...this.sessions.values()].find(s => s.claudeSessionId === c.id && this.liveOf(s.id).status !== 'offline')
       return { ...c, managedSessionId: open?.id }
     })
+  }
+
+  /**
+   * Real, slow end-to-end check: boots a disposable session in a throwaway directory
+   * with bypass permissions (the exact startup path that used to crash tmux — see the
+   * bypass-warning fix in pollTerminals), waits for it to clear the startup dialogs,
+   * sends it a prompt and waits for the reply, then tears everything down.
+   */
+  async testConnection(): Promise<ConnectionTestResult> {
+    const started = Date.now()
+    const steps: ConnectionTestStep[] = []
+    const marker = `TETHER_OK_${randomBytes(4).toString('hex')}`
+    const cwd = mkdtempSync(join(tmpdir(), 'tether-doctor-'))
+    let id: string | undefined
+    try {
+      const session = await this.create({ cwd, permissionMode: 'bypass' }, 'bypass')
+      id = session.id
+      steps.push({ label: 'Claude session started', ok: true })
+
+      const booted = await this.waitUntil(45_000, () => {
+        const l = this.liveOf(id!)
+        return l.status !== 'offline' && !l.bootUntil
+      })
+      steps.push({ label: 'Startup dialogs cleared', ok: booted })
+      if (!booted) throw new Error('Timed out waiting for Claude to finish starting')
+
+      await this.prompt(id, `Reply with exactly: ${marker}`, '')
+      steps.push({ label: 'Prompt sent', ok: true })
+
+      const replied = await this.waitUntil(60_000, async () => {
+        const screen = await tmux.capture(this.require(id!).tmuxSession, 200).catch(() => '')
+        return screen.includes(marker)
+      })
+      steps.push({ label: 'Claude replied', ok: replied })
+      if (!replied) throw new Error('No reply received in time')
+
+      return { ok: true, steps, durationMs: Date.now() - started }
+    } catch (err) {
+      return { ok: false, steps, durationMs: Date.now() - started, error: err instanceof Error ? err.message : String(err) }
+    } finally {
+      if (id) await this.remove(id, true).catch(() => undefined)
+      rmSync(cwd, { recursive: true, force: true })
+    }
+  }
+
+  private async waitUntil(timeoutMs: number, cond: () => boolean | Promise<boolean>): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs
+    for (;;) {
+      if (await cond()) return true
+      if (Date.now() >= deadline) return false
+      await new Promise(r => setTimeout(r, 500))
+    }
   }
 
   async discover(): Promise<DiscoveredTmuxSession[]> {

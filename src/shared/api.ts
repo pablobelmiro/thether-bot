@@ -156,6 +156,27 @@ export interface PauseWorkspaceResult {
   skipped: string[]
 }
 
+/** A quick environment check ("is Claude properly connected?") */
+export interface DoctorCheck {
+  id: string
+  label: string
+  ok: boolean
+  hint?: string
+}
+
+/** One step of the slow, real end-to-end connection test */
+export interface ConnectionTestStep {
+  label: string
+  ok: boolean
+}
+
+export interface ConnectionTestResult {
+  ok: boolean
+  steps: ConnectionTestStep[]
+  durationMs: number
+  error?: string
+}
+
 /** A Claude Code conversation found in ~/.claude/projects that can be resumed */
 export interface ConversationSummary {
   /** Claude Code session id (file name of the transcript) */
