@@ -757,7 +757,9 @@ export class SessionManager {
           hub.emit('permission', this.toApi(s), null)
         }
         if (s.permissionMode === 'bypass' && detectBypassWarning(screen)) {
-          await tmux.keys(s.tmuxSession, '2')
+          // This dialog has no numeric shortcuts: "No, exit" is highlighted by default,
+          // so Down then Enter is required to select "Yes, I accept".
+          await tmux.keys(s.tmuxSession, 'Down', 'Enter')
           l.bootUntil = undefined
           continue
         }
