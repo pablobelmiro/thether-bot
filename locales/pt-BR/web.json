@@ -529,6 +529,7 @@
       "createTitle": "Novo agendamento"
     },
     "every": "a cada {{minutes}} min",
+    "weeklyAt": "{{days}} às {{time}}",
     "nextRun": "Próximo: {{time}}",
     "never": "Nunca",
     "undelivered": "Não entregue",

@@ -529,6 +529,7 @@
       "createTitle": "New schedule"
     },
     "every": "every {{minutes}} min",
+    "weeklyAt": "{{days}} at {{time}}",
     "nextRun": "Next: {{time}}",
     "never": "Never",
     "undelivered": "Undelivered",

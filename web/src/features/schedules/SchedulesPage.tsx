@@ -28,10 +28,18 @@ function statusBadge(status: ScheduleRunStatus) {
   }
 }
 
+/** Short weekday names in the active language, index 0 = Sunday (matches Date.getDay) */
+function weekdayLabels(locale: string): string[] {
+  const fmt = new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' })
+  // 2024-01-07 was a Sunday
+  return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(Date.UTC(2024, 0, 7 + i))))
+}
+
 export function SchedulesPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const fmt = useFormat()
   const navigate = useNavigate()
+  const dayNames = weekdayLabels(i18n.language)
 
   const [overview, setOverview] = useState<ScheduleOverview | null>(null)
   const [schedules, setSchedules] = useState<Schedule[]>([])
@@ -219,7 +227,10 @@ export function SchedulesPage() {
                   <div className="text-xs text-muted-foreground">
                     {s.kind === 'interval'
                       ? t('schedules.every', { minutes: s.intervalMinutes })
-                      : t('schedules.kind.weekly')}
+                      : t('schedules.weeklyAt', {
+                          days: (s.weekdays ?? []).map((n) => dayNames[n] ?? n).join(', '),
+                          time: s.timeOfDay ?? '',
+                        })}
                     {' · '}
                     {s.nextRun ? t('schedules.nextRun', { time: fmt.relative(s.nextRun) }) : t('schedules.never')}
                   </div>

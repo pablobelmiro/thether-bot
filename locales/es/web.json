@@ -529,6 +529,7 @@
       "createTitle": "Nueva programación"
     },
     "every": "cada {{minutes}} min",
+    "weeklyAt": "{{days}} a las {{time}}",
     "nextRun": "Próxima: {{time}}",
     "never": "Nunca",
     "undelivered": "No entregado",
