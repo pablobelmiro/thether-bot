@@ -28,6 +28,11 @@ Tether connects the [Claude Code](https://docs.claude.com/en/docs/claude-code) C
   - slash commands and model/effort switching;
   - context and plan-limit charts;
   - a live terminal view.
+- **Scheduled tasks:**
+  - a cron of prompts that fire automatically (every N minutes, or on chosen weekdays at a fixed time);
+  - each run creates a disposable Claude session in bypass mode, injects the prompt, and notifies one chosen Telegram number with the result;
+  - overlap protection: if a previous run is still in flight the new firing is skipped rather than doubling up;
+  - dashboard page and Telegram commands to manage, trigger, pause and inspect schedules.
 
 It uses your local `claude` login. Nothing is proxied to a third party, and there's no API key to configure. Each session is a normal `claude` process inside `tmux`, so you can still `tmux attach` to it at any time.
 
@@ -96,6 +101,7 @@ Then just type. Your message goes to the active session, and Claude's answer com
 | `/model`, `/effort` | Change model or effort (buttons, or pass a value) |
 | `/clear` | Clear the session's context (asks for confirmation) |
 | `/cancel` | Interrupt Claude |
+| `/schedules` | List scheduled tasks (▶️ enabled, ⏸️ paused), tap one to inspect recent runs and get run-now / pause / delete buttons |
 | `/lock` | Lock the bot now |
 | `/lang` | Change your language |
 | `/help` | Show everything |
@@ -119,14 +125,46 @@ Localized aliases also work, e.g. `/senha`, `/ajuda`, `/tela` in Portuguese and 
 - **Sidebar:**
   - **+** new session;
   - **🕘** resume a past conversation;
-  - **⇄** adopt a tmux session you started yourself.
+  - **⇄** adopt a tmux session you started yourself;
+  - collapses to a narrow icon rail (the choice is remembered across reloads).
+- **Schedules:**
+  - stat cards for the last 30 days and a next-runs strip;
+  - schedule list with run-now, edit, pause/resume and delete;
+  - failures grid: re-dispatch a failed run, open it as a live session, or discard it.
 - **Settings:**
   - language and default permission mode;
   - idle lock;
   - Telegram token and bot restart;
   - verified users;
   - password and allow list;
-  - audit log.
+  - audit log;
+  - **Connection checks:** quick doctor check (Claude CLI, tmux, Telegram reachability, …) and an end-to-end test that exercises the whole path and reports each step.
+
+## Scheduled tasks
+
+Schedules run a prompt automatically on a timer and deliver the result to one Telegram number.
+
+**Creating a schedule.** In the dashboard (Schedules → New) or in Telegram via `/schedules` → **+ New** wizard. Each schedule has:
+
+| Field | Notes |
+|---|---|
+| Name | Shown in notifications and the session switcher |
+| Prompt | The text injected into Claude |
+| Working directory | Absolute path; must start with `/` |
+| Frequency | `interval` (every N minutes, 1–10080) or `weekly` (chosen weekdays at HH:MM) |
+| Notify number | One verified Telegram number that receives the result |
+| Timeout | 1–1440 minutes; the run is cancelled and the number is notified if it exceeds this |
+| Preserve session | When off (default), a successful run is `/clear`ed, paused and removed; when on, the session is kept |
+
+**How it runs.** When a schedule fires, Tether creates a fresh Claude session in bypass permission mode, injects the prompt through the same tmux path the bot uses, and tracks it to completion. If the same schedule's previous run is still in flight, the new firing is recorded as `skipped` — a schedule never runs twice at once. A global concurrency cap keeps the total number of simultaneous scheduled sessions bounded.
+
+**Run statuses:** `running`, `waiting` (Claude asked a question — the notify number is messaged), `success`, `error`, `timeout`, `skipped`, `taken_over` (a human typed into the session), `discarded`.
+
+**Human takeover.** If you type into a scheduled session (from Telegram or the dashboard), the run is marked `taken_over` and the scheduler lets go of it; the session is then yours to continue.
+
+**Re-dispatching failures.** The dashboard Schedules page shows a failures grid. Any failed run can be re-dispatched as a fresh run, opened as a live session to finish by hand, or discarded.
+
+**Locked account.** If the dashboard password lock is engaged when a scheduled run finishes, the Telegram notification says the task completed and asks you to unlock before delivering the full result.
 
 ## Permission modes
 

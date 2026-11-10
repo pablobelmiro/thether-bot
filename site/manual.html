@@ -67,6 +67,7 @@
             <li><a href="#inbox">The 📬 inbox</a></li>
             <li><a href="#new">New sessions and /resume</a></li>
             <li><a href="#dashboard">The dashboard</a></li>
+            <li><a href="#scheduled-tasks">Scheduled tasks</a></li>
             <li><a href="#modes">Permission modes</a></li>
             <li><a href="#security">Security</a></li>
             <li><a href="#config">Configuration</a></li>
@@ -214,6 +215,7 @@
               <tbody>
                 <tr><td><code>/start</code></td><td>Begin: asks you to share your contact, then shows the help.</td></tr>
                 <tr><td><code>/password &lt;password&gt;</code><span class="alias"><code>/senha</code> · <code>/clave</code></span></td><td>Unlock the bot. The message is deleted right away.</td></tr>
+                <tr><td><code>/schedules</code><span class="alias"><code>/agendamentos</code> · <code>/programaciones</code></span></td><td>List scheduled tasks. Tap one to see its recent runs and get inline buttons for run-now, pause/enable and delete. The <em>+ New</em> button starts a step-by-step creation wizard.</td></tr>
                 <tr><td><code>/lock</code><span class="alias"><code>/travar</code> · <code>/bloquear</code></span></td><td>Lock the bot now.</td></tr>
                 <tr><td><code>/change [name]</code><span class="alias"><code>/trocar</code> · <code>/cambiar</code></span></td><td>Switch working directory. Without a name, lists directories with running/total sessions and 📬 unread totals; picking one opens its sessions, or switches directly if it has only one. A name matches a session exactly, otherwise a directory. See <a href="#workspaces">Working directories</a>.</td></tr>
                 <tr><td><code>/sessions</code><span class="alias"><code>/sessoes</code> · <code>/sesiones</code></span></td><td>Sessions of the current directory: switch, <em>➕ New session here</em>, <em>⏸️ Pause all</em>.</td></tr>
@@ -272,7 +274,7 @@
         <section id="dashboard" aria-labelledby="h-dashboard">
           <span class="sec-num">09</span>
           <h2 id="h-dashboard">The dashboard</h2>
-          <p>Open <code>http://127.0.0.1:4100</code> and sign in with your password. The login lasts 7 days. The sidebar lists your sessions with their state: <em>Idle</em>, <em>Working</em>, <em>Waiting</em> (for you), <em>Offline</em> or <em>Paused</em> (gray).</p>
+          <p>Open <code>http://127.0.0.1:4100</code> and sign in with your password. The login lasts 7 days. The sidebar lists your sessions with their state: <em>Idle</em>, <em>Working</em>, <em>Waiting</em> (for you), <em>Offline</em> or <em>Paused</em> (gray). A toggle button at the top of the sidebar collapses it to a narrow icon rail; the choice is remembered across reloads.</p>
 
           <h3 id="dash-workspaces">Working directories &amp; sessions</h3>
           <p>In the sidebar, sessions are grouped under collapsible <strong>directory headers</strong>: a folder icon, the directory name and <em>running/total</em>. Each group has <strong>New session here</strong> (+), which opens another Claude in the same folder, and <strong>Pause all</strong> (⏸), shown while something in it is running; busy sessions are left running. The sidebar footer links to this manual, in the dashboard's language, and to GitHub.</p>
@@ -310,7 +312,7 @@
           <p>Type the <strong>working directory</strong>: suggestions come from this machine, and <kbd>Tab</kbd> completes the path. Recent projects are listed for one-click picking. You can also set a name, the permission mode and the model, and choose <em>Continue last conversation</em> to resume the most recent conversation in that folder (<code>claude -c</code>).</p>
 
           <h3>Resume (🕘)</h3>
-          <p>Continue any recent Claude Code conversation from this machine in a new session. Choose the permission mode it should run with now; how it was started doesn't matter. If the conversation already belongs to a session, that session is restarted instead of duplicated.</p>
+          <p>Continue any recent Claude Code conversation from this machine in a new session. Choose the permission mode it should run with now; how it was started doesn't matter. If the conversation already belongs to a session, that session is restarted instead of duplicated. The dialog can be filtered by working directory to narrow a long list.</p>
 
           <h3>Adopt (⇄)</h3>
           <p>Take over a Claude Code session you started yourself inside tmux. Tether lists the tmux sessions it doesn't manage yet; tell it how that Claude was started (which permission mode) so it knows whether to expect permission prompts.</p>
@@ -320,7 +322,7 @@
             <table>
               <thead><tr><th scope="col">Tab</th><th scope="col">What's there</th></tr></thead>
               <tbody>
-                <tr><td>General</td><td>Language, default permission mode for new and adopted sessions, idle lock (hours before the bot asks for the password again).</td></tr>
+                <tr><td>General</td><td>Language, default permission mode for new and adopted sessions, idle lock (hours before the bot asks for the password again). Also: <strong>Quick check</strong> — runs a set of doctor checks (Claude CLI present, tmux present, Telegram reachable, …) and shows a pass/fail result for each; and <strong>End-to-end test</strong> — exercises the full path from session creation to answer delivery and reports each step with its duration.</td></tr>
                 <tr><td>Telegram</td><td>Turn the bot on or off, paste or replace the token, see verified users and revoke their access.</td></tr>
                 <tr><td>Security</td><td>Change the password; add or remove allowed phone numbers, with an optional label.</td></tr>
                 <tr><td>Audit log</td><td>Security-relevant actions, newest first: who did what, from where.</td></tr>
@@ -330,8 +332,67 @@
         </section>
 
         <!-- 10 -->
-        <section id="modes" aria-labelledby="h-modes">
+        <section id="scheduled-tasks" aria-labelledby="h-scheduled-tasks">
           <span class="sec-num">10</span>
+          <h2 id="h-scheduled-tasks">Scheduled tasks</h2>
+          <p>Schedules run a prompt automatically on a timer and deliver the result to one Telegram number. Each run is a disposable Claude session created in bypass permission mode; when it finishes (or fails), the result is sent to the notify number and the session is cleaned up.</p>
+
+          <h3>Creating a schedule</h3>
+          <p>In the dashboard, go to <strong>Schedules → New schedule</strong> and fill in the form. In Telegram, send <code>/schedules</code>, tap <strong>+ New</strong>, and follow the step-by-step wizard — it asks for each field in turn and shows a summary before saving.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th scope="col">Field</th><th scope="col">Notes</th></tr></thead>
+              <tbody>
+                <tr><td>Name</td><td>Shown in notifications and in the session switcher while the run is active.</td></tr>
+                <tr><td>Prompt</td><td>The text injected into Claude at each run.</td></tr>
+                <tr><td>Working directory</td><td>Absolute path where Claude will run. Must start with <code>/</code>.</td></tr>
+                <tr><td>Frequency</td><td><strong>Interval</strong>: every N minutes (1–10080). <strong>Weekly</strong>: chosen weekdays at a fixed HH:MM time.</td></tr>
+                <tr><td>Notify number</td><td>One verified Telegram number that receives the result. Must already be on your allow list.</td></tr>
+                <tr><td>Timeout</td><td>1–1440 minutes. If the run exceeds this, it is cancelled and the notify number is messaged.</td></tr>
+                <tr><td>Preserve session</td><td>When off (default), a successful run is <code>/clear</code>ed, paused and removed. When on, the session is kept after the run ends.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Overlap protection</h3>
+          <p>If a schedule's previous run is still in flight when the next firing is due, the new firing is recorded as <code>skipped</code> and no new session is created. A schedule never runs twice at once.</p>
+
+          <h3>Run statuses</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th scope="col">Status</th><th scope="col">Meaning</th></tr></thead>
+              <tbody>
+                <tr><td><code>running</code></td><td>The session is active and Claude is working.</td></tr>
+                <tr><td><code>waiting</code></td><td>Claude asked a question. The notify number is messaged; answering from Telegram or the dashboard continues the run.</td></tr>
+                <tr><td><code>success</code></td><td>The run completed normally. The result was delivered to the notify number.</td></tr>
+                <tr><td><code>error</code></td><td>The session went offline or Claude returned an error. The notify number is messaged.</td></tr>
+                <tr><td><code>timeout</code></td><td>The run exceeded its timeout. The notify number is messaged.</td></tr>
+                <tr><td><code>skipped</code></td><td>A previous run was still in flight; this firing was skipped.</td></tr>
+                <tr><td><code>taken_over</code></td><td>A human typed into the session. The scheduler lets go of it; the session is now yours to continue.</td></tr>
+                <tr><td><code>discarded</code></td><td>The run was manually discarded from the failures grid.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Dashboard: Schedules page</h3>
+          <ul>
+            <li><strong>Stat cards</strong> (30-day window): total runs, successes, failures, skipped.</li>
+            <li><strong>Next runs strip</strong>: the upcoming firing time for each enabled schedule.</li>
+            <li><strong>Schedule list</strong>: run-now, edit, pause/resume, delete for each schedule.</li>
+            <li><strong>Failures grid</strong>: failed runs can be re-dispatched as a fresh run, opened as a live session to finish by hand, or discarded.</li>
+          </ul>
+
+          <h3>Telegram: schedule commands</h3>
+          <p><code>/schedules</code> (aliases <code>/agendamentos</code>, <code>/programaciones</code>) lists all schedules. ▶️ means enabled, ⏸️ means paused. Tap a schedule to see its last five runs and get buttons for <strong>Run now</strong>, <strong>Pause / Enable</strong> and <strong>Delete</strong>. Tap <strong>+ New</strong> to start the creation wizard.</p>
+          <p>Running scheduled sessions appear in the session switcher (<code>/change</code>, <code>/sessions</code>) so you can jump into them at any time. If you type into one, the run is marked <code>taken_over</code> and the session becomes a normal interactive session.</p>
+
+          <h3>Locked account</h3>
+          <p>If the bot is locked when a scheduled run finishes, the notification says the task completed and asks you to unlock before delivering the full report. Unlock with <code>/password</code> as usual.</p>
+        </section>
+
+        <!-- 11 -->
+        <section id="modes" aria-labelledby="h-modes">
+          <span class="sec-num">11</span>
           <h2 id="h-modes">Permission modes</h2>
           <p>Each session runs in one of three modes, chosen when you create, resume or adopt it. The default is set in <em>Settings → General</em>.</p>
           <div class="table-wrap">
@@ -352,9 +413,9 @@
           <p>Each permission prompt carries an id derived from what was shown, and the screen is re-read right before an answer is sent. A stale button can't approve a newer prompt; it's refused with “no longer pending”.</p>
         </section>
 
-        <!-- 11 -->
+        <!-- 12 -->
         <section id="security" aria-labelledby="h-security">
-          <span class="sec-num">11</span>
+          <span class="sec-num">12</span>
           <h2 id="h-security">Security</h2>
           <p>Anyone who controls Tether can make Claude run commands as your user. The design assumes that and puts several barriers in front of it.</p>
           <div class="table-wrap">
@@ -387,9 +448,9 @@
           <p>Tether doesn't try to defend against software already running as your user or as root: it can read <code>~/.tether</code> and control tmux directly. See <a href="https://github.com/pablobelmiro/thether-bot/blob/main/SECURITY.md">SECURITY.md</a> for the full model and how to report a vulnerability.</p>
         </section>
 
-        <!-- 12 -->
+        <!-- 13 -->
         <section id="config" aria-labelledby="h-config">
-          <span class="sec-num">12</span>
+          <span class="sec-num">13</span>
           <h2 id="h-config">Configuration</h2>
           <p>Everything user-facing lives in the dashboard and is stored in <code>~/.tether/tether.db</code>. Process options are environment variables:</p>
           <div class="table-wrap">
@@ -423,9 +484,9 @@ TETHER_PERMISSION_MODE=auto</code></pre>
           </div>
         </section>
 
-        <!-- 13 -->
+        <!-- 14 -->
         <section id="cli" aria-labelledby="h-cli">
-          <span class="sec-num">13</span>
+          <span class="sec-num">14</span>
           <h2 id="h-cli">CLI commands</h2>
           <div class="table-wrap">
             <table>
@@ -445,9 +506,9 @@ TETHER_PERMISSION_MODE=auto</code></pre>
           <p>Your own status line keeps working: Tether's forwarder chains to the command you already had.</p>
         </section>
 
-        <!-- 14 -->
+        <!-- 15 -->
         <section id="troubleshooting" aria-labelledby="h-troubleshooting">
-          <span class="sec-num">14</span>
+          <span class="sec-num">15</span>
           <h2 id="h-troubleshooting">Troubleshooting</h2>
           <p>Start with <code>tether doctor</code>. It checks the most common problems.</p>
           <dl>
@@ -474,9 +535,9 @@ TETHER_PERMISSION_MODE=auto</code></pre>
           </dl>
         </section>
 
-        <!-- 15 -->
+        <!-- 16 -->
         <section id="uninstall" aria-labelledby="h-uninstall">
-          <span class="sec-num">15</span>
+          <span class="sec-num">16</span>
           <h2 id="h-uninstall">Uninstall</h2>
           <div class="code">
             <div class="code-head"><span>Terminal</span><button class="copy-btn" type="button" data-copy="#code-uninstall" data-done="Copied" hidden>Copy</button></div>
@@ -487,9 +548,9 @@ TETHER_PERMISSION_MODE=auto</code></pre>
           <p>Then delete the cloned folder. Your Claude Code transcripts in <code>~/.claude/projects</code> are not touched. You can also delete the bot in @BotFather with <code>/deletebot</code>.</p>
         </section>
 
-        <!-- 16 -->
+        <!-- 17 -->
         <section id="contributing" aria-labelledby="h-contributing">
-          <span class="sec-num">16</span>
+          <span class="sec-num">17</span>
           <h2 id="h-contributing">Contributing &amp; translations</h2>
           <p>Issues and pull requests are welcome. Small, focused pull requests are easiest to review.</p>
           <div class="code">

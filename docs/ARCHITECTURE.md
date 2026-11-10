@@ -9,8 +9,9 @@
  Claude Code hooks ── POST ────────▶ │ /api/hook/event ───────┤        ▲   │                                         │
  status line ──────── POST ────────▶ │ /api/hook/statusline ──┘        │   └─▶ hub (events) ─▶ WS clients, bot       │
  ~/.claude/projects/**.jsonl ─ read ─────────────────────────────────┘ transcripts → chat                           │
-                                     │ SQLite (~/.tether/tether.db): settings, phones, users, sessions, usage, audit │
-                                     └──────────────────────────────────────────────────────────────────────────────┘
+                                     │ SQLite (~/.tether/tether.db): settings, phones, users, sessions, usage, audit, schedules, runs │
+                                     │ Scheduler (setInterval 15 s) ──▶ SessionManager (bypass mode) ──▶ hub ──▶ bot notify          │
+                                     └────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Data sources
@@ -50,3 +51,9 @@
 - `session`: typing indicator while the active session works.
 
 Locks are per user and in memory, so they are lost on restart, by design.
+
+## Scheduler
+
+`Scheduler` (`core/scheduler.ts`) runs on a 15-second tick. On each tick it calls `planDispatch` from `core/schedules.ts` — which is pure: no I/O, just time math — to get a list of schedule ids to run and ids to record as `skipped` (previous run still in flight). For each id to run, `Scheduler` creates a session via `SessionManager` in bypass mode, injects the prompt through the same tmux buffer path as the bot, and listens to hub events (`turn_complete`, `question`, `human_input`, `session`) to advance the run to a terminal status. Timeout enforcement runs on the same tick: elapsed wall-clock time minus time spent waiting is compared to the schedule's `timeoutMinutes`. Finished runs notify the schedule's `notifyPhone` via `BotManager`.
+
+Schedules and runs persist in SQLite (migration #4): `schedules` and `schedule_runs` tables. `core/schedules.ts` holds the pure functions — `computeNextRun`, `planDispatch`, `normalizeScheduleInput`, `describeSchedule` — with no database or tmux calls. All side effects live in `core/scheduler.ts`.

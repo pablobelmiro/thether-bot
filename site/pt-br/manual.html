@@ -67,6 +67,7 @@
             <li><a href="#inbox">A caixa de entrada 📬</a></li>
             <li><a href="#new">Novas sessões e /retomar</a></li>
             <li><a href="#dashboard">O painel</a></li>
+            <li><a href="#scheduled-tasks">Tarefas agendadas</a></li>
             <li><a href="#modes">Modos de permissão</a></li>
             <li><a href="#security">Segurança</a></li>
             <li><a href="#config">Configuração</a></li>
@@ -214,6 +215,7 @@
               <tbody>
                 <tr><td><code>/start</code></td><td>Começo: pede que você compartilhe o contato e depois mostra a ajuda.</td></tr>
                 <tr><td><code>/senha &lt;senha&gt;</code><span class="alias"><code>/password</code> · <code>/clave</code></span></td><td>Desbloqueia o bot. A mensagem é apagada na hora.</td></tr>
+                <tr><td><code>/agendamentos</code><span class="alias"><code>/schedules</code> · <code>/programaciones</code></span></td><td>Lista as tarefas agendadas. Toque em uma para ver as últimas execuções e obter botões de executar agora, pausar/ativar e excluir. O botão <em>+ Novo</em> inicia o assistente de criação.</td></tr>
                 <tr><td><code>/travar</code><span class="alias"><code>/lock</code> · <code>/bloquear</code></span></td><td>Trava o bot agora.</td></tr>
                 <tr><td><code>/trocar [nome]</code><span class="alias"><code>/change</code> · <code>/cambiar</code></span></td><td>Troca de diretório de trabalho. Sem nome, lista os diretórios com as sessões rodando/total e o total de não lidas 📬; escolher um abre as sessões dele, ou troca direto se houver só uma. Um nome procura uma sessão exata e, senão, um diretório. Veja <a href="#workspaces">Diretórios de trabalho</a>.</td></tr>
                 <tr><td><code>/sessoes</code><span class="alias"><code>/sessions</code> · <code>/sesiones</code></span></td><td>Sessões do diretório atual: trocar, <em>➕ Nova sessão aqui</em>, <em>⏸️ Pausar todas</em>.</td></tr>
@@ -272,7 +274,7 @@
         <section id="dashboard" aria-labelledby="h-dashboard">
           <span class="sec-num">09</span>
           <h2 id="h-dashboard">O painel</h2>
-          <p>Abra <code>http://127.0.0.1:4100</code> e entre com a sua senha. O login dura 7 dias. A barra lateral lista as suas sessões com o estado de cada uma: <em>Ociosa</em>, <em>Trabalhando</em>, <em>Aguardando</em> (você), <em>Offline</em> ou <em>Pausada</em> (cinza).</p>
+          <p>Abra <code>http://127.0.0.1:4100</code> e entre com a sua senha. O login dura 7 dias. A barra lateral lista as suas sessões com o estado de cada uma: <em>Ociosa</em>, <em>Trabalhando</em>, <em>Aguardando</em> (você), <em>Offline</em> ou <em>Pausada</em> (cinza). Um botão no topo da barra lateral recolhe-a para uma faixa estreita de ícones; a escolha é lembrada entre recarregamentos.</p>
 
           <h3 id="dash-workspaces">Diretórios de trabalho e sessões</h3>
           <p>Na barra lateral, as sessões ficam agrupadas sob <strong>cabeçalhos de diretório</strong> recolhíveis: um ícone de pasta, o nome do diretório e <em>rodando/total</em>. Cada grupo tem <strong>Nova sessão aqui</strong> (+), que abre outro Claude na mesma pasta, e <strong>Pausar todas</strong> (⏸), que aparece quando algo ali está rodando; as sessões ocupadas continuam rodando. O rodapé da barra lateral tem links para este manual, no idioma do painel, e para o GitHub.</p>
@@ -310,7 +312,7 @@
           <p>Digite o <strong>diretório de trabalho</strong>: as sugestões vêm desta máquina, e <kbd>Tab</kbd> completa o caminho. Os projetos recentes aparecem listados para escolher com um clique. Também dá para definir um nome, o modo de permissão e o modelo, e marcar <em>Continuar a última conversa</em> para retomar a conversa mais recente daquela pasta (<code>claude -c</code>).</p>
 
           <h3>Retomar (🕘)</h3>
-          <p>Continue qualquer conversa recente do Claude Code desta máquina numa nova sessão. Escolha o modo de permissão com que ela deve rodar agora; não importa como ela foi iniciada. Se a conversa já pertence a uma sessão, essa sessão é reiniciada em vez de duplicada.</p>
+          <p>Continue qualquer conversa recente do Claude Code desta máquina numa nova sessão. Escolha o modo de permissão com que ela deve rodar agora; não importa como ela foi iniciada. Se a conversa já pertence a uma sessão, essa sessão é reiniciada em vez de duplicada. A janela pode ser filtrada por diretório de trabalho para facilitar a busca em listas longas.</p>
 
           <h3>Adotar (⇄)</h3>
           <p>Assuma uma sessão do Claude Code que você mesmo iniciou dentro do tmux. O Tether lista as sessões do tmux que ele ainda não gerencia; informe como aquele Claude foi iniciado (em qual modo de permissão) para ele saber se deve esperar pedidos de permissão.</p>
@@ -320,7 +322,7 @@
             <table>
               <thead><tr><th scope="col">Aba</th><th scope="col">O que tem lá</th></tr></thead>
               <tbody>
-                <tr><td>Geral</td><td>Idioma, modo de permissão padrão para sessões novas e adotadas, bloqueio por inatividade (horas até o bot pedir a senha de novo).</td></tr>
+                <tr><td>Geral</td><td>Idioma, modo de permissão padrão para sessões novas e adotadas, bloqueio por inatividade (horas até o bot pedir a senha de novo). Também: <strong>Verificação rápida</strong> — executa um conjunto de verificações (Claude CLI presente, tmux presente, Telegram acessível, …) e mostra o resultado para cada uma; e <strong>Teste de ponta a ponta</strong> — percorre o caminho completo desde a criação da sessão até a entrega da resposta e reporta cada etapa com a duração.</td></tr>
                 <tr><td>Telegram</td><td>Ligar ou desligar o bot, colar ou trocar o token, ver os usuários verificados e revogar o acesso deles.</td></tr>
                 <tr><td>Segurança</td><td>Trocar a senha; adicionar ou remover telefones autorizados, com um rótulo opcional.</td></tr>
                 <tr><td>Registro de auditoria</td><td>Ações relevantes para a segurança, das mais recentes para as mais antigas: quem fez o quê, e de onde.</td></tr>
@@ -330,8 +332,67 @@
         </section>
 
         <!-- 10 -->
-        <section id="modes" aria-labelledby="h-modes">
+        <section id="scheduled-tasks" aria-labelledby="h-scheduled-tasks">
           <span class="sec-num">10</span>
+          <h2 id="h-scheduled-tasks">Tarefas agendadas</h2>
+          <p>As tarefas agendadas executam um prompt automaticamente em um horário definido e entregam o resultado para um número do Telegram. Cada execução cria uma sessão descartável do Claude no modo de permissão bypass; quando termina (ou falha), o resultado é enviado para o número de notificação e a sessão é removida.</p>
+
+          <h3>Criando uma tarefa agendada</h3>
+          <p>No painel, acesse <strong>Agendamentos → Nova tarefa</strong> e preencha o formulário. No Telegram, envie <code>/agendamentos</code>, toque em <strong>+ Novo</strong> e siga o assistente — ele pede cada campo em ordem e exibe um resumo antes de salvar.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th scope="col">Campo</th><th scope="col">Notas</th></tr></thead>
+              <tbody>
+                <tr><td>Nome</td><td>Aparece nas notificações e no seletor de sessão enquanto a execução está ativa.</td></tr>
+                <tr><td>Prompt</td><td>O texto injetado no Claude a cada execução.</td></tr>
+                <tr><td>Diretório de trabalho</td><td>Caminho absoluto onde o Claude vai rodar. Deve começar com <code>/</code>.</td></tr>
+                <tr><td>Frequência</td><td><strong>Intervalo</strong>: a cada N minutos (1–10080). <strong>Semanal</strong>: dias da semana escolhidos em um horário fixo HH:MM.</td></tr>
+                <tr><td>Número de notificação</td><td>Um número do Telegram verificado que receberá o resultado. Precisa já estar na lista de permitidos.</td></tr>
+                <tr><td>Tempo limite</td><td>1–1440 minutos. Se a execução ultrapassar esse tempo, ela é cancelada e o número de notificação é avisado.</td></tr>
+                <tr><td>Preservar sessão</td><td>Quando desativado (padrão), uma execução bem-sucedida tem o contexto limpo (<code>/clear</code>), é pausada e removida. Quando ativado, a sessão é mantida após o término.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Proteção contra sobreposição</h3>
+          <p>Se a execução anterior de uma tarefa ainda estiver em andamento quando o próximo disparo chegar, o novo disparo é registrado como <code>ignorado</code> e nenhuma nova sessão é criada. Uma tarefa nunca roda duas vezes ao mesmo tempo.</p>
+
+          <h3>Status das execuções</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th scope="col">Status</th><th scope="col">Significado</th></tr></thead>
+              <tbody>
+                <tr><td><code>running</code></td><td>A sessão está ativa e o Claude está trabalhando.</td></tr>
+                <tr><td><code>waiting</code></td><td>O Claude fez uma pergunta. O número de notificação é avisado; responder pelo Telegram ou pelo painel continua a execução.</td></tr>
+                <tr><td><code>success</code></td><td>A execução terminou normalmente. O resultado foi entregue ao número de notificação.</td></tr>
+                <tr><td><code>error</code></td><td>A sessão ficou offline ou o Claude retornou um erro. O número de notificação é avisado.</td></tr>
+                <tr><td><code>timeout</code></td><td>A execução ultrapassou o tempo limite. O número de notificação é avisado.</td></tr>
+                <tr><td><code>skipped</code></td><td>A execução anterior ainda estava em andamento; este disparo foi ignorado.</td></tr>
+                <tr><td><code>taken_over</code></td><td>Um humano digitou na sessão. O agendador a libera; a sessão passa a ser sua para continuar.</td></tr>
+                <tr><td><code>discarded</code></td><td>A execução foi descartada manualmente na grade de falhas.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Painel: página de Agendamentos</h3>
+          <ul>
+            <li><strong>Cartões de estatísticas</strong> (janela de 30 dias): total de execuções, sucessos, falhas, ignoradas.</li>
+            <li><strong>Faixa de próximas execuções</strong>: o horário do próximo disparo para cada tarefa ativa.</li>
+            <li><strong>Lista de tarefas</strong>: executar agora, editar, pausar/retomar e excluir para cada tarefa.</li>
+            <li><strong>Grade de falhas</strong>: execuções com falha podem ser reenviadas como nova execução, abertas como sessão ao vivo para concluir manualmente ou descartadas.</li>
+          </ul>
+
+          <h3>Telegram: comandos de agendamento</h3>
+          <p><code>/agendamentos</code> (aliases <code>/schedules</code>, <code>/programaciones</code>) lista todas as tarefas agendadas. ▶️ significa ativa, ⏸️ significa pausada. Toque em uma tarefa para ver as últimas cinco execuções e obter botões de <strong>Executar agora</strong>, <strong>Pausar / Ativar</strong> e <strong>Excluir</strong>. Toque em <strong>+ Novo</strong> para iniciar o assistente de criação.</p>
+          <p>As sessões de tarefas agendadas em execução aparecem no seletor de sessão (<code>/trocar</code>, <code>/sessoes</code>) para que você possa entrar nelas a qualquer momento. Se você digitar em uma, a execução é marcada como <code>taken_over</code> e a sessão se torna uma sessão interativa normal.</p>
+
+          <h3>Conta bloqueada</h3>
+          <p>Se o bot estiver travado quando uma execução agendada terminar, a notificação informa que a tarefa foi concluída e pede que você desbloqueie antes de entregar o relatório completo. Desbloqueie com <code>/senha</code> normalmente.</p>
+        </section>
+
+        <!-- 11 -->
+        <section id="modes" aria-labelledby="h-modes">
+          <span class="sec-num">11</span>
           <h2 id="h-modes">Modos de permissão</h2>
           <p>Cada sessão roda em um de três modos, escolhido ao criá-la, retomá-la ou adotá-la. O padrão é definido em <em>Configurações → Geral</em>.</p>
           <div class="table-wrap">
@@ -352,9 +413,9 @@
           <p>Cada pedido de permissão leva um identificador derivado do que foi exibido, e a tela é relida logo antes de a resposta ser enviada. Um botão antigo não consegue aprovar um pedido mais novo; ele é recusado com “não está mais pendente”.</p>
         </section>
 
-        <!-- 11 -->
+        <!-- 12 -->
         <section id="security" aria-labelledby="h-security">
-          <span class="sec-num">11</span>
+          <span class="sec-num">12</span>
           <h2 id="h-security">Segurança</h2>
           <p>Quem controla o Tether consegue fazer o Claude rodar comandos como o seu usuário. O projeto parte dessa premissa e coloca várias barreiras na frente disso.</p>
           <div class="table-wrap">
@@ -387,9 +448,9 @@
           <p>O Tether não tenta se defender de programas que já rodam como o seu usuário ou como root: eles podem ler <code>~/.tether</code> e controlar o tmux diretamente. Veja o <a href="https://github.com/pablobelmiro/thether-bot/blob/main/SECURITY.md">SECURITY.md</a> para o modelo completo e para saber como relatar uma vulnerabilidade.</p>
         </section>
 
-        <!-- 12 -->
+        <!-- 13 -->
         <section id="config" aria-labelledby="h-config">
-          <span class="sec-num">12</span>
+          <span class="sec-num">13</span>
           <h2 id="h-config">Configuração</h2>
           <p>Tudo o que é voltado ao usuário fica no painel e é salvo em <code>~/.tether/tether.db</code>. As opções do processo são variáveis de ambiente:</p>
           <div class="table-wrap">
@@ -423,9 +484,9 @@ TETHER_PERMISSION_MODE=auto</code></pre>
           </div>
         </section>
 
-        <!-- 13 -->
+        <!-- 14 -->
         <section id="cli" aria-labelledby="h-cli">
-          <span class="sec-num">13</span>
+          <span class="sec-num">14</span>
           <h2 id="h-cli">Comandos da CLI</h2>
           <div class="table-wrap">
             <table>
@@ -445,9 +506,9 @@ TETHER_PERMISSION_MODE=auto</code></pre>
           <p>A sua própria linha de status continua funcionando: o repassador do Tether encadeia o comando que você já tinha.</p>
         </section>
 
-        <!-- 14 -->
+        <!-- 15 -->
         <section id="troubleshooting" aria-labelledby="h-troubleshooting">
-          <span class="sec-num">14</span>
+          <span class="sec-num">15</span>
           <h2 id="h-troubleshooting">Solução de problemas</h2>
           <p>Comece com <code>tether doctor</code>. Ele verifica os problemas mais comuns.</p>
           <dl>
@@ -474,9 +535,9 @@ TETHER_PERMISSION_MODE=auto</code></pre>
           </dl>
         </section>
 
-        <!-- 15 -->
+        <!-- 16 -->
         <section id="uninstall" aria-labelledby="h-uninstall">
-          <span class="sec-num">15</span>
+          <span class="sec-num">16</span>
           <h2 id="h-uninstall">Desinstalação</h2>
           <div class="code">
             <div class="code-head"><span>Terminal</span><button class="copy-btn" type="button" data-copy="#code-uninstall" data-done="Copiado" hidden>Copiar</button></div>
@@ -487,9 +548,9 @@ TETHER_PERMISSION_MODE=auto</code></pre>
           <p>Depois apague a pasta clonada. As suas transcrições do Claude Code em <code>~/.claude/projects</code> não são tocadas. Você também pode apagar o bot no @BotFather com <code>/deletebot</code>.</p>
         </section>
 
-        <!-- 16 -->
+        <!-- 17 -->
         <section id="contributing" aria-labelledby="h-contributing">
-          <span class="sec-num">16</span>
+          <span class="sec-num">17</span>
           <h2 id="h-contributing">Contribuições e traduções</h2>
           <p>Issues e pull requests são bem-vindos. Pull requests pequenos e focados são os mais fáceis de revisar.</p>
           <div class="code">
