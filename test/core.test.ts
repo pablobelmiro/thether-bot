@@ -569,3 +569,33 @@ test('normalizeScheduleInput rejects malformed parameters and trims the good one
     )
   }
 })
+
+test('planDispatch runs due schedules up to the cap and skips the rest', async () => {
+  const { planDispatch } = await import('../src/server/core/schedules.js')
+  const now = 1_000_000
+  const s = (id: string, nextRun?: number, enabled = true) => ({ id, enabled, nextRun })
+
+  assert.deepEqual(
+    planDispatch({ schedules: [s('a', now - 1), s('b', now + 1), s('c', undefined), s('d', now - 1, false)], inFlight: new Set(), runningCount: 0, cap: 5, now }),
+    { run: ['a'], skipped: [] },
+    'only enabled schedules with nextRun <= now are due',
+  )
+
+  assert.deepEqual(
+    planDispatch({ schedules: [s('a', now - 1)], inFlight: new Set(['a']), runningCount: 1, cap: 5, now }),
+    { run: [], skipped: ['a'] },
+    'a schedule with a run in flight is skipped, never run twice',
+  )
+
+  assert.deepEqual(
+    planDispatch({ schedules: [s('late', now - 10), s('later', now - 5), s('latest', now - 1)], inFlight: new Set(), runningCount: 1, cap: 3, now }),
+    { run: ['late', 'later'], skipped: ['latest'] },
+    'the cap counts runs already in flight; earliest due wins',
+  )
+
+  assert.deepEqual(
+    planDispatch({ schedules: [s('a', now - 1)], inFlight: new Set(), runningCount: 2, cap: 2, now }),
+    { run: [], skipped: ['a'] },
+    'at the cap nothing starts',
+  )
+})

@@ -5,6 +5,14 @@
 import type { ScheduleInput } from '../../shared/api.js'
 import { normalizePhone } from '../db/repo.js'
 
+export interface DispatchCandidate { id: string; enabled: boolean; nextRun?: number }
+export interface DispatchPlan {
+  /** schedule ids to start now, earliest nextRun first */
+  run: string[]
+  /** schedule ids that were due but must record a skipped run */
+  skipped: string[]
+}
+
 export type ScheduleTiming = Pick<ScheduleInput, 'kind' | 'intervalMinutes' | 'weekdays' | 'timeOfDay'>
 
 /**
@@ -159,4 +167,51 @@ export function normalizeScheduleInput(body: unknown): ScheduleInput {
       enabled,
     }
   }
+}
+
+/**
+ * Decide which schedules to dispatch, applying overlap policy and concurrency cap.
+ * Pure function: no I/O, no side effects.
+ *
+ * - Filters to enabled schedules with nextRun <= now
+ * - Sorts by nextRun ascending (earliest first)
+ * - Walks the filtered list:
+ *   - If in flight, add to skipped (never run twice)
+ *   - Else if runningCount + run.length >= cap, add to skipped (at cap)
+ *   - Else add to run
+ */
+export function planDispatch(input: {
+  schedules: DispatchCandidate[]
+  /** schedule ids that already have a run in flight */
+  inFlight: Set<string>
+  /** total runs currently in flight, across all schedules */
+  runningCount: number
+  cap: number
+  now: number
+}): DispatchPlan {
+  const { schedules, inFlight, runningCount, cap, now } = input
+
+  // Filter to due and enabled schedules
+  const due = schedules.filter(s => s.enabled && s.nextRun !== undefined && s.nextRun <= now)
+
+  // Sort by nextRun ascending (earliest first)
+  due.sort((a, b) => a.nextRun! - b.nextRun!)
+
+  const run: string[] = []
+  const skipped: string[] = []
+
+  for (const s of due) {
+    if (inFlight.has(s.id)) {
+      // Schedule already has a run in flight; skip it
+      skipped.push(s.id)
+    } else if (runningCount + run.length >= cap) {
+      // At the cap; can't start any more
+      skipped.push(s.id)
+    } else {
+      // Not in flight and have capacity; start it
+      run.push(s.id)
+    }
+  }
+
+  return { run, skipped }
 }
