@@ -305,6 +305,15 @@ export function registerScheduleCommands(d: ScheduleCommandDeps): void {
     const { t } = d.tr(ctx)
     const s = repo.getSchedule(ctx.match[1])
     if (!s) return void (await ctx.reply(t('schedules.notFound')))
+    // Discard any run still in flight first: deleting the schedule drops its run
+    // rows, and the live session would survive with a dangling run id — nothing
+    // could ever finish it and everything it said would stay suppressed.
+    const inFlight = repo.runsInFlight().filter(r => r.scheduleId === s.id)
+    if (inFlight.length) {
+      const scheduler = getScheduler(ctx, t)
+      if (!scheduler) return
+      for (const r of inFlight) await scheduler.discardRun(r.id)
+    }
     repo.deleteSchedule(s.id)
     repo.audit('telegram', 'schedule.deleted', s.name)
     await ctx.reply(t('schedules.deleted', { name: escapeHtml(s.name) }), { parse_mode: 'HTML' })
@@ -366,6 +375,14 @@ export function registerScheduleCommands(d: ScheduleCommandDeps): void {
 
     try {
       const { draft: newDraft, next: nextF } = advanceWizard(draft, field, answer)
+
+      // Same rule as the dashboard: only a number a verified Telegram user holds
+      // can ever receive a report. Ask again instead of saving a dead schedule.
+      if (field === 'notifyPhone' && !repo.listTelegramUsers().some(u => u.phone === newDraft.notifyPhone)) {
+        await ctx.reply(`⚠️ ${t('schedules.new.notifyUnverified')}\n${t('schedules.new.notifyPhone')}`)
+        return
+      }
+
       wizardDrafts.set(uid, newDraft)
       wizardFields.set(uid, nextF)
 

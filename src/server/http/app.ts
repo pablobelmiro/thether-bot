@@ -444,7 +444,13 @@ export function createApp(d: AppDeps): Hono {
 
   app.delete('/api/telegram/users/:userId', c => {
     const id = Number(c.req.param('userId'))
+    const revoked = d.repo.getTelegramUser(id)
     d.repo.removeTelegramUser(id)
+    // That number can no longer receive anything, so its schedules must not keep
+    // firing — removing the phone itself already does this.
+    if (revoked && !d.repo.listTelegramUsers().some(u => u.phone === revoked.phone)) {
+      d.repo.disableSchedulesForPhone(revoked.phone, 'phone-removed')
+    }
     d.bot.lockUser(id)
     d.repo.audit('dashboard', 'telegram.user_revoke', String(id))
     return c.json(telegramUsers())
@@ -481,9 +487,10 @@ export function createApp(d: AppDeps): Hono {
       .filter(s => s.enabled && s.nextRun !== undefined)
       .sort((a, b) => a.nextRun! - b.nextRun!)
       .map(s => ({ scheduleId: s.id, scheduleName: s.name, nextRun: s.nextRun! }))
+    // Every failure shows, including one that never got a session: the dashboard's
+    // "open session" action is already conditional on sessionId.
     const failures = d.repo
       .listRuns({ statuses: ['error', 'timeout'], limit: 50 })
-      .filter(r => r.sessionId !== undefined)
       .sort((a, b) => b.startedAt - a.startedAt)
       .map(r => ({ ...r, scheduleName: d.repo.getSchedule(r.scheduleId)?.name ?? '' }))
     return c.json({ stats, upcoming, failures })
@@ -530,9 +537,14 @@ export function createApp(d: AppDeps): Hono {
     return c.json(updated)
   })
 
-  app.delete('/api/schedules/:id', c => {
+  app.delete('/api/schedules/:id', async c => {
     const existing = d.repo.getSchedule(c.req.param('id'))
     if (!existing) throw new HttpError(404, 'Schedule not found')
+    // Deleting the schedule drops its run rows, so an in-flight run must be
+    // discarded (which removes its session) before the link is gone.
+    for (const run of d.repo.runsInFlight().filter(r => r.scheduleId === existing.id)) {
+      await d.scheduler.discardRun(run.id)
+    }
     d.repo.deleteSchedule(existing.id)
     d.repo.audit('dashboard', 'schedule.delete', existing.name)
     return c.json({ ok: true })

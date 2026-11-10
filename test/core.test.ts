@@ -1138,9 +1138,33 @@ test('schedule routes: CRUD, notify-phone validation, run-now conflict, overview
   assert.equal(o.stats.windowDays, 30)
 
   assert.equal((await app.request(`/api/schedules/${schedule.id}/runs`, { headers: base })).status, 200)
+
+  // run-1 is still `running` in the database: deleting the schedule must close it
+  // out first, or its session survives with a run id nothing can resolve.
   assert.equal((await app.request(`/api/schedules/${schedule.id}`, { method: 'DELETE', headers: base })).status, 200)
+  assert.deepEqual(discarded, ['run-1', 'run-1'], 'the in-flight run is discarded before the schedule goes')
   assert.deepEqual(repo.listSchedules(), [])
   assert.equal((await post('/api/schedules/nope/run')).status, 404)
+})
+
+test('revoking a Telegram user disables the schedules that notified it', async () => {
+  const { createApp, AUTH_COOKIE } = await import('../src/server/http/app.js')
+  const { repo } = makeRepo()
+  const settings = new SettingsService(repo)
+  repo.addPhone('5511999990000')
+  repo.upsertTelegramUser({ userId: 1, phone: '5511999990000', chatId: 10, verifiedAt: Date.now() })
+  const now = Date.now()
+  repo.saveSchedule({ id: 'sch-1', name: 'n', prompt: 'p', cwd: '/tmp', kind: 'interval', intervalMinutes: 60, notifyPhone: '5511999990000', timeoutMinutes: 30, preserveSession: false, enabled: true, nextRun: now + 60_000, createdAt: now, updatedAt: now })
+  const app = createApp({ repo, settings, sessions: {} as never, bot: { lockUser: () => {}, status: () => ({ state: 'stopped' }) } as never, hookToken: 'x', onHookEvent: () => {}, doctor: () => [], scheduler: {} as never })
+  const token = 'test-token'
+  repo.createAuthSession(token, 3600_000)
+  const base = { Host: '127.0.0.1:4100', Origin: 'http://127.0.0.1:4100', Cookie: `${AUTH_COOKIE}=${token}` }
+
+  assert.equal((await app.request('/api/telegram/users/1', { method: 'DELETE', headers: base })).status, 200)
+  const s = repo.getSchedule('sch-1')!
+  assert.equal(s.enabled, false, 'nothing could be delivered to that number any more')
+  assert.equal(s.nextRun, undefined)
+  assert.equal(s.disabledReason, 'phone-removed')
 })
 
 test('describeSchedule summarizes both kinds, in the caller\u2019s language', async () => {

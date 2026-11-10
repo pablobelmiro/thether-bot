@@ -808,6 +808,12 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     await ctx.reply(t('permission.answered', { answer: option?.label ?? ctx.match[3] }))
   })
 
+  // Registered before the free-text handler below: grammY runs `message:text`
+  // middleware in registration order, and the wizard's answers must not be pasted
+  // into the user's Claude session. The wizard falls through when it is not active.
+  const schedulerRef = { current: null as SchedulerHandle | null }
+  registerScheduleCommands({ bot, repo: d.repo, scheduler: schedulerRef, tr })
+
   // --- free text and attachments -----------------------------------------------
 
   bot.on('message:text', async ctx => {
@@ -859,9 +865,6 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
       await ctx.reply(t('attachment.failed', { error: (e as Error).message }))
     }
   })
-
-  const schedulerRef = { current: null as SchedulerHandle | null }
-  registerScheduleCommands({ bot, repo: d.repo, scheduler: schedulerRef, tr })
 
   bot.on('message', ctx => ctx.reply(tr(ctx).t('unsupported')))
 
@@ -957,6 +960,9 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
 
     const onQuestion = async (s: Session, q: PendingQuestion) => {
       questionKeys.delete(s.id)
+      // A scheduled run talks to its schedule's single notify number (the Scheduler
+      // does that), never to everybody — and nobody else gets its answer buttons.
+      if (!shouldBroadcastTurn(s)) return
       for (const u of users()) {
         if (isOpen(u)) await deliverQuestion(u, s, q)
         else await notifyLocked(u, s, 'lock.actionWaiting')
@@ -979,6 +985,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
       }
       permissionMessages.delete(s.id)
       if (!p) return
+      if (!shouldBroadcastTurn(s)) return // same exclusivity as questions and answers
       for (const u of users()) {
         if (isOpen(u)) await deliverPermission(u, s, p)
         else await notifyLocked(u, s, 'lock.actionWaiting')
