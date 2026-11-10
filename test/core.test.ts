@@ -705,7 +705,8 @@ test('sessions persist their scheduled run link', async () => {
  */
 function fakeSessions(over: Record<string, unknown> = {}) {
   const calls: string[] = []
-  const state = { id: 'sess-1', live: false, scheduledRunId: undefined as string | undefined }
+  // `sess-1` is known to the manager from the start, as a restored session would be
+  const state = { id: 'sess-1', live: true, scheduledRunId: undefined as string | undefined }
   const sessions = {
     calls,
     state,
@@ -1000,6 +1001,29 @@ test('a session going offline mid-run fails the run', async () => {
     hub.emit('session', { id: 'sess-1', scheduledRunId: 'run-1', status: 'offline' } as never)
     await new Promise(r => setTimeout(r, 50))
     assert.equal(repo.getRun('run-1')!.status, 'error')
+  } finally {
+    scheduler.stop()
+  }
+})
+
+test('startup closes an in-flight run whose session did not survive the restart', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { repo } = makeRepo()
+  repo.saveSchedule(aSchedule({ nextRun: undefined, enabled: false }))
+  const started = Date.now() - 60_000
+  repo.saveRun({ id: 'run-gone', scheduleId: 'sch-1', sessionId: 'gone-1', status: 'waiting', startedAt: started, waitedMs: 0, delivered: false })
+  repo.saveRun({ id: 'run-alive', scheduleId: 'sch-1', sessionId: 'sess-1', status: 'running', startedAt: started, waitedMs: 0, delivered: false })
+  const sent: string[] = []
+  const scheduler = new Scheduler({ repo, sessions: fakeSessions() as never, settings: new SettingsService(repo), notify: async (_p, m) => { sent.push(m); return true } })
+  scheduler.start()
+  try {
+    await new Promise(r => setTimeout(r, 50))
+    const gone = repo.getRun('run-gone')!
+    assert.equal(gone.status, 'error', 'a waiting run whose session is gone can never resolve itself')
+    assert.ok(gone.endedAt)
+    assert.ok(gone.error)
+    assert.equal(repo.getRun('run-alive')!.status, 'running', 'a run whose session survived is left alone')
+    assert.equal(sent.length, 1)
   } finally {
     scheduler.stop()
   }

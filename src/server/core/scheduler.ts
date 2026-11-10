@@ -57,7 +57,20 @@ export class Scheduler {
     return SCHEDULE_RUN_IN_FLIGHT.includes(run.status) ? run : undefined
   }
 
+  /**
+   * After a restart, a run left `running` or `waiting` whose session is gone can never
+   * finish on its own: no `session_removed` and no `offline` will ever arrive, and its
+   * schedule would record `skipped` forever. Close those out once, at startup.
+   */
+  private reconcile(): void {
+    for (const run of this.repo.runsInFlight()) {
+      if (run.sessionId && this.sessions.get(run.sessionId)) continue
+      void this.finish(run, 'error', 'Run interrupted: the session is gone (the server restarted)')
+    }
+  }
+
   start(): void {
+    this.reconcile()
     this.timers.push(setInterval(() => void this.tick(), this.tickMs))
 
     // Hub listeners
