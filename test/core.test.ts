@@ -559,6 +559,13 @@ test('normalizeScheduleInput rejects malformed parameters and trims the good one
     { ...base, kind: 'interval', intervalMinutes: 60, timeoutMinutes: 0 },
     { ...base, kind: 'interval', intervalMinutes: 60, timeoutMinutes: 2000 },
   ]) {
-    assert.throws(() => normalizeScheduleInput(bad), /^Invalid /, `accepted ${JSON.stringify(bad)}`)
+    assert.throws(
+      () => normalizeScheduleInput(bad),
+      (err: unknown) => {
+        assert.match((err as Error).message, /^Invalid /)
+        return true
+      },
+      `accepted ${JSON.stringify(bad)}`,
+    )
   }
 })
