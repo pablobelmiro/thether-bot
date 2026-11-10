@@ -209,12 +209,12 @@ export function SchedulesPage() {
                 <div className="min-w-0 space-y-0.5">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium truncate">{s.name}</span>
-                    {!s.enabled && s.disabledReason === 'phone-removed' && (
-                      <span className="text-xs text-destructive shrink-0">{t('schedules.disabledPhoneRemoved')}</span>
-                    )}
-                    {!s.enabled && (
-                      <span className="text-xs text-muted-foreground shrink-0">({t('status.paused')})</span>
-                    )}
+                    {!s.enabled &&
+                      (s.disabledReason === 'phone-removed' ? (
+                        <span className="text-xs text-destructive shrink-0">{t('schedules.disabledPhoneRemoved')}</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground shrink-0">({t('status.paused')})</span>
+                      ))}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {s.kind === 'interval'

@@ -12,7 +12,12 @@ import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/lib/api'
 import { cn, errorMessage } from '@/lib/utils'
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+/** Short weekday names in the active language, index 0 = Sunday (matches Date.getDay) */
+function weekdayLabels(locale: string): string[] {
+  const fmt = new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' })
+  // 2024-01-07 was a Sunday
+  return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(Date.UTC(2024, 0, 7 + i))))
+}
 
 interface Props {
   open: boolean
@@ -22,7 +27,8 @@ interface Props {
 }
 
 export function ScheduleDialog({ open, onOpenChange, schedule, onSaved }: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const days = weekdayLabels(i18n.language)
   const ids = {
     name: useId(),
     prompt: useId(),
@@ -267,7 +273,7 @@ export function ScheduleDialog({ open, onOpenChange, schedule, onSaved }: Props)
             <>
               <Field label={t('schedules.form.weekdays')}>
                 <div className="flex flex-wrap gap-2">
-                  {DAYS.map((day, i) => (
+                  {days.map((day, i) => (
                     <button
                       key={i}
                       type="button"
