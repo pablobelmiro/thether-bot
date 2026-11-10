@@ -100,6 +100,8 @@ export interface Session {
   pendingQuestion?: PendingQuestion
   /** tether = created here; adopted = an existing tmux session taken over */
   origin: 'tether' | 'adopted'
+  /** Set while this session belongs to a scheduled run */
+  scheduledRunId?: string
 }
 
 /** One entry of the conversation, read from Claude Code's transcript */

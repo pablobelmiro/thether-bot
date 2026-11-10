@@ -21,6 +21,8 @@ export interface HubEvents {
   permission: [Session, PermissionPrompt | null]
   bot: [BotStatus]
   usage: [UsagePoint]
+  /** A person acted on this session (prompt, slash command or answered question) */
+  human_input: [Session]
 }
 
 class Hub extends EventEmitter {

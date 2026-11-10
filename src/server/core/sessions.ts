@@ -133,6 +133,7 @@ export class SessionManager {
       pendingPermission: l.pendingPermission,
       pendingQuestion: l.pendingQuestion,
       origin: s.origin,
+      scheduledRunId: s.scheduledRunId,
     }
   }
 
@@ -162,7 +163,7 @@ export class SessionManager {
   // Create / adopt / import
   // -------------------------------------------------------------------------
 
-  async create(req: CreateSessionRequest, defaultMode: PermissionMode): Promise<Session> {
+  async create(req: CreateSessionRequest, defaultMode: PermissionMode, scheduledRunId?: string): Promise<Session> {
     const cwd = validateDirectory(req.cwd)
     const mode = req.permissionMode ?? defaultMode
     if (req.model && !MODEL_ARG.test(req.model)) throw new HttpError(400, 'Invalid model name')
@@ -191,6 +192,7 @@ export class SessionManager {
       cwd,
       permissionMode: mode,
       origin: 'tether',
+      scheduledRunId,
       claudeSessionId: resume,
       transcriptPath: resume ? findTranscript(env.claudeHome, resume, cwd) : undefined,
       createdAt: now,
@@ -276,10 +278,7 @@ export class SessionManager {
       id = session.id
       steps.push({ label: 'Claude session started', ok: true })
 
-      const booted = await this.waitUntil(45_000, () => {
-        const l = this.liveOf(id!)
-        return l.status !== 'offline' && !l.bootUntil
-      })
+      const booted = await this.waitBooted(id, 45_000)
       steps.push({ label: 'Startup dialogs cleared', ok: booted })
       if (!booted) throw new Error('Timed out waiting for Claude to finish starting')
 
@@ -300,6 +299,21 @@ export class SessionManager {
       if (id) await this.remove(id, true).catch(() => undefined)
       rmSync(cwd, { recursive: true, force: true })
     }
+  }
+
+  /** Resolves true once the startup dialogs are cleared and the session is alive */
+  async waitBooted(id: string, timeoutMs = 45_000): Promise<boolean> {
+    return this.waitUntil(timeoutMs, () => {
+      const l = this.liveOf(id)
+      return l.status !== 'offline' && !l.bootUntil
+    })
+  }
+
+  /** Detaches a session from its scheduled run; it then behaves like any other session */
+  clearScheduledRun(id: string): void {
+    const s = this.require(id)
+    s.scheduledRunId = undefined
+    this.changed(s)
   }
 
   private async waitUntil(timeoutMs: number, cond: () => boolean | Promise<boolean>): Promise<boolean> {
@@ -438,6 +452,7 @@ export class SessionManager {
     await tmux.paste(s.tmuxSession, prefix + body)
     s.lastActivity = Date.now()
     this.changed(s)
+    if (prefix === DASHBOARD_PREFIX || prefix === TELEGRAM_PREFIX) hub.emit('human_input', this.toApi(s))
     return 'sent'
   }
 
@@ -451,6 +466,7 @@ export class SessionManager {
     if (!/^\/[A-Za-z][\w:-]*( [^\r\n]{0,200})?$/.test(cmd)) throw new HttpError(400, 'Invalid command')
     if (this.liveOf(id).status === 'offline') throw new HttpError(409, 'Session is offline')
     await tmux.type(s.tmuxSession, cmd)
+    hub.emit('human_input', this.toApi(s))
     await new Promise(r => setTimeout(r, 2500))
     const screen = await tmux.capture(s.tmuxSession)
     const lines = screen.split('\n')
@@ -538,6 +554,7 @@ export class SessionManager {
       throw new HttpError(400, 'Answer is empty')
     }
 
+    hub.emit('human_input', this.toApi(s))
     const next = l.questionQueue?.[(q.index ?? 0) + 1]
     if (next) {
       // Several questions at once: hand out the next one

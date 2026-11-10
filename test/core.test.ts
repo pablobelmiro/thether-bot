@@ -679,3 +679,12 @@ test('prune drops schedule runs older than 30 days and keeps newer ones', async 
   repo.prune()
   assert.deepEqual(repo.listRuns({ limit: 10 }).map(r => r.id), ['new'])
 })
+
+test('sessions persist their scheduled run link', async () => {
+  const { repo } = makeRepo()
+  const now = Date.now()
+  repo.saveSession({ id: 's1', name: 'n', tmuxSession: 't1', cwd: '/tmp', permissionMode: 'bypass', origin: 'tether', scheduledRunId: 'run-1', createdAt: now, lastActivity: now })
+  assert.equal(repo.listSessions()[0].scheduledRunId, 'run-1')
+  repo.saveSession({ ...repo.listSessions()[0], scheduledRunId: undefined })
+  assert.equal(repo.listSessions()[0].scheduledRunId, undefined, 'detaching clears the column')
+})

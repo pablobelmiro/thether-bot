@@ -56,6 +56,8 @@ export interface StoredSession {
   usage?: SessionUsage
   /** Stopped on purpose; not an error */
   paused?: boolean
+  /** Set while this session belongs to a scheduled run */
+  scheduledRunId?: string
   createdAt: number
   lastActivity: number
 }
@@ -235,6 +237,7 @@ export class Repo {
       transcriptPath: str(r.transcript_path),
       usage: r.usage_json ? (JSON.parse(String(r.usage_json)) as SessionUsage) : undefined,
       paused: num(r.paused) === 1,
+      scheduledRunId: str(r.scheduled_run_id),
       createdAt: num(r.created_at),
       lastActivity: num(r.last_activity),
     }))
@@ -243,11 +246,12 @@ export class Repo {
   saveSession(s: StoredSession): void {
     this.db
       .prepare(
-        `INSERT INTO sessions(id, name, tmux_session, workspace, cwd, permission_mode, origin, claude_session_id, transcript_path, usage_json, paused, created_at, last_activity)
-         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO sessions(id, name, tmux_session, workspace, cwd, permission_mode, origin, claude_session_id, transcript_path, usage_json, paused, scheduled_run_id, created_at, last_activity)
+         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET name = excluded.name, tmux_session = excluded.tmux_session, workspace = excluded.workspace, cwd = excluded.cwd,
            permission_mode = excluded.permission_mode, claude_session_id = excluded.claude_session_id,
            transcript_path = excluded.transcript_path, usage_json = excluded.usage_json, paused = excluded.paused,
+           scheduled_run_id = excluded.scheduled_run_id,
            last_activity = excluded.last_activity`,
       )
       .run(
@@ -262,6 +266,7 @@ export class Repo {
         s.transcriptPath ?? null,
         s.usage ? JSON.stringify(s.usage) : null,
         s.paused ? 1 : 0,
+        s.scheduledRunId ?? null,
         s.createdAt,
         s.lastActivity,
       )
