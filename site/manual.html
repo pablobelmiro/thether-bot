@@ -356,6 +356,7 @@
 
           <h3>Overlap protection</h3>
           <p>If a schedule's previous run is still in flight when the next firing is due, the new firing is recorded as <code>skipped</code> and no new session is created. A schedule never runs twice at once.</p>
+          <p>Across all schedules, <strong>Settings → General → Scheduled run concurrency</strong> caps how many scheduled sessions may run at the same time (default 2, range 1–10). Firings over the cap are recorded as <code>skipped</code> as well. The cap is read on every tick, so a change takes effect without a restart.</p>
 
           <h3>Run statuses</h3>
           <div class="table-wrap">

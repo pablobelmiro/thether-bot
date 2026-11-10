@@ -43,6 +43,9 @@ export class Scheduler {
   /** Map sessionId -> timestamp when waiting started */
   private readonly waitingSince = new Map<string, number>()
 
+  /** Stranded runs are closed out on the first tick only */
+  private reconciled = false
+
   constructor(d: SchedulerDeps) {
     this.repo = d.repo
     this.sessions = d.sessions
@@ -64,19 +67,25 @@ export class Scheduler {
   }
 
   /**
-   * After a restart, a run left `running` or `waiting` whose session is gone can never
-   * finish on its own: no `session_removed` and no `offline` will ever arrive, and its
-   * schedule would record `skipped` forever. Close those out once, at startup.
+   * After a restart, a run left `running` or `waiting` whose session did not survive can
+   * never finish on its own: it is restored already `offline`, so the health check reports
+   * no change and no `session` or `session_removed` event ever arrives, and the schedule
+   * would record `skipped` forever. Close those out once.
+   *
+   * Runs on the first tick, not in `start()`: at that moment every restored session still
+   * reads `offline` because the first health check has not completed, so checking status
+   * there would kill healthy runs.
    */
-  private reconcile(): void {
+  private async reconcile(): Promise<void> {
+    this.reconciled = true
     for (const run of this.repo.runsInFlight()) {
-      if (run.sessionId && this.sessions.get(run.sessionId)) continue
-      void this.finish(run, 'error', this.t('schedules.interrupted'))
+      const session = run.sessionId ? this.sessions.get(run.sessionId) : undefined
+      if (session && session.status !== 'offline') continue
+      await this.finish(run, 'error', this.t('schedules.interrupted'))
     }
   }
 
   start(): void {
-    this.reconcile()
     this.timers.push(setInterval(() => void this.tick(), this.tickMs))
 
     // Hub listeners
@@ -108,10 +117,14 @@ export class Scheduler {
 
     const onHumanInput = (s: Session) => {
       if (!s.scheduledRunId) return
-      const run = this.inFlightRunForSession(s.id)
-      if (!run) return
       this.waitingSince.delete(s.id)
-      this.repo.saveRun({ ...run, status: 'taken_over', endedAt: Date.now() })
+      const run = this.inFlightRunForSession(s.id)
+      // Only a run still in flight becomes `taken_over`; a finished one keeps its outcome.
+      if (run) this.repo.saveRun({ ...run, status: 'taken_over', endedAt: Date.now() })
+      // Detach either way. A preserved session outlives its run, and while it still carries
+      // a run id the bot suppresses everything it says — so a human typing into it would
+      // never hear back. The scheduler's own /clear never reaches here: disposeSession
+      // detaches before issuing it.
       try { this.sessions.clearScheduledRun(s.id) } catch { /* session may be gone */ }
     }
 
@@ -166,6 +179,8 @@ export class Scheduler {
   }
 
   async tick(): Promise<void> {
+    if (!this.reconciled) await this.reconcile()
+
     const now = Date.now()
     const schedules = this.repo.listSchedules()
     const inFlightRuns = this.repo.runsInFlight()

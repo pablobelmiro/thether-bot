@@ -356,6 +356,7 @@
 
           <h3>Proteção contra sobreposição</h3>
           <p>Se a execução anterior de uma tarefa ainda estiver em andamento quando o próximo disparo chegar, o novo disparo é registrado como <code>ignorado</code> e nenhuma nova sessão é criada. Uma tarefa nunca roda duas vezes ao mesmo tempo.</p>
+          <p>Considerando todas as tarefas, <strong>Configurações → Geral → Execuções agendadas simultâneas</strong> limita quantas sessões agendadas podem rodar ao mesmo tempo (padrão 2, de 1 a 10). Disparos acima do limite também são registrados como <code>ignorado</code>. O limite é lido a cada ciclo, então a mudança vale sem reiniciar.</p>
 
           <h3>Status das execuções</h3>
           <div class="table-wrap">

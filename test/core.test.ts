@@ -706,7 +706,7 @@ test('sessions persist their scheduled run link', async () => {
 function fakeSessions(over: Record<string, unknown> = {}) {
   const calls: string[] = []
   // `sess-1` is known to the manager from the start, as a restored session would be
-  const state = { id: 'sess-1', live: true, scheduledRunId: undefined as string | undefined }
+  const state = { id: 'sess-1', live: true, status: 'idle', scheduledRunId: undefined as string | undefined }
   const sessions = {
     calls,
     state,
@@ -732,7 +732,9 @@ function fakeSessions(over: Record<string, unknown> = {}) {
     },
     clearScheduledRun: () => { calls.push('clear'); state.scheduledRunId = undefined },
     get: (id: string) =>
-      (state.live && id === state.id ? { id: state.id, status: 'idle', scheduledRunId: state.scheduledRunId } : undefined) as never,
+      (state.live && id === state.id
+        ? { id: state.id, status: state.status, scheduledRunId: state.scheduledRunId }
+        : undefined) as never,
     ...over,
   }
   return sessions
@@ -1019,13 +1021,63 @@ test('startup closes an in-flight run whose session did not survive the restart'
   const scheduler = new Scheduler({ repo, sessions: fakeSessions() as never, settings: new SettingsService(repo), notify: async (_p, m) => { sent.push(m); return true } })
   scheduler.start()
   try {
-    await new Promise(r => setTimeout(r, 50))
+    await scheduler.tick()
     const gone = repo.getRun('run-gone')!
     assert.equal(gone.status, 'error', 'a waiting run whose session is gone can never resolve itself')
     assert.ok(gone.endedAt)
     assert.ok(gone.error)
     assert.equal(repo.getRun('run-alive')!.status, 'running', 'a run whose session survived is left alone')
     assert.equal(sent.length, 1)
+
+    // Reconciliation is once-only: a later tick must not touch the healthy run
+    await scheduler.tick()
+    assert.equal(repo.getRun('run-alive')!.status, 'running')
+    assert.equal(sent.length, 1)
+  } finally {
+    scheduler.stop()
+  }
+})
+
+test('startup closes an in-flight run whose session was restored but is offline', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { repo } = makeRepo()
+  repo.saveSchedule(aSchedule({ nextRun: undefined, enabled: false }))
+  repo.saveRun({ id: 'run-dead', scheduleId: 'sch-1', sessionId: 'sess-1', status: 'waiting', startedAt: Date.now() - 60_000, waitedMs: 0, delivered: false })
+  // A tmux session that died while Tether was down: the row survives, the process did not,
+  // so the health check settles it on `offline` without ever emitting a change event.
+  const sessions = fakeSessions()
+  sessions.state.status = 'offline'
+  const scheduler = new Scheduler({ repo, sessions: sessions as never, settings: new SettingsService(repo), notify: async () => true })
+  scheduler.start()
+  try {
+    await scheduler.tick()
+    assert.equal(repo.getRun('run-dead')!.status, 'error', 'an offline session can never resolve its run')
+  } finally {
+    scheduler.stop()
+  }
+})
+
+test('a human typing into a preserved session gets it back even after the run finished', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { hub } = await import('../src/server/core/hub.js')
+  const { repo } = makeRepo()
+  repo.saveSchedule(aSchedule({ preserveSession: true }))
+  const sessions = fakeSessions()
+  const scheduler = new Scheduler({ repo, sessions: sessions as never, settings: new SettingsService(repo), notify: async () => true })
+  scheduler.start()
+  try {
+    await scheduler.tick()
+    const run = repo.runsInFlight()[0]
+    hub.emit('turn_complete', { id: 'sess-1', scheduledRunId: run.id } as never, 'done')
+    await new Promise(r => setTimeout(r, 20))
+    assert.equal(repo.getRun(run.id)!.status, 'success')
+    assert.equal(sessions.state.scheduledRunId, run.id, 'a preserved session is deliberately not disposed')
+
+    // The human now writes to the preserved session
+    hub.emit('human_input', { id: 'sess-1', scheduledRunId: run.id } as never)
+    await new Promise(r => setTimeout(r, 20))
+    assert.equal(sessions.state.scheduledRunId, undefined, 'detached, so the bot stops suppressing its replies')
+    assert.equal(repo.getRun(run.id)!.status, 'success', 'and the finished run keeps its outcome')
   } finally {
     scheduler.stop()
   }

@@ -156,7 +156,7 @@ Schedules run a prompt automatically on a timer and deliver the result to one Te
 | Timeout | 1–1440 minutes; the run is cancelled and the number is notified if it exceeds this |
 | Preserve session | When off (default), a successful run is `/clear`ed, paused and removed; when on, the session is kept |
 
-**How it runs.** When a schedule fires, Tether creates a fresh Claude session in bypass permission mode, injects the prompt through the same tmux path the bot uses, and tracks it to completion. If the same schedule's previous run is still in flight, the new firing is recorded as `skipped` — a schedule never runs twice at once. A global concurrency cap keeps the total number of simultaneous scheduled sessions bounded.
+**How it runs.** When a schedule fires, Tether creates a fresh Claude session in bypass permission mode, injects the prompt through the same tmux path the bot uses, and tracks it to completion. If the same schedule's previous run is still in flight, the new firing is recorded as `skipped` — a schedule never runs twice at once. Across all schedules, **Settings → General → Scheduled run concurrency** caps how many scheduled sessions may run at once (default 2, range 1–10); firings over the cap are recorded as `skipped` too, and the cap is re-read on every tick so a change applies without a restart.
 
 **Run statuses:** `running`, `waiting` (Claude asked a question — the notify number is messaged), `success`, `error`, `timeout`, `skipped`, `taken_over` (a human typed into the session), `discarded`.
 

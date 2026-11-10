@@ -929,6 +929,10 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
       }
     }
     for (const s of d.sessions.list()) {
+      // A scheduled run's question belongs to its schedule's notify number alone. Without
+      // this, unlocking would hand it to every verified user, bypassing the exclusivity the
+      // live question and permission paths already enforce.
+      if (!shouldBroadcastTurn(s)) continue
       if (s.pendingPermission) await deliverPermission(u, s, s.pendingPermission)
       if (s.pendingQuestion) await deliverQuestion(u, s, s.pendingQuestion)
     }

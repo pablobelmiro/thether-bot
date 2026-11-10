@@ -409,7 +409,8 @@ export function registerScheduleCommands(d: ScheduleCommandDeps): void {
         await ctx.reply(t(promptKey as Parameters<TFunction>[0]))
       }
     } catch (e) {
-      await ctx.reply(`⚠️ ${(e as Error).message}\n${t('schedules.new.question', { field })}`)
+      // Re-ask the step that was rejected, with its own prompt
+      await ctx.reply(`⚠️ ${(e as Error).message}\n${t(`schedules.new.${field}` as Parameters<TFunction>[0])}`)
     }
   })
 }
