@@ -1286,3 +1286,44 @@ Expected: PASS, including the locale parity tests
 git add src/server/bot src/server/core/schedules.ts locales test/core.test.ts
 git commit -m "feat: manage scheduled tasks from Telegram"
 ```
+
+---
+
+### Task 11: Collapsible sidebar
+
+**Files:**
+- Modify: `web/src/components/layout/Sidebar.tsx`, `web/src/components/layout/ProtectedLayout.tsx`, `locales/{en,pt-BR,es}/web.json`
+
+**Interfaces:**
+- Consumes: the `nav.schedules` entry added in Task 9 (the collapsed rail must render it too).
+- Produces: nothing other tasks use.
+
+Not part of the scheduled-tasks spec — a separate UI request from the user, bundled here because it edits the same sidebar file Task 9 touches and must land after it.
+
+This task has no tests — `web/` has no test suite.
+
+- [ ] **Step 1: Add the collapse state**
+
+A `useSidebar` Zustand store beside the existing `useTheme` in `web/src/lib/theme.ts`, persisted to `localStorage` the same way, holding `collapsed: boolean` and `toggle(): void`, default `false`.
+
+- [ ] **Step 2: Render the collapsed rail in `Sidebar.tsx`**
+
+When `collapsed`, the sidebar narrows to an icon rail: workspace sections and session rows hide, and the bottom block (Schedules, Settings, Docs, GitHub) keeps its icons with the labels hidden. Every icon-only link gets a `<Tooltip>` with its label, using the `TooltipProvider` already mounted in `App.tsx`, plus an `aria-label`, so nothing becomes unreachable. A toggle button sits in the sidebar header with `PanelLeftClose` / `PanelLeftOpen` from lucide-react, `aria-label` from `nav.collapse` / `nav.expand`.
+
+- [ ] **Step 3: Make the layout follow the width**
+
+In `ProtectedLayout.tsx`, drive the sidebar's container width from the same store so the main content reclaims the space. Keep the existing mobile drawer behaviour untouched — collapsing only applies at the breakpoint where the sidebar is a fixed column.
+
+- [ ] **Step 4: Add `nav.collapse` and `nav.expand` to `web.json` in all three locales**
+
+- [ ] **Step 5: Verify**
+
+Run: `npm test && npm run typecheck && npm run build`
+Expected: PASS, including the locale parity tests
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add web/src locales
+git commit -m "feat: collapsible sidebar"
+```

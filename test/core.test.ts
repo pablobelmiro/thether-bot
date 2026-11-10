@@ -662,8 +662,12 @@ test('settings validate the global scheduled-run concurrency cap', async () => {
   const settings = new SettingsService(repo)
   assert.equal(settings.get().scheduleConcurrency, 2)
   assert.equal(settings.patch({ scheduleConcurrency: 5 }).scheduleConcurrency, 5)
-  assert.throws(() => settings.patch({ scheduleConcurrency: 0 }), /^Invalid /)
-  assert.throws(() => settings.patch({ scheduleConcurrency: 11 }), /^Invalid /)
+  const startsWithInvalid = (err: unknown) => {
+    assert.match((err as Error).message, /^Invalid /)
+    return true
+  }
+  assert.throws(() => settings.patch({ scheduleConcurrency: 0 }), startsWithInvalid)
+  assert.throws(() => settings.patch({ scheduleConcurrency: 11 }), startsWithInvalid)
 })
 
 test('prune drops schedule runs older than 30 days and keeps newer ones', async () => {

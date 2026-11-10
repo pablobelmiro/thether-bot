@@ -391,12 +391,9 @@ quiser que a varredura também investigue o código, isso é mudança de escopo 
 
 Trabalhar o chamado continua sendo sessão interativa iniciada por ele.
 
-**Uma leitura a confirmar de passagem:** "o bot precisa operar **sempre** em bypass" pode querer
-dizer só as sessões agendadas (é o que este documento constrói) ou também o padrão das sessões
-interativas. A segunda opção é `defaultPermissionMode: 'bypass'`, que já existe
-(`settings.ts:26`, hoje `'ask'`) — um `patch` de settings, sem código. Deixei fora do escopo do
-módulo porque é mudança no comportamento das sessões que ele mesmo abre, não do agendador; se for
-isso que ele quis, é uma linha e não mexe no plano.
+**[Pablo] Só as sessões agendadas rodam em `bypass`.** As sessões interativas continuam no padrão
+atual (`defaultPermissionMode: 'ask'`, `settings.ts:26`) — o modo é propriedade do agendamento, não
+uma mudança de configuração global. Nada a fazer nas settings.
 
 ---
 
@@ -569,6 +566,5 @@ O que essas três decisões obrigaram a mudar no desenho, e que não era óbvio 
 - **O prompt ganhou uma linha obrigatória** (§11): em `bypass` o Claude age em vez de perguntar, então
   sem pedir `AskUserQuestion` explicitamente, o "pergunta pelo Telegram" nunca acontece.
 
-Uma leitura minha que ele pode corrigir em uma linha: entendi "sempre em bypass" como as sessões
-**agendadas**. Se era também o padrão das interativas, é `defaultPermissionMode: 'bypass'` nas
-settings — uma linha, sem efeito no plano (§7).
+Confirmado por ele depois: **só as sessões agendadas** em `bypass`; as interativas ficam no padrão
+atual. Documento aprovado em 2026-11-10.
