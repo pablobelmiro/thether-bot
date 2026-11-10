@@ -227,6 +227,15 @@ export interface ScheduleRun {
 }
 export interface ScheduleStats { total: number; enabled: number; success: number; failed: number; discarded: number; windowDays: number }
 
+export interface ScheduleRunRow extends ScheduleRun { scheduleName: string }
+export interface ScheduleOverview {
+  stats: ScheduleStats
+  /** Enabled schedules with a nextRun, soonest first */
+  upcoming: { scheduleId: string; scheduleName: string; nextRun: number }[]
+  /** error / timeout runs still holding a session, newest first */
+  failures: ScheduleRunRow[]
+}
+
 /** A Claude Code conversation found in ~/.claude/projects that can be resumed */
 export interface ConversationSummary {
   /** Claude Code session id (file name of the transcript) */
@@ -458,6 +467,15 @@ export interface AddPhoneRequest {
  *   POST   /api/bot/restart                   → BotStatus
  *   POST   /api/bot/stop                      → BotStatus
  *   GET    /api/audit ?limit=100              → AuditEntry[]
+ *
+ *   GET    /api/schedules/overview            → ScheduleOverview
+ *   GET    /api/schedules                     → Schedule[]
+ *   POST   /api/schedules       ScheduleInput → Schedule
+ *   PATCH  /api/schedules/:id   ScheduleInput → Schedule
+ *   DELETE /api/schedules/:id                 → { ok: true }
+ *   POST   /api/schedules/:id/run             → ScheduleRun       (409 when in flight)
+ *   GET    /api/schedules/:id/runs ?limit=20  → ScheduleRun[]
+ *   POST   /api/schedule-runs/:runId/discard  → { ok: true }
  */
 
 // ---------------------------------------------------------------------------

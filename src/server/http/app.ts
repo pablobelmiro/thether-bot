@@ -39,6 +39,8 @@ import { usageReport } from '../core/usage-report.js'
 import type { BotManager } from '../bot/manager.js'
 import { env, paths, log } from '../env.js'
 import { randomToken, safeEqual } from '../crypto.js'
+import { normalizeScheduleInput, computeNextRun } from '../core/schedules.js'
+import type { Scheduler } from '../core/scheduler.js'
 
 export const AUTH_COOKIE = 'tether_auth'
 const AUTH_TTL_MS = 7 * 24 * 3600 * 1000
@@ -53,6 +55,7 @@ export interface AppDeps {
   onHookEvent: (body: unknown) => void
   /** Quick environment check ("is Claude properly connected?"), shown on the dashboard */
   doctor: () => DoctorCheck[]
+  scheduler: Scheduler
 }
 
 // ---------------------------------------------------------------------------
@@ -459,6 +462,98 @@ export function createApp(d: AppDeps): Hono {
   })
 
   app.get('/api/audit', c => c.json(d.repo.listAudit(Math.min(Number(c.req.query('limit') ?? 100) || 100, 1000))))
+
+  // --- schedules ---------------------------------------------------------------
+
+  /** Rejects notifyPhone unless it belongs to a verified Telegram user */
+  const requireNotifiable = (phone: string) => {
+    if (!d.repo.listTelegramUsers().some(u => u.phone === phone)) {
+      throw new HttpError(400, 'Invalid notify number: no verified Telegram user holds it')
+    }
+  }
+
+  // overview MUST be registered before /:id routes
+  app.get('/api/schedules/overview', c => {
+    const stats = d.repo.scheduleStats(Date.now() - 30 * 24 * 3600 * 1000)
+    const upcoming = d.repo
+      .listSchedules()
+      .filter(s => s.enabled && s.nextRun !== undefined)
+      .sort((a, b) => a.nextRun! - b.nextRun!)
+      .map(s => ({ scheduleId: s.id, scheduleName: s.name, nextRun: s.nextRun! }))
+    const failures = d.repo
+      .listRuns({ statuses: ['error', 'timeout'], limit: 50 })
+      .filter(r => r.sessionId !== undefined)
+      .sort((a, b) => b.startedAt - a.startedAt)
+      .map(r => ({ ...r, scheduleName: d.repo.getSchedule(r.scheduleId)?.name ?? '' }))
+    return c.json({ stats, upcoming, failures })
+  })
+
+  app.get('/api/schedules', c => c.json(d.repo.listSchedules()))
+
+  app.post('/api/schedules', async c => {
+    const input = normalizeScheduleInput(await c.req.json())
+    requireNotifiable(input.notifyPhone)
+    const now = Date.now()
+    const s = {
+      ...input,
+      permissionMode: 'bypass' as const,
+      id: randomUUID(),
+      nextRun: input.enabled ? computeNextRun(input, now) : undefined,
+      disabledReason: undefined,
+      createdAt: now,
+      updatedAt: now,
+    }
+    // Strip permissionMode — Schedule type doesn't include it
+    const { permissionMode: _pm, ...schedule } = s
+    d.repo.saveSchedule(schedule)
+    d.repo.audit('dashboard', 'schedule.create', schedule.name)
+    return c.json(schedule)
+  })
+
+  app.patch('/api/schedules/:id', async c => {
+    const existing = d.repo.getSchedule(c.req.param('id'))
+    if (!existing) throw new HttpError(404, 'Schedule not found')
+    const input = normalizeScheduleInput(await c.req.json())
+    requireNotifiable(input.notifyPhone)
+    const now = Date.now()
+    const updated = {
+      ...input,
+      id: existing.id,
+      nextRun: input.enabled ? computeNextRun(input, now) : undefined,
+      disabledReason: undefined,
+      createdAt: existing.createdAt,
+      updatedAt: now,
+    }
+    d.repo.saveSchedule(updated)
+    d.repo.audit('dashboard', 'schedule.update', updated.name)
+    return c.json(updated)
+  })
+
+  app.delete('/api/schedules/:id', c => {
+    const existing = d.repo.getSchedule(c.req.param('id'))
+    if (!existing) throw new HttpError(404, 'Schedule not found')
+    d.repo.deleteSchedule(existing.id)
+    d.repo.audit('dashboard', 'schedule.delete', existing.name)
+    return c.json({ ok: true })
+  })
+
+  app.post('/api/schedules/:id/run', async c => {
+    const existing = d.repo.getSchedule(c.req.param('id'))
+    if (!existing) throw new HttpError(404, 'Schedule not found')
+    const run = await d.scheduler.runNow(existing.id, 'dashboard')
+    d.repo.audit('dashboard', 'schedule.run', existing.name)
+    return c.json(run)
+  })
+
+  app.get('/api/schedules/:id/runs', c => {
+    const limit = Math.min(Number(c.req.query('limit') ?? 20) || 20, 200)
+    return c.json(d.repo.listRuns({ scheduleId: c.req.param('id'), limit }))
+  })
+
+  app.post('/api/schedule-runs/:runId/discard', async c => {
+    await d.scheduler.discardRun(c.req.param('runId'))
+    return c.json({ ok: true })
+  })
 
   app.all('/api/*', c => c.json({ error: 'Not found' }, 404))
 

@@ -20,6 +20,7 @@ import { normalizeNative } from './core/events.js'
 import { tmux } from './core/tmux.js'
 import { BotManager } from './bot/manager.js'
 import { AUTH_COOKIE, createApp, isHostAllowed, isOriginAllowed } from './http/app.js'
+import { Scheduler } from './core/scheduler.js'
 
 async function main(): Promise<void> {
   process.umask(0o077) // everything we create is private to this user
@@ -35,6 +36,8 @@ async function main(): Promise<void> {
   writeFileSync(paths.hookHeader, `X-Tether-Token: ${hookToken}\n`, { mode: 0o600 })
   hardenPermissions()
 
+  const scheduler = new Scheduler({ repo, sessions, settings, notify: (phone, markdown, session) => bot.notifyPhone(phone, markdown, session) })
+
   const app = createApp({
     repo,
     settings,
@@ -46,6 +49,7 @@ async function main(): Promise<void> {
       if (e) sessions.handleEvent(e)
     },
     doctor: runDoctorChecks,
+    scheduler,
   })
 
 
@@ -105,6 +109,7 @@ async function main(): Promise<void> {
   }, 30_000)
 
   sessions.start()
+  scheduler.start()
   setInterval(() => repo.prune(paths.uploads), 3600_000)
   repo.prune(paths.uploads)
 

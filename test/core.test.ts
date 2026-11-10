@@ -916,3 +916,77 @@ test('runNow refuses when a run of that schedule is in flight, and discardRun cl
   assert.ok(sessions.calls.includes('remove:true'))
   await scheduler.runNow('sch-1', 'dashboard') // the schedule is free again
 })
+
+test('schedule routes: CRUD, notify-phone validation, run-now conflict, overview', async () => {
+  const { createApp, AUTH_COOKIE } = await import('../src/server/http/app.js')
+  const { HttpError } = await import('../src/server/core/sessions.js')
+  const { repo } = makeRepo()
+  const settings = new SettingsService(repo)
+  repo.addPhone('5511999990000')
+  repo.addPhone('5511888880000')
+  repo.upsertTelegramUser({ userId: 1, phone: '5511999990000', chatId: 10, verifiedAt: Date.now() })
+
+  let runNowCalls = 0
+  let inFlight = false
+  const discarded: string[] = []
+  const scheduler = {
+    runNow: async (id: string) => {
+      runNowCalls++
+      if (inFlight) throw new HttpError(409, 'A run of this schedule is already running')
+      inFlight = true
+      const run = { id: 'run-1', scheduleId: id, status: 'running' as const, startedAt: Date.now(), waitedMs: 0, delivered: false }
+      repo.saveRun(run)
+      return run
+    },
+    discardRun: async (runId: string) => { discarded.push(runId) },
+  }
+  const app = createApp({ repo, settings, sessions: {} as never, bot: { status: () => ({ state: 'stopped' }) } as never, hookToken: 'x', onHookEvent: () => {}, doctor: () => [], scheduler: scheduler as never })
+  const token = 'test-token'
+  repo.createAuthSession(token, 3600_000)
+  const base = { Host: '127.0.0.1:4100', Origin: 'http://127.0.0.1:4100', 'Content-Type': 'application/json', Cookie: `${AUTH_COOKIE}=${token}` }
+  const post = (path: string, body?: unknown) => app.request(path, { method: 'POST', headers: base, body: body === undefined ? undefined : JSON.stringify(body) })
+
+  const body = { name: 'Nightly', prompt: 'sweep tickets', cwd: '/tmp', kind: 'weekly', weekdays: [1, 3], timeOfDay: '09:00', notifyPhone: '5511999990000', timeoutMinutes: 30, preserveSession: false, enabled: true }
+
+  const created = await post('/api/schedules', body)
+  assert.equal(created.status, 200)
+  const schedule = (await created.json()) as { id: string; nextRun: number }
+  assert.ok(schedule.id)
+  assert.ok(schedule.nextRun > Date.now(), 'nextRun is computed on create')
+
+  const unverified = await post('/api/schedules', { ...body, notifyPhone: '5511888880000' })
+  assert.equal(unverified.status, 400, 'a phone with no verified Telegram user cannot be notified')
+
+  const unknown = await post('/api/schedules', { ...body, notifyPhone: '5511777770000' })
+  assert.equal(unknown.status, 400)
+
+  const malformed = await post('/api/schedules', { ...body, timeOfDay: '24:00' })
+  assert.equal(malformed.status, 400)
+
+  const patched = await app.request(`/api/schedules/${schedule.id}`, { method: 'PATCH', headers: base, body: JSON.stringify({ ...body, kind: 'interval', intervalMinutes: 120 }) })
+  assert.equal(patched.status, 200)
+  assert.equal(((await patched.json()) as { intervalMinutes: number }).intervalMinutes, 120)
+
+  const disabled = await app.request(`/api/schedules/${schedule.id}`, { method: 'PATCH', headers: base, body: JSON.stringify({ ...body, kind: 'interval', intervalMinutes: 120, enabled: false }) })
+  assert.equal(((await disabled.json()) as { nextRun?: number }).nextRun, undefined, 'a disabled schedule has no nextRun')
+
+  assert.equal((await post(`/api/schedules/${schedule.id}/run`)).status, 200)
+  const conflict = await post(`/api/schedules/${schedule.id}/run`)
+  assert.equal(conflict.status, 409)
+  assert.match(((await conflict.json()) as { error: string }).error, /already running/)
+  assert.equal(runNowCalls, 2)
+
+  assert.equal((await post('/api/schedule-runs/run-1/discard')).status, 200)
+  assert.deepEqual(discarded, ['run-1'])
+
+  const overview = await app.request('/api/schedules/overview', { headers: base })
+  assert.equal(overview.status, 200, 'overview is not swallowed by the :id route')
+  const o = (await overview.json()) as { stats: { total: number; windowDays: number } }
+  assert.equal(o.stats.total, 1)
+  assert.equal(o.stats.windowDays, 30)
+
+  assert.equal((await app.request(`/api/schedules/${schedule.id}/runs`, { headers: base })).status, 200)
+  assert.equal((await app.request(`/api/schedules/${schedule.id}`, { method: 'DELETE', headers: base })).status, 200)
+  assert.deepEqual(repo.listSchedules(), [])
+  assert.equal((await post('/api/schedules/nope/run')).status, 404)
+})
