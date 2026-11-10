@@ -182,6 +182,22 @@
     "failed": "❌ Tarefa agendada falhou.",
     "question": "Informe novamente {{field}}:",
     "notReady": "Agendador não disponível.",
+    "runFailed": "❌ Não foi possível iniciar a execução: {{error}}",
+    "buttons": {
+      "run": "▶️ Executar agora",
+      "pause": "⏸️ Pausar",
+      "enable": "▶️ Ativar",
+      "delete": "🗑️ Excluir",
+      "back": "← Voltar"
+    },
+    "summary": {
+      "interval": "a cada {{minutes}} min",
+      "weekly": "{{days}} às {{time}}",
+      "timeout": "tempo limite: {{minutes}} min",
+      "preserve": "preservar sessão: {{value}}",
+      "yes": "sim",
+      "no": "não"
+    },
     "status": {
       "running": "🔵 rodando",
       "waiting": "🟡 aguardando",

@@ -182,6 +182,22 @@
     "failed": "❌ Scheduled task failed.",
     "question": "Re-enter {{field}}:",
     "notReady": "Scheduler not available.",
+    "runFailed": "❌ Could not start the run: {{error}}",
+    "buttons": {
+      "run": "▶️ Run now",
+      "pause": "⏸️ Pause",
+      "enable": "▶️ Enable",
+      "delete": "🗑️ Delete",
+      "back": "← Back"
+    },
+    "summary": {
+      "interval": "every {{minutes}} min",
+      "weekly": "{{days}} at {{time}}",
+      "timeout": "timeout: {{minutes}} min",
+      "preserve": "preserve session: {{value}}",
+      "yes": "yes",
+      "no": "no"
+    },
     "status": {
       "running": "🔵 running",
       "waiting": "🟡 waiting",

@@ -182,6 +182,22 @@
     "failed": "❌ La tarea programada falló.",
     "question": "Vuelve a ingresar {{field}}:",
     "notReady": "El programador no está disponible.",
+    "runFailed": "❌ No se pudo iniciar la ejecución: {{error}}",
+    "buttons": {
+      "run": "▶️ Ejecutar ahora",
+      "pause": "⏸️ Pausar",
+      "enable": "▶️ Activar",
+      "delete": "🗑️ Eliminar",
+      "back": "← Volver"
+    },
+    "summary": {
+      "interval": "cada {{minutes}} min",
+      "weekly": "{{days}} a las {{time}}",
+      "timeout": "tiempo límite: {{minutes}} min",
+      "preserve": "preservar sesión: {{value}}",
+      "yes": "sí",
+      "no": "no"
+    },
     "status": {
       "running": "🔵 ejecutando",
       "waiting": "🟡 esperando",

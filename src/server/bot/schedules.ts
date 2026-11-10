@@ -5,7 +5,7 @@
 import { InlineKeyboard, type Bot, type Context } from 'grammy'
 import type { TFunction } from 'i18next'
 import type { ScheduleInput, ScheduleRun } from '../../shared/api.js'
-import type { Repo, StoredTelegramUser } from '../db/repo.js'
+import type { Repo } from '../db/repo.js'
 import { normalizePhone } from '../db/repo.js'
 import { computeNextRun, describeSchedule, normalizeScheduleInput } from '../core/schedules.js'
 import { escapeHtml } from './format.js'
@@ -30,7 +30,6 @@ export interface ScheduleCommandDeps {
   repo: Repo
   /** Late-bound reference; set to non-null after Scheduler is constructed */
   scheduler: { current: SchedulerHandle | null }
-  me: (ctx: Context) => StoredTelegramUser
   tr: (ctx: Context) => { lng: string; t: TFunction; n: Record<string, string> }
 }
 
@@ -218,10 +217,10 @@ export function registerScheduleCommands(d: ScheduleCommandDeps): void {
     }
 
     const kb = new InlineKeyboard()
-      .text('▶️ Run now', `schnrun:${s.id}`).row()
-      .text(s.enabled ? '⏸️ Pause' : '▶️ Enable', `schtoggle:${s.id}`).row()
-      .text('🗑️ Delete', `schdel:${s.id}`).row()
-      .text('← Back', 'schlist:')
+      .text(t('schedules.buttons.run'), `schnrun:${s.id}`).row()
+      .text(s.enabled ? t('schedules.buttons.pause') : t('schedules.buttons.enable'), `schtoggle:${s.id}`).row()
+      .text(t('schedules.buttons.delete'), `schdel:${s.id}`).row()
+      .text(t('schedules.buttons.back'), 'schlist:')
 
     await ctx.reply(lines.join('\n'), { parse_mode: 'HTML', reply_markup: kb })
   })
@@ -265,7 +264,7 @@ export function registerScheduleCommands(d: ScheduleCommandDeps): void {
       } else if (err.status === 404) {
         await ctx.reply(t('schedules.notFound'))
       } else {
-        await ctx.reply(t('schedules.runStarted', { id: '?' }) + `: ${(e as Error).message}`)
+        await ctx.reply(t('schedules.runFailed', { error: (e as Error).message }))
       }
     }
   })
@@ -366,10 +365,16 @@ export function registerScheduleCommands(d: ScheduleCommandDeps): void {
           `<b>${escapeHtml(newDraft.name ?? '')}</b>`,
           `${escapeHtml(newDraft.prompt ?? '')}`,
           `📁 ${escapeHtml(newDraft.cwd ?? '')}`,
-          `⏱ ${newDraft.kind === 'interval' ? `every ${newDraft.intervalMinutes} min` : `${(newDraft.weekdays ?? []).join(',')} at ${newDraft.timeOfDay}`}`,
+          `⏱ ${
+            newDraft.kind === 'interval'
+              ? t('schedules.summary.interval', { minutes: newDraft.intervalMinutes })
+              : t('schedules.summary.weekly', { days: (newDraft.weekdays ?? []).join(','), time: newDraft.timeOfDay })
+          }`,
           `📱 ${newDraft.notifyPhone}`,
-          `⏳ timeout: ${newDraft.timeoutMinutes} min`,
-          `preserve session: ${newDraft.preserveSession}`,
+          `⏳ ${t('schedules.summary.timeout', { minutes: newDraft.timeoutMinutes })}`,
+          t('schedules.summary.preserve', {
+            value: newDraft.preserveSession ? t('schedules.summary.yes') : t('schedules.summary.no'),
+          }),
         ]
         await ctx.reply(`${t('schedules.new.confirm')}\n\n${lines.join('\n')}`, { parse_mode: 'HTML' })
       } else {

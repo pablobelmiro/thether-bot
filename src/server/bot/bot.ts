@@ -861,7 +861,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
   })
 
   const schedulerRef = { current: null as SchedulerHandle | null }
-  registerScheduleCommands({ bot, repo: d.repo, scheduler: schedulerRef, me, tr })
+  registerScheduleCommands({ bot, repo: d.repo, scheduler: schedulerRef, tr })
 
   bot.on('message', ctx => ctx.reply(tr(ctx).t('unsupported')))
 
