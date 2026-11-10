@@ -34,6 +34,7 @@ export interface SchedulerDeps {
 export class Scheduler {
   private readonly repo: Repo
   private readonly sessions: SchedulerSessions
+  private readonly settings: SettingsService
   private readonly notify: (phone: string, markdown: string, session?: Session) => Promise<boolean>
   private readonly tickMs: number
   private timers: NodeJS.Timeout[] = []
@@ -44,6 +45,7 @@ export class Scheduler {
   constructor(d: SchedulerDeps) {
     this.repo = d.repo
     this.sessions = d.sessions
+    this.settings = d.settings
     this.notify = d.notify
     this.tickMs = d.tickMs ?? 15_000
   }
@@ -154,7 +156,8 @@ export class Scheduler {
       schedules,
       inFlight,
       runningCount: inFlightRuns.length,
-      cap: 10,
+      // Read on every tick so a change in the dashboard applies without a restart
+      cap: this.settings.get().scheduleConcurrency,
       now,
     })
 

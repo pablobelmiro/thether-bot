@@ -785,6 +785,26 @@ test('turn_complete makes the run a success, notifies only the schedule\u2019s n
   }
 })
 
+test('the dispatch cap is the scheduleConcurrency setting, read on every tick', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { repo } = makeRepo()
+  const settings = new SettingsService(repo)
+  settings.patch({ scheduleConcurrency: 1 })
+  for (const id of ['sch-1', 'sch-2', 'sch-3']) repo.saveSchedule(aSchedule({ id, name: id }))
+  const scheduler = new Scheduler({ repo, sessions: fakeSessions() as never, settings, notify: async () => true })
+
+  const count = (status: string) => repo.listRuns({ limit: 50 }).filter(r => r.status === status).length
+  await scheduler.tick()
+  assert.equal(count('running'), 1, 'a cap of 1 starts exactly one run, not the hard-coded 10')
+  assert.equal(count('skipped'), 2)
+
+  // Raising the setting takes effect on the next tick, without a restart
+  settings.patch({ scheduleConcurrency: 3 })
+  for (const s of repo.listSchedules()) repo.saveSchedule({ ...s, nextRun: Date.now() - 1 })
+  await scheduler.tick()
+  assert.equal(count('running'), 3, 'the new cap is picked up live')
+})
+
 test('a finished run survives its own cleanup: success, not discarded or taken over', async () => {
   const { Scheduler } = await import('../src/server/core/scheduler.js')
   const { repo } = makeRepo()
