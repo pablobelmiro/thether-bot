@@ -8,9 +8,14 @@ import type {
   AllowedPhone,
   AuditEntry,
   PermissionMode,
+  Schedule,
+  ScheduleRun,
+  ScheduleRunStatus,
+  ScheduleStats,
   SessionUsage,
   UsagePoint,
 } from '../../shared/api.js'
+import { SCHEDULE_RUN_IN_FLIGHT } from '../../shared/api.js'
 import { SecretBox, hashPassword, verifyPassword, sha256 } from '../crypto.js'
 import { readdirSync, statSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
@@ -166,6 +171,7 @@ export class Repo {
     this.db.prepare('DELETE FROM allowed_phones WHERE phone = ?').run(p)
     // Users verified with that phone lose access
     this.db.prepare('DELETE FROM telegram_users WHERE phone = ?').run(p)
+    this.disableSchedulesForPhone(p, 'phone-removed')
   }
 
   isPhoneAllowed(phone: string): boolean {
@@ -419,5 +425,177 @@ export class Repo {
     this.db.prepare('DELETE FROM activity WHERE ts < ?').run(weekAgo)
     this.db.prepare('DELETE FROM auth_sessions WHERE expires_at < ?').run(Date.now())
     this.db.prepare('DELETE FROM audit WHERE id NOT IN (SELECT id FROM audit ORDER BY id DESC LIMIT 5000)').run()
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 3600_000
+    this.db.prepare('DELETE FROM schedule_runs WHERE started_at < ?').run(thirtyDaysAgo)
+  }
+
+  // -------------------------------------------------------------------------
+  // Schedules
+  // -------------------------------------------------------------------------
+
+  private toSchedule(r: Row): Schedule {
+    return {
+      id: String(r.id),
+      name: String(r.name),
+      prompt: String(r.prompt),
+      cwd: String(r.cwd),
+      kind: String(r.kind) as Schedule['kind'],
+      ...(r.interval_minutes != null && { intervalMinutes: num(r.interval_minutes) }),
+      ...(r.weekdays != null && { weekdays: String(r.weekdays).split(',').map(Number) }),
+      ...(r.time_of_day != null && { timeOfDay: String(r.time_of_day) }),
+      notifyPhone: String(r.notify_phone),
+      timeoutMinutes: num(r.timeout_minutes),
+      preserveSession: num(r.preserve_session) === 1,
+      enabled: num(r.enabled) === 1,
+      ...(r.disabled_reason != null && { disabledReason: String(r.disabled_reason) }),
+      ...(r.next_run != null && { nextRun: num(r.next_run) }),
+      createdAt: num(r.created_at),
+      updatedAt: num(r.updated_at),
+    }
+  }
+
+  listSchedules(): Schedule[] {
+    return (this.db.prepare('SELECT * FROM schedules ORDER BY name').all() as Row[]).map(r => this.toSchedule(r))
+  }
+
+  getSchedule(id: string): Schedule | undefined {
+    const r = this.db.prepare('SELECT * FROM schedules WHERE id = ?').get(id) as Row | undefined
+    return r ? this.toSchedule(r) : undefined
+  }
+
+  saveSchedule(s: Schedule): void {
+    this.db
+      .prepare(
+        `INSERT INTO schedules(id, name, prompt, cwd, kind, interval_minutes, weekdays, time_of_day, notify_phone, timeout_minutes, preserve_session, enabled, disabled_reason, next_run, created_at, updated_at)
+         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET name = excluded.name, prompt = excluded.prompt, cwd = excluded.cwd,
+           kind = excluded.kind, interval_minutes = excluded.interval_minutes, weekdays = excluded.weekdays,
+           time_of_day = excluded.time_of_day, notify_phone = excluded.notify_phone,
+           timeout_minutes = excluded.timeout_minutes, preserve_session = excluded.preserve_session,
+           enabled = excluded.enabled, disabled_reason = excluded.disabled_reason,
+           next_run = excluded.next_run, updated_at = excluded.updated_at`,
+      )
+      .run(
+        s.id,
+        s.name,
+        s.prompt,
+        s.cwd,
+        s.kind,
+        s.intervalMinutes ?? null,
+        s.weekdays ? s.weekdays.join(',') : null,
+        s.timeOfDay ?? null,
+        s.notifyPhone,
+        s.timeoutMinutes,
+        s.preserveSession ? 1 : 0,
+        s.enabled ? 1 : 0,
+        s.disabledReason ?? null,
+        s.nextRun ?? null,
+        s.createdAt,
+        s.updatedAt,
+      )
+  }
+
+  deleteSchedule(id: string): void {
+    this.db.prepare('DELETE FROM schedule_runs WHERE schedule_id = ?').run(id)
+    this.db.prepare('DELETE FROM schedules WHERE id = ?').run(id)
+  }
+
+  disableSchedulesForPhone(phone: string, reason: string): number {
+    const result = this.db
+      .prepare(`UPDATE schedules SET enabled = 0, next_run = NULL, disabled_reason = ? WHERE notify_phone = ? AND enabled = 1`)
+      .run(reason, phone) as { changes: number }
+    return result.changes
+  }
+
+  // -------------------------------------------------------------------------
+  // Schedule runs
+  // -------------------------------------------------------------------------
+
+  private toRun(r: Row): ScheduleRun {
+    return {
+      id: String(r.id),
+      scheduleId: String(r.schedule_id),
+      ...(r.session_id != null && { sessionId: String(r.session_id) }),
+      status: String(r.status) as ScheduleRunStatus,
+      startedAt: num(r.started_at),
+      ...(r.ended_at != null && { endedAt: num(r.ended_at) }),
+      waitedMs: num(r.waited_ms),
+      ...(r.error != null && { error: String(r.error) }),
+      delivered: num(r.delivered) === 1,
+    }
+  }
+
+  saveRun(r: ScheduleRun): void {
+    this.db
+      .prepare(
+        `INSERT INTO schedule_runs(id, schedule_id, session_id, status, started_at, ended_at, waited_ms, error, delivered)
+         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET session_id = excluded.session_id, status = excluded.status,
+           started_at = excluded.started_at, ended_at = excluded.ended_at, waited_ms = excluded.waited_ms,
+           error = excluded.error, delivered = excluded.delivered`,
+      )
+      .run(
+        r.id,
+        r.scheduleId,
+        r.sessionId ?? null,
+        r.status,
+        r.startedAt,
+        r.endedAt ?? null,
+        r.waitedMs,
+        r.error ?? null,
+        r.delivered ? 1 : 0,
+      )
+  }
+
+  getRun(id: string): ScheduleRun | undefined {
+    const r = this.db.prepare('SELECT * FROM schedule_runs WHERE id = ?').get(id) as Row | undefined
+    return r ? this.toRun(r) : undefined
+  }
+
+  runForSession(sessionId: string): ScheduleRun | undefined {
+    const r = this.db.prepare('SELECT * FROM schedule_runs WHERE session_id = ?').get(sessionId) as Row | undefined
+    return r ? this.toRun(r) : undefined
+  }
+
+  runsInFlight(): ScheduleRun[] {
+    const placeholders = SCHEDULE_RUN_IN_FLIGHT.map(() => '?').join(', ')
+    return (this.db.prepare(`SELECT * FROM schedule_runs WHERE status IN (${placeholders})`).all(...SCHEDULE_RUN_IN_FLIGHT) as Row[]).map(r => this.toRun(r))
+  }
+
+  listRuns(opts: { scheduleId?: string; statuses?: ScheduleRunStatus[]; limit: number }): ScheduleRun[] {
+    let sql = 'SELECT * FROM schedule_runs'
+    const params: (string | number | null)[] = []
+    const wheres: string[] = []
+    if (opts.scheduleId) {
+      wheres.push('schedule_id = ?')
+      params.push(opts.scheduleId)
+    }
+    if (opts.statuses && opts.statuses.length > 0) {
+      wheres.push(`status IN (${opts.statuses.map(() => '?').join(', ')})`)
+      params.push(...opts.statuses)
+    }
+    if (wheres.length > 0) sql += ' WHERE ' + wheres.join(' AND ')
+    sql += ' ORDER BY started_at DESC LIMIT ?'
+    params.push(opts.limit)
+    return (this.db.prepare(sql).all(...params) as Row[]).map(r => this.toRun(r))
+  }
+
+  scheduleStats(sinceMs: number): ScheduleStats {
+    const totRow = this.db.prepare('SELECT COUNT(*) total, SUM(CASE WHEN enabled = 1 THEN 1 ELSE 0 END) enabled FROM schedules').get() as Row
+    const runsRow = this.db.prepare(
+      `SELECT
+        SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) success,
+        SUM(CASE WHEN status IN ('error', 'timeout') THEN 1 ELSE 0 END) failed,
+        SUM(CASE WHEN status = 'discarded' THEN 1 ELSE 0 END) discarded
+       FROM schedule_runs WHERE started_at >= ?`,
+    ).get(sinceMs) as Row
+    return {
+      total: num(totRow.total),
+      enabled: num(totRow.enabled),
+      success: num(runsRow.success),
+      failed: num(runsRow.failed),
+      discarded: num(runsRow.discarded),
+      windowDays: 30,
+    }
   }
 }

@@ -101,6 +101,44 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE sessions ADD COLUMN workspace TEXT;
   `,
+  // 4 — scheduled tasks
+  `
+  CREATE TABLE schedules (
+    id               TEXT PRIMARY KEY,
+    name             TEXT NOT NULL,
+    prompt           TEXT NOT NULL,
+    cwd              TEXT NOT NULL,
+    kind             TEXT NOT NULL,
+    interval_minutes INTEGER,
+    weekdays         TEXT,
+    time_of_day      TEXT,
+    notify_phone     TEXT NOT NULL,
+    timeout_minutes  INTEGER NOT NULL,
+    preserve_session INTEGER NOT NULL DEFAULT 0,
+    enabled          INTEGER NOT NULL DEFAULT 1,
+    disabled_reason  TEXT,
+    next_run         INTEGER,
+    created_at       INTEGER NOT NULL,
+    updated_at       INTEGER NOT NULL
+  );
+
+  CREATE TABLE schedule_runs (
+    id          TEXT PRIMARY KEY,
+    schedule_id TEXT NOT NULL,
+    session_id  TEXT,
+    status      TEXT NOT NULL,
+    started_at  INTEGER NOT NULL,
+    ended_at    INTEGER,
+    waited_ms   INTEGER NOT NULL DEFAULT 0,
+    error       TEXT,
+    delivered   INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE INDEX schedule_runs_schedule ON schedule_runs(schedule_id);
+  CREATE INDEX schedule_runs_started ON schedule_runs(started_at);
+  CREATE INDEX schedule_runs_session ON schedule_runs(session_id);
+
+  ALTER TABLE sessions ADD COLUMN scheduled_run_id TEXT;
+  `,
 ]
 
 export type DB = DatabaseSync

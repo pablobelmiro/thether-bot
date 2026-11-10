@@ -207,6 +207,24 @@ export interface Schedule extends ScheduleInput {
   updatedAt: number
 }
 
+export type ScheduleRunStatus = 'running' | 'waiting' | 'success' | 'error' | 'timeout' | 'skipped' | 'taken_over' | 'discarded'
+export const SCHEDULE_RUN_IN_FLIGHT: ScheduleRunStatus[] = ['running', 'waiting']
+export interface ScheduleRun {
+  id: string
+  scheduleId: string
+  /** Absent when the run failed before the session existed, or after a discard */
+  sessionId?: string
+  status: ScheduleRunStatus
+  startedAt: number
+  endedAt?: number
+  /** Milliseconds the run spent waiting on a human answer (excluded from the timeout) */
+  waitedMs: number
+  error?: string
+  /** false when the report could not reach Telegram */
+  delivered: boolean
+}
+export interface ScheduleStats { total: number; enabled: number; success: number; failed: number; discarded: number; windowDays: number }
+
 /** A Claude Code conversation found in ~/.claude/projects that can be resumed */
 export interface ConversationSummary {
   /** Claude Code session id (file name of the transcript) */
@@ -282,6 +300,8 @@ export interface Settings {
   hasTelegramToken: boolean
   /** Last 4 chars of the token, for recognition */
   telegramTokenHint?: string
+  /** Max simultaneous scheduled runs (1–10, default 2) */
+  scheduleConcurrency: number
 }
 
 export interface AuditEntry {
@@ -370,7 +390,7 @@ export interface AnswerRequest {
 }
 
 /** PATCH /api/settings */
-export type SettingsPatch = Partial<Pick<Settings, 'locale' | 'defaultPermissionMode' | 'idleLockHours' | 'telegramEnabled'>>
+export type SettingsPatch = Partial<Pick<Settings, 'locale' | 'defaultPermissionMode' | 'idleLockHours' | 'telegramEnabled' | 'scheduleConcurrency'>>
 
 /** PUT /api/settings/telegram-token → { username } */
 export interface TelegramTokenRequest {

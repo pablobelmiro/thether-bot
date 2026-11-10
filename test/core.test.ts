@@ -599,3 +599,79 @@ test('planDispatch runs due schedules up to the cap and skips the rest', async (
     'at the cap nothing starts',
   )
 })
+
+test('schedules and runs round-trip, and removing a phone disables its schedules', async () => {
+  const { repo } = makeRepo()
+  const now = Date.now()
+  const schedule = {
+    id: 'sch-1', name: 'Nightly', prompt: 'sweep tickets', cwd: '/home/me/app', kind: 'weekly' as const,
+    weekdays: [1, 3], timeOfDay: '09:00', notifyPhone: '5511999990000', timeoutMinutes: 30,
+    preserveSession: false, enabled: true, nextRun: now + 1000, createdAt: now, updatedAt: now,
+  }
+  repo.saveSchedule(schedule)
+  assert.deepEqual(repo.getSchedule('sch-1'), schedule)
+
+  repo.saveSchedule({ ...schedule, name: 'Renamed', weekdays: [5] })
+  assert.equal(repo.getSchedule('sch-1')?.name, 'Renamed')
+  assert.deepEqual(repo.getSchedule('sch-1')?.weekdays, [5])
+  assert.equal(repo.listSchedules().length, 1)
+
+  const run = { id: 'run-1', scheduleId: 'sch-1', sessionId: 'sess-1', status: 'running' as const, startedAt: now, waitedMs: 0, delivered: false }
+  repo.saveRun(run)
+  assert.deepEqual(repo.runsInFlight().map(r => r.id), ['run-1'])
+  assert.equal(repo.runForSession('sess-1')?.id, 'run-1')
+  repo.saveRun({ ...run, status: 'success', endedAt: now + 5, delivered: true })
+  assert.deepEqual(repo.runsInFlight(), [])
+  assert.deepEqual(repo.listRuns({ statuses: ['success'], limit: 10 }).map(r => r.id), ['run-1'])
+
+  repo.saveRun({ id: 'run-2', scheduleId: 'sch-1', status: 'error', startedAt: now + 10, endedAt: now + 11, waitedMs: 0, error: 'boom', delivered: false })
+  const stats = repo.scheduleStats(now - 1000)
+  assert.deepEqual(
+    { total: stats.total, enabled: stats.enabled, success: stats.success, failed: stats.failed, discarded: stats.discarded },
+    { total: 1, enabled: 1, success: 1, failed: 1, discarded: 0 },
+  )
+
+  repo.addPhone('5511999990000')
+  repo.addPhone('5511888880000')
+  assert.equal(repo.disableSchedulesForPhone('5511999990000', 'phone-removed'), 1)
+  assert.equal(repo.getSchedule('sch-1')?.enabled, false)
+  assert.equal(repo.getSchedule('sch-1')?.disabledReason, 'phone-removed')
+  assert.equal(repo.getSchedule('sch-1')?.nextRun, undefined)
+
+  repo.deleteSchedule('sch-1')
+  assert.deepEqual(repo.listSchedules(), [])
+  assert.deepEqual(repo.listRuns({ limit: 10 }), [], 'deleting a schedule drops its runs')
+})
+
+test('removePhone disables schedules pointing at it', async () => {
+  const { repo } = makeRepo()
+  repo.addPhone('5511999990000')
+  repo.addPhone('5511888880000')
+  const now = Date.now()
+  repo.saveSchedule({
+    id: 'sch-1', name: 'n', prompt: 'p', cwd: '/tmp', kind: 'interval', intervalMinutes: 60,
+    notifyPhone: '5511999990000', timeoutMinutes: 30, preserveSession: false, enabled: true,
+    nextRun: now, createdAt: now, updatedAt: now,
+  })
+  repo.removePhone('5511999990000')
+  assert.equal(repo.getSchedule('sch-1')?.enabled, false)
+})
+
+test('settings validate the global scheduled-run concurrency cap', async () => {
+  const { repo } = makeRepo()
+  const settings = new SettingsService(repo)
+  assert.equal(settings.get().scheduleConcurrency, 2)
+  assert.equal(settings.patch({ scheduleConcurrency: 5 }).scheduleConcurrency, 5)
+  assert.throws(() => settings.patch({ scheduleConcurrency: 0 }), /^Invalid /)
+  assert.throws(() => settings.patch({ scheduleConcurrency: 11 }), /^Invalid /)
+})
+
+test('prune drops schedule runs older than 30 days and keeps newer ones', async () => {
+  const { repo } = makeRepo()
+  const now = Date.now()
+  repo.saveSchedule({ id: 'sch-1', name: 'n', prompt: 'p', cwd: '/tmp', kind: 'interval', intervalMinutes: 60, notifyPhone: '5511999990000', timeoutMinutes: 30, preserveSession: false, enabled: true, createdAt: now, updatedAt: now })
+  repo.saveRun({ id: 'old', scheduleId: 'sch-1', status: 'success', startedAt: now - 31 * 24 * 3600_000, waitedMs: 0, delivered: true })
+  repo.saveRun({ id: 'new', scheduleId: 'sch-1', status: 'success', startedAt: now, waitedMs: 0, delivered: true })
+  repo.prune()
+  assert.deepEqual(repo.listRuns({ limit: 10 }).map(r => r.id), ['new'])
+})

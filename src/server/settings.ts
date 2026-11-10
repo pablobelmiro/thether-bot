@@ -28,6 +28,7 @@ export class SettingsService {
       telegramEnabled: this.repo.getSetting('telegramEnabled', true),
       hasTelegramToken: !!token,
       telegramTokenHint: token ? token.slice(-4) : undefined,
+      scheduleConcurrency: this.repo.getSetting('scheduleConcurrency', 2),
     }
   }
 
@@ -47,6 +48,15 @@ export class SettingsService {
       this.repo.setSetting('idleLockHours', h)
     }
     if (p.telegramEnabled !== undefined) this.repo.setSetting('telegramEnabled', !!p.telegramEnabled)
+    if (p.scheduleConcurrency !== undefined) {
+      const n = p.scheduleConcurrency
+      if (!Number.isInteger(n) || n < 1 || n > 10) {
+        const err = new Error('Invalid concurrency: must be between 1 and 10')
+        err.name = ''
+        throw err
+      }
+      this.repo.setSetting('scheduleConcurrency', n)
+    }
     return this.get()
   }
 
