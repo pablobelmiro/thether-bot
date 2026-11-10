@@ -15,6 +15,7 @@ import { markdownToTelegramMessages, inlineToHtml, terminalToHtml } from '../src
 import { Lock } from '../src/server/bot/lock.js'
 import { completeDirectory, validatePassword } from '../src/server/http/app.js'
 import { claudeCommand, validateDirectory } from '../src/server/core/sessions.js'
+import { hub } from '../src/server/core/hub.js'
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'tether-test-'))
 
@@ -697,21 +698,40 @@ test('sessions persist their scheduled run link', async () => {
 
 // --- Scheduler -------------------------------------------------------------------
 
+/**
+ * Stands in for SessionManager, including the events the real one emits:
+ * remove() emits `session_removed` and command() emits `human_input`, both
+ * synchronously. Without those the scheduler's own cleanup looks harmless.
+ */
 function fakeSessions(over: Record<string, unknown> = {}) {
   const calls: string[] = []
+  const state = { id: 'sess-1', live: false, scheduledRunId: undefined as string | undefined }
   const sessions = {
     calls,
+    state,
     create: async (req: never, mode: never, runId?: string) => {
       calls.push(`create:${runId}`)
-      return { id: 'sess-1', name: 'n', scheduledRunId: runId, status: 'idle' } as never
+      state.live = true
+      state.scheduledRunId = runId
+      return { id: state.id, name: 'n', scheduledRunId: runId, status: 'idle' } as never
     },
     waitBooted: async () => { calls.push('waitBooted'); return true },
     prompt: async (_id: string, text: string) => { calls.push(`prompt:${text}`); return 'sent' as const },
-    command: async (_id: string, c: string) => { calls.push(`command:${c}`); return '' },
+    command: async (id: string, c: string) => {
+      calls.push(`command:${c}`)
+      hub.emit('human_input', { id, scheduledRunId: state.scheduledRunId, status: 'idle' } as never)
+      return ''
+    },
     pause: async () => { calls.push('pause'); return {} as never },
-    remove: async (_id: string, kill: boolean) => { calls.push(`remove:${kill}`) },
-    clearScheduledRun: () => { calls.push('clear') },
-    get: () => ({ id: 'sess-1', status: 'idle' }) as never,
+    remove: async (id: string, kill: boolean) => {
+      calls.push(`remove:${kill}`)
+      state.live = false
+      state.scheduledRunId = undefined
+      hub.emit('session_removed', id)
+    },
+    clearScheduledRun: () => { calls.push('clear'); state.scheduledRunId = undefined },
+    get: (id: string) =>
+      (state.live && id === state.id ? { id: state.id, status: 'idle', scheduledRunId: state.scheduledRunId } : undefined) as never,
     ...over,
   }
   return sessions
@@ -760,6 +780,57 @@ test('turn_complete makes the run a success, notifies only the schedule\u2019s n
     assert.ok(sessions.calls.includes('command:/clear'), '/clear runs on a session about to be discarded')
     assert.ok(sessions.calls.includes('pause'))
     assert.ok(sessions.calls.includes('remove:true'))
+  } finally {
+    scheduler.stop()
+  }
+})
+
+test('a finished run survives its own cleanup: success, not discarded or taken over', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { repo } = makeRepo()
+  repo.saveSchedule(aSchedule())
+  const sessions = fakeSessions()
+  const scheduler = new Scheduler({ repo, sessions: sessions as never, settings: new SettingsService(repo), notify: async () => true })
+  scheduler.start()
+  try {
+    await scheduler.tick()
+    const run = repo.runsInFlight()[0]
+    hub.emit('turn_complete', { id: 'sess-1', scheduledRunId: run.id } as never, 'all done')
+    await new Promise(r => setTimeout(r, 50))
+    const done = repo.getRun(run.id)!
+    assert.equal(done.status, 'success', 'neither /clear (human_input) nor remove (session_removed) may rewrite it')
+    assert.deepEqual(
+      sessions.calls.slice(3),
+      ['clear', 'command:/clear', 'pause', 'remove:true'],
+      'the run is detached before /clear, then the session is paused and dropped',
+    )
+    assert.equal(sessions.state.live, false, 'no session is left behind')
+  } finally {
+    scheduler.stop()
+  }
+})
+
+test('a preserved session that dies after a successful run is not finished twice', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { repo } = makeRepo()
+  repo.saveSchedule(aSchedule({ preserveSession: true }))
+  const sessions = fakeSessions()
+  const sent: string[] = []
+  const scheduler = new Scheduler({ repo, sessions: sessions as never, settings: new SettingsService(repo), notify: async (_p, m) => { sent.push(m); return true } })
+  scheduler.start()
+  try {
+    await scheduler.tick()
+    const run = repo.runsInFlight()[0]
+    hub.emit('turn_complete', { id: 'sess-1', scheduledRunId: run.id } as never, 'done')
+    await new Promise(r => setTimeout(r, 50))
+    assert.equal(repo.getRun(run.id)!.status, 'success')
+    assert.equal(sent.length, 1)
+
+    // The preserved session dies later; its run already ended
+    hub.emit('session', { id: 'sess-1', scheduledRunId: run.id, status: 'offline' } as never)
+    await new Promise(r => setTimeout(r, 50))
+    assert.equal(repo.getRun(run.id)!.status, 'success', 'a terminal run is never re-finished')
+    assert.equal(sent.length, 1, 'and never notifies a second time')
   } finally {
     scheduler.stop()
   }

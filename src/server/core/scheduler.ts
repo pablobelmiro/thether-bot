@@ -4,6 +4,7 @@
 
 import { randomUUID } from 'node:crypto'
 import type { Schedule, ScheduleRun, Session, CreateSessionRequest, PermissionMode } from '../../shared/api.js'
+import { SCHEDULE_RUN_IN_FLIGHT } from '../../shared/api.js'
 import type { Repo } from '../db/repo.js'
 import type { SettingsService } from '../settings.js'
 import { computeNextRun, planDispatch } from './schedules.js'
@@ -47,29 +48,36 @@ export class Scheduler {
     this.tickMs = d.tickMs ?? 15_000
   }
 
+  /** The run of this session, but only while it can still change state */
+  private inFlightRunForSession(sessionId: string): ScheduleRun | undefined {
+    const run = this.repo.runForSession(sessionId)
+    if (!run) return undefined
+    return SCHEDULE_RUN_IN_FLIGHT.includes(run.status) ? run : undefined
+  }
+
   start(): void {
     this.timers.push(setInterval(() => void this.tick(), this.tickMs))
 
     // Hub listeners
     const onTurnComplete = (s: Session, response: string) => {
       if (!s.scheduledRunId) return
-      const run = this.repo.runForSession(s.id)
+      const run = this.inFlightRunForSession(s.id)
       if (!run) return
       void this.finish(run, 'success', response)
     }
 
     const onQuestion = (s: Session, q: { question: string }) => {
       if (!s.scheduledRunId) return
-      const run = this.repo.runForSession(s.id)
+      const run = this.inFlightRunForSession(s.id)
       if (!run) return
       this.waitingSince.set(s.id, Date.now())
       this.repo.saveRun({ ...run, status: 'waiting' })
-      void this.notifyForSchedule(run.scheduleId, q.question)
+      void this.notifyForSchedule(run.scheduleId, q.question, this.sessions.get(s.id))
     }
 
     const onQuestionResolved = (s: Session) => {
       if (!s.scheduledRunId) return
-      const run = this.repo.runForSession(s.id)
+      const run = this.inFlightRunForSession(s.id)
       if (!run) return
       const since = this.waitingSince.get(s.id)
       this.waitingSince.delete(s.id)
@@ -79,7 +87,7 @@ export class Scheduler {
 
     const onHumanInput = (s: Session) => {
       if (!s.scheduledRunId) return
-      const run = this.repo.runForSession(s.id)
+      const run = this.inFlightRunForSession(s.id)
       if (!run) return
       this.waitingSince.delete(s.id)
       this.repo.saveRun({ ...run, status: 'taken_over', endedAt: Date.now() })
@@ -89,14 +97,16 @@ export class Scheduler {
     const onSession = (s: Session) => {
       if (!s.scheduledRunId) return
       if (s.status !== 'offline') return
-      const run = this.repo.runForSession(s.id)
+      const run = this.inFlightRunForSession(s.id)
       if (!run) return
       void this.finish(run, 'error', 'Session went offline during the run')
     }
 
     const onSessionRemoved = (sessionId: string) => {
       this.waitingSince.delete(sessionId)
-      const run = this.repo.runForSession(sessionId)
+      // Only a run still in flight becomes `discarded`; a run that already ended
+      // (including one the scheduler is cleaning up right now) keeps its outcome.
+      const run = this.inFlightRunForSession(sessionId)
       if (!run) return
       this.repo.saveRun({ ...run, status: 'discarded', endedAt: Date.now(), sessionId: undefined })
     }
@@ -231,25 +241,43 @@ export class Scheduler {
     }
   }
 
-  private async notifyForSchedule(scheduleId: string, text: string): Promise<boolean> {
+  private async notifyForSchedule(scheduleId: string, text: string, session?: Session): Promise<boolean> {
     const schedule = this.repo.getSchedule(scheduleId)
     if (!schedule?.notifyPhone) return false
-    return this.notify(schedule.notifyPhone, text)
+    return this.notify(schedule.notifyPhone, text, session)
   }
 
   private async finish(run: ScheduleRun, status: 'success' | 'error' | 'timeout', text: string): Promise<void> {
     if (run.sessionId) this.waitingSince.delete(run.sessionId)
     const schedule = this.repo.getSchedule(run.scheduleId)
     const phone = schedule?.notifyPhone
-    const delivered = phone ? await this.notify(phone, text) : false
-    this.repo.saveRun({ ...run, status, endedAt: Date.now(), delivered })
+    // Pass the session so a locked recipient gets the notice *and* keeps the report in their inbox
+    const session = run.sessionId ? this.sessions.get(run.sessionId) : undefined
+    const delivered = phone ? await this.notify(phone, text, session) : false
+    this.repo.saveRun({
+      ...run,
+      status,
+      endedAt: Date.now(),
+      delivered,
+      ...(status !== 'success' && { error: text }),
+    })
 
     if (status === 'success' && schedule && !schedule.preserveSession && run.sessionId) {
-      const sid = run.sessionId
-      try { await this.sessions.command(sid, '/clear') } catch { /* ignore */ }
-      try { await this.sessions.pause(sid) } catch { /* ignore */ }
-      try { await this.sessions.remove(sid, true) } catch { /* ignore */ }
+      await this.disposeSession(run.sessionId, true)
     }
+  }
+
+  /**
+   * Close out a disposable session. Detaching comes first so the scheduler's own
+   * `/clear` and `remove` are never mistaken for a human takeover or a discard.
+   */
+  private async disposeSession(sessionId: string, clearConversation: boolean): Promise<void> {
+    try { this.sessions.clearScheduledRun(sessionId) } catch { /* session may be gone */ }
+    if (clearConversation) {
+      try { await this.sessions.command(sessionId, '/clear') } catch { /* ignore */ }
+    }
+    try { await this.sessions.pause(sessionId) } catch { /* ignore */ }
+    try { await this.sessions.remove(sessionId, true) } catch { /* ignore */ }
   }
 
   async runNow(scheduleId: string, _actor: 'dashboard' | 'telegram'): Promise<ScheduleRun> {
