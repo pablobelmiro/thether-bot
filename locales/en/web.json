@@ -24,7 +24,9 @@
     "sessions": "Sessions",
     "schedules": "Schedules",
     "settings": "Settings",
-    "docs": "Documentation"
+    "docs": "Documentation",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar"
   },
   "theme": {
     "toDark": "Switch to dark mode",

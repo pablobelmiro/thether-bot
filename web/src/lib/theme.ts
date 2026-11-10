@@ -37,3 +37,19 @@ export const useTheme = create<ThemeState>((set, get) => {
     },
   }
 })
+
+const SIDEBAR_KEY = 'tether.sidebar.collapsed'
+
+interface SidebarState {
+  collapsed: boolean
+  toggle: () => void
+}
+
+export const useSidebar = create<SidebarState>((set, get) => ({
+  collapsed: storageGet(SIDEBAR_KEY) === 'true',
+  toggle: () => {
+    const next = !get().collapsed
+    storageSet(SIDEBAR_KEY, String(next))
+    set({ collapsed: next })
+  },
+}))

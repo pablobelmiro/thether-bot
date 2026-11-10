@@ -3,11 +3,13 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { api } from '@/lib/api'
 import { useStore } from '@/lib/store'
+import { useSidebar } from '@/lib/theme'
 import { connectWs, disconnectWs, nudgeWs } from '@/lib/ws'
 import { FullScreenLoader } from './FullScreenLoader'
 import { Brand, Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { useTranslation } from 'react-i18next'
+import { cn } from '@/lib/utils'
 
 export function ProtectedLayout() {
   const auth = useStore((s) => s.auth)
@@ -23,6 +25,7 @@ function AppShell({ ready }: { ready: boolean }) {
   const { t } = useTranslation()
   const [navOpen, setNavOpen] = useState(false)
   const location = useLocation()
+  const { collapsed } = useSidebar()
 
   useEffect(() => {
     if (!ready) return
@@ -49,7 +52,7 @@ function AppShell({ ready }: { ready: boolean }) {
     <div className="flex h-full flex-col">
       <Header onOpenNav={() => setNavOpen(true)} />
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-72 shrink-0 border-r border-border bg-card/40 md:flex md:flex-col">
+        <aside className={cn('hidden shrink-0 border-r border-border bg-card/40 md:flex md:flex-col transition-all duration-200', collapsed ? 'w-14' : 'w-72')}>
           <Sidebar />
         </aside>
         <Sheet open={navOpen} onOpenChange={setNavOpen}>

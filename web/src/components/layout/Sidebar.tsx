@@ -1,4 +1,4 @@
-import { BookOpen, ChevronDown, Clock, Folder, FolderGit2, History, LayoutDashboard, Pause, Plus, Settings, Unplug } from 'lucide-react'
+import { BookOpen, ChevronDown, Clock, Folder, FolderGit2, History, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Pause, Plus, Settings, Unplug } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router-dom'
@@ -12,6 +12,7 @@ import { NewSessionDialog } from '@/features/sessions/NewSessionDialog'
 import { modelLabel } from '@/features/sessions/models'
 import { useFormat } from '@/lib/format'
 import { sortedSessions, useStore } from '@/lib/store'
+import { useSidebar } from '@/lib/theme'
 import { api } from '@/lib/api'
 import { errorMessage } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -38,6 +39,7 @@ export function Sidebar() {
   const [newOpen, setNewOpen] = useState(false)
   const [newCwd, setNewCwd] = useState<string | undefined>(undefined)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const { collapsed: sidebarCollapsed, toggle: toggleSidebar } = useSidebar()
   // Sessions grouped by working directory; most recently active directory first
   const groups = useMemo(() => {
     const map = new Map<string, Session[]>()
@@ -60,13 +62,70 @@ export function Sidebar() {
   const [adoptOpen, setAdoptOpen] = useState(false)
   const [resumeOpen, setResumeOpen] = useState(false)
 
+  if (sidebarCollapsed) {
+    return (
+      <div className="flex h-full min-h-0 flex-col items-center py-2 gap-1">
+        <Hint label={t('nav.expand')} side="right">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={toggleSidebar}
+            aria-label={t('nav.expand')}
+            className="mb-1"
+          >
+            <PanelLeftOpen />
+          </Button>
+        </Hint>
+        <Hint label={t('nav.overview')} side="right">
+          <NavLink to="/" end aria-label={t('nav.overview')} className={({ isActive }) => cn('flex items-center justify-center rounded-md p-2 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:bg-accent', isActive && 'bg-accent')}>
+            <LayoutDashboard className="size-4 text-muted-foreground" />
+          </NavLink>
+        </Hint>
+        <div className="flex-1" />
+        <Hint label={t('nav.schedules')} side="right">
+          <NavLink to="/schedules" aria-label={t('nav.schedules')} className={({ isActive }) => cn('flex items-center justify-center rounded-md p-2 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:bg-accent', isActive && 'bg-accent')}>
+            <Clock className="size-4 text-muted-foreground" />
+          </NavLink>
+        </Hint>
+        <Hint label={t('nav.settings')} side="right">
+          <NavLink to="/settings" aria-label={t('nav.settings')} className={({ isActive }) => cn('flex items-center justify-center rounded-md p-2 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:bg-accent', isActive && 'bg-accent')}>
+            <Settings className="size-4 text-muted-foreground" />
+          </NavLink>
+        </Hint>
+        <Hint label={t('nav.docs')} side="right">
+          <a href={docsUrl(i18n.language)} target="_blank" rel="noreferrer noopener" aria-label={t('nav.docs')} className="flex items-center justify-center rounded-md p-2 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:bg-accent">
+            <BookOpen className="size-4 text-muted-foreground" />
+          </a>
+        </Hint>
+        <Hint label="GitHub" side="right">
+          <a href="https://github.com/pablobelmiro/thether-bot" target="_blank" rel="noreferrer noopener" aria-label="GitHub" className="flex items-center justify-center rounded-md p-2 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:bg-accent">
+            <FolderGit2 className="size-4 text-muted-foreground" />
+          </a>
+        </Hint>
+        <NewSessionDialog open={newOpen} onOpenChange={setNewOpen} initialCwd={newCwd} />
+        <AdoptDialog open={adoptOpen} onOpenChange={setAdoptOpen} />
+        <ResumeDialog open={resumeOpen} onOpenChange={setResumeOpen} />
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <nav className="px-3 pt-4">
-        <NavLink to="/" end className={({ isActive }) => cn(navItem, isActive && 'bg-accent font-medium')}>
+      <nav className="flex items-center justify-between px-3 pt-4 pb-1">
+        <NavLink to="/" end className={({ isActive }) => cn(navItem, 'flex-1', isActive && 'bg-accent font-medium')}>
           <LayoutDashboard className="size-4 text-muted-foreground" />
           {t('nav.overview')}
         </NavLink>
+        <Hint label={t('nav.collapse')} side="right">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={toggleSidebar}
+            aria-label={t('nav.collapse')}
+          >
+            <PanelLeftClose />
+          </Button>
+        </Hint>
       </nav>
 
       <div className="flex items-center justify-between px-6 pb-2 pt-6">

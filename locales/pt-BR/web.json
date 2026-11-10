@@ -24,7 +24,9 @@
     "sessions": "Sessões",
     "schedules": "Agendamentos",
     "settings": "Configurações",
-    "docs": "Documentação"
+    "docs": "Documentação",
+    "collapse": "Recolher barra lateral",
+    "expand": "Expandir barra lateral"
   },
   "theme": {
     "toDark": "Mudar para o modo escuro",
