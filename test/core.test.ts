@@ -491,3 +491,74 @@ test('doctor: evaluates pass/fail per check from plain facts, no I/O', async () 
   const nodeTooOld = evaluateDoctorChecks({ nodeVersion: '22.12.9', hasTmux: true, hasClaude: true, hooksInstalled: true, statusLineInstalled: true })
   assert.equal(nodeTooOld.find(c => c.id === 'node')?.ok, false, '22.13 is the minimum, 22.12.x fails')
 })
+
+test('computeNextRun: interval counts from the given instant', async () => {
+  const { computeNextRun } = await import('../src/server/core/schedules.js')
+  const from = Date.UTC(2026, 0, 5, 12, 0, 0)
+  assert.equal(computeNextRun({ kind: 'interval', intervalMinutes: 30 }, from), from + 30 * 60_000)
+})
+
+test('computeNextRun: weekly picks the next configured weekday at the configured local time', async () => {
+  const { computeNextRun } = await import('../src/server/core/schedules.js')
+  // Monday 2026-01-05, local 10:00 → next is Wednesday 09:00 local
+  const from = new Date(2026, 0, 5, 10, 0, 0).getTime()
+  const next = new Date(computeNextRun({ kind: 'weekly', weekdays: [1, 3], timeOfDay: '09:00' }, from))
+  assert.equal(next.getDay(), 3)
+  assert.equal(next.getHours(), 9)
+  assert.equal(next.getMinutes(), 0)
+  assert.equal(next.getDate(), 7)
+})
+
+test('computeNextRun: weekly never returns the instant it was asked about', async () => {
+  const { computeNextRun } = await import('../src/server/core/schedules.js')
+  const from = new Date(2026, 0, 5, 9, 0, 0).getTime() // Monday exactly 09:00
+  const next = computeNextRun({ kind: 'weekly', weekdays: [1], timeOfDay: '09:00' }, from)
+  assert.ok(next > from, 'must move to the following week, not fire again now')
+  assert.equal(new Date(next).getDate(), 12)
+})
+
+test('computeNextRun: weekly holds the wall-clock hour across every day of the year, DST included', async () => {
+  const { computeNextRun } = await import('../src/server/core/schedules.js')
+  const timing = { kind: 'weekly' as const, weekdays: [0, 1, 2, 3, 4, 5, 6], timeOfDay: '09:00' }
+  for (let day = 0; day < 366; day++) {
+    const from = new Date(2026, 0, 1, 12, 0, 0).getTime() + day * 24 * 3600_000
+    const next = new Date(computeNextRun(timing, from))
+    assert.equal(next.getHours(), 9, `hour drifted at day ${day}`)
+    assert.equal(next.getMinutes(), 0, `minute drifted at day ${day}`)
+    assert.ok(next.getTime() > from, `did not advance at day ${day}`)
+  }
+})
+
+test('normalizeScheduleInput rejects malformed parameters and trims the good ones', async () => {
+  const { normalizeScheduleInput } = await import('../src/server/core/schedules.js')
+  const base = { name: ' Nightly ', prompt: ' sweep tickets ', cwd: '/home/me/app', notifyPhone: '+55 (11) 99999-0000', timeoutMinutes: 30, preserveSession: false, enabled: true }
+  const ok = normalizeScheduleInput({ ...base, kind: 'weekly', weekdays: [3, 1, 1], timeOfDay: '09:05' })
+  assert.equal(ok.name, 'Nightly')
+  assert.equal(ok.prompt, 'sweep tickets')
+  assert.equal(ok.notifyPhone, '5511999990000')
+  assert.deepEqual(ok.weekdays, [1, 3])
+  assert.equal(ok.intervalMinutes, undefined)
+
+  const interval = normalizeScheduleInput({ ...base, kind: 'interval', intervalMinutes: 15, weekdays: [1], timeOfDay: '09:00' })
+  assert.equal(interval.intervalMinutes, 15)
+  assert.equal(interval.weekdays, undefined, 'the other kind\'s parameters are dropped')
+  assert.equal(interval.timeOfDay, undefined)
+
+  for (const bad of [
+    { ...base, kind: 'interval', intervalMinutes: 0 },
+    { ...base, kind: 'interval', intervalMinutes: -5 },
+    { ...base, kind: 'interval', intervalMinutes: 20_000 },
+    { ...base, kind: 'weekly', weekdays: [], timeOfDay: '09:00' },
+    { ...base, kind: 'weekly', weekdays: [7], timeOfDay: '09:00' },
+    { ...base, kind: 'weekly', weekdays: [1], timeOfDay: '24:00' },
+    { ...base, kind: 'weekly', weekdays: [1], timeOfDay: '9' },
+    { ...base, kind: 'monthly', intervalMinutes: 60 },
+    { ...base, kind: 'interval', intervalMinutes: 60, prompt: '  ' },
+    { ...base, kind: 'interval', intervalMinutes: 60, name: '' },
+    { ...base, kind: 'interval', intervalMinutes: 60, cwd: 'relative/path' },
+    { ...base, kind: 'interval', intervalMinutes: 60, timeoutMinutes: 0 },
+    { ...base, kind: 'interval', intervalMinutes: 60, timeoutMinutes: 2000 },
+  ]) {
+    assert.throws(() => normalizeScheduleInput(bad), /^Invalid /, `accepted ${JSON.stringify(bad)}`)
+  }
+})

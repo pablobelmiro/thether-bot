@@ -177,6 +177,36 @@ export interface ConnectionTestResult {
   error?: string
 }
 
+export type ScheduleKind = 'interval' | 'weekly'
+
+export interface ScheduleInput {
+  name: string
+  prompt: string
+  cwd: string
+  kind: ScheduleKind
+  /** kind=interval: minutes between runs, 1–10080 */
+  intervalMinutes?: number
+  /** kind=weekly: 0=Sunday … 6=Saturday, non-empty, sorted, unique */
+  weekdays?: number[]
+  /** kind=weekly: local wall clock, exactly "HH:MM" */
+  timeOfDay?: string
+  /** digits only; must have a verified telegram_users row */
+  notifyPhone: string
+  timeoutMinutes: number
+  preserveSession: boolean
+  enabled: boolean
+}
+
+export interface Schedule extends ScheduleInput {
+  id: string
+  /** Unix ms; undefined when disabled */
+  nextRun?: number
+  /** Why the server disabled it, e.g. "phone-removed" */
+  disabledReason?: string
+  createdAt: number
+  updatedAt: number
+}
+
 /** A Claude Code conversation found in ~/.claude/projects that can be resumed */
 export interface ConversationSummary {
   /** Claude Code session id (file name of the transcript) */
