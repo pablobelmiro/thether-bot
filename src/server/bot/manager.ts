@@ -4,7 +4,7 @@
  */
 
 import { Api } from 'grammy'
-import type { BotStatus } from '../../shared/api.js'
+import type { BotStatus, Session } from '../../shared/api.js'
 import type { Repo } from '../db/repo.js'
 import type { SettingsService } from '../settings.js'
 import type { SessionManager } from '../core/sessions.js'
@@ -84,6 +84,17 @@ export class BotManager {
 
   lockUser(userId: number): void {
     this.current?.tg.lockUser(userId)
+  }
+
+  /** false when the bot is not running or the phone has no verified user */
+  async notifyPhone(phone: string, markdown: string, session?: Session): Promise<boolean> {
+    if (!this.current) return false
+    try {
+      return await this.current.tg.notifyPhone(phone, markdown, session)
+    } catch (e) {
+      log('notifyPhone failed:', (e as Error).message)
+      return false
+    }
   }
 
   private async doStart(): Promise<BotStatus> {

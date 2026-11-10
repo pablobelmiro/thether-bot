@@ -680,6 +680,12 @@ test('prune drops schedule runs older than 30 days and keeps newer ones', async 
   assert.deepEqual(repo.listRuns({ limit: 10 }).map(r => r.id), ['new'])
 })
 
+test('the bot broadcast skips sessions that belong to a scheduled run', async () => {
+  const { shouldBroadcastTurn } = await import('../src/server/bot/bot.js')
+  assert.equal(shouldBroadcastTurn({ scheduledRunId: undefined } as never), true)
+  assert.equal(shouldBroadcastTurn({ scheduledRunId: 'run-1' } as never), false)
+})
+
 test('sessions persist their scheduled run link', async () => {
   const { repo } = makeRepo()
   const now = Date.now()

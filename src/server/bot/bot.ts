@@ -79,6 +79,9 @@ export interface BotDeps {
   sessions: SessionManager
 }
 
+/** A scheduled run's answer goes to its one notify number, never to everybody */
+export const shouldBroadcastTurn = (s: Session): boolean => !s.scheduledRunId
+
 export interface TelegramBot {
   bot: Bot
   /** Subscribe to hub events; returns an unsubscribe function */
@@ -86,6 +89,11 @@ export interface TelegramBot {
   notifyOnline(): Promise<void>
   lockAll(): void
   lockUser(userId: number): void
+  /**
+   * Sends to exactly one registered number, respecting that user's password lock.
+   * false = nobody verified holds that phone (nothing was delivered).
+   */
+  notifyPhone(phone: string, markdown: string, session?: Session): Promise<boolean>
 }
 
 export function createTelegramBot(d: BotDeps): TelegramBot {
@@ -381,7 +389,8 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     for (const s of list) {
       const unread = d.repo.inboxCount(u.userId, s.id)
       const mark = s.id === u.activeSessionId ? '✅ ' : ''
-      kb.text(`${mark}${DOT[s.status] ?? '⚪'} ${s.name}${unread ? ` 📬${unread}` : ''}${s.pendingPermission || s.pendingQuestion ? ' 🛡️' : ''}`, `chg:${s.id}`).row()
+      const schedMark = s.scheduledRunId ? '⏱️ ' : ''
+      kb.text(`${mark}${schedMark}${DOT[s.status] ?? '⚪'} ${s.name}${unread ? ` 📬${unread}` : ''}${s.pendingPermission || s.pendingQuestion ? ' 🛡️' : ''}`, `chg:${s.id}`).row()
     }
     kb.text(t('workspace.newHere'), `wsnew:${i}`)
     if (list.some(s => s.status !== 'paused' && s.status !== 'offline')) kb.text(t('workspace.pauseAll'), `wspause:${i}`)
@@ -918,6 +927,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
   function attach(): () => void {
     const onTurn = async (s: Session, response: string) => {
       if (response) lastResponse.set(s.id, response)
+      if (!shouldBroadcastTurn(s)) return
       for (const u of users()) {
         const lng = localeOf(u)
         const t = translator(lng)
@@ -1017,10 +1027,27 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     }
   }
 
+  async function notifyPhone(phone: string, markdown: string, session?: Session): Promise<boolean> {
+    const u = users().find(u => u.phone === normalizePhone(phone))
+    if (!u) return false
+    if (!isOpen(u)) {
+      if (session) {
+        d.repo.addInbox(u.userId, session.id, markdown, Date.now())
+        await notifyLocked(u, session, 'lock.answerWaiting')
+      } else {
+        await send(u.chatId, translator(localeOf(u))('schedules.lockedNotice'))
+      }
+    } else {
+      await sendMarkdown(u.chatId, markdown)
+    }
+    return true
+  }
+
   return {
     bot,
     attach,
     notifyOnline,
+    notifyPhone,
     lockAll: () => locks.forEach(l => l.lock()),
     lockUser: (id: number) => locks.get(id)?.lock(),
   }
