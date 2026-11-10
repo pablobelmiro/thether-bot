@@ -694,3 +694,225 @@ test('sessions persist their scheduled run link', async () => {
   repo.saveSession({ ...repo.listSessions()[0], scheduledRunId: undefined })
   assert.equal(repo.listSessions()[0].scheduledRunId, undefined, 'detaching clears the column')
 })
+
+// --- Scheduler -------------------------------------------------------------------
+
+function fakeSessions(over: Record<string, unknown> = {}) {
+  const calls: string[] = []
+  const sessions = {
+    calls,
+    create: async (req: never, mode: never, runId?: string) => {
+      calls.push(`create:${runId}`)
+      return { id: 'sess-1', name: 'n', scheduledRunId: runId, status: 'idle' } as never
+    },
+    waitBooted: async () => { calls.push('waitBooted'); return true },
+    prompt: async (_id: string, text: string) => { calls.push(`prompt:${text}`); return 'sent' as const },
+    command: async (_id: string, c: string) => { calls.push(`command:${c}`); return '' },
+    pause: async () => { calls.push('pause'); return {} as never },
+    remove: async (_id: string, kill: boolean) => { calls.push(`remove:${kill}`) },
+    clearScheduledRun: () => { calls.push('clear') },
+    get: () => ({ id: 'sess-1', status: 'idle' }) as never,
+    ...over,
+  }
+  return sessions
+}
+
+const aSchedule = (over = {}) => ({
+  id: 'sch-1', name: 'Nightly', prompt: 'sweep tickets', cwd: '/tmp', kind: 'interval' as const,
+  intervalMinutes: 60, notifyPhone: '5511999990000', timeoutMinutes: 30, preserveSession: false,
+  enabled: true, nextRun: Date.now() - 1, createdAt: Date.now(), updatedAt: Date.now(), ...over,
+})
+
+test('a due schedule boots a session, injects the prompt and advances nextRun', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { repo } = makeRepo()
+  repo.saveSchedule(aSchedule())
+  const sessions = fakeSessions()
+  const scheduler = new Scheduler({ repo, sessions: sessions as never, settings: new SettingsService(repo), notify: async () => true })
+  await scheduler.tick()
+
+  const run = repo.runsInFlight()[0]
+  assert.ok(run, 'the run is in flight')
+  assert.equal(run.sessionId, 'sess-1')
+  assert.deepEqual(sessions.calls, [`create:${run.id}`, 'waitBooted', 'prompt:sweep tickets'])
+  assert.ok(repo.getSchedule('sch-1')!.nextRun! > Date.now(), 'nextRun moved forward')
+})
+
+test('turn_complete makes the run a success, notifies only the schedule\u2019s number, then clears and discards', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { hub } = await import('../src/server/core/hub.js')
+  const { repo } = makeRepo()
+  repo.saveSchedule(aSchedule())
+  const sessions = fakeSessions()
+  const sent: Array<[string, string]> = []
+  const scheduler = new Scheduler({ repo, sessions: sessions as never, settings: new SettingsService(repo), notify: async (p, m) => { sent.push([p, m]); return true } })
+  scheduler.start()
+  try {
+    await scheduler.tick()
+    const run = repo.runsInFlight()[0]
+    hub.emit('turn_complete', { id: 'sess-1', scheduledRunId: run.id } as never, 'all done')
+    await new Promise(r => setTimeout(r, 50))
+    const done = repo.getRun(run.id)!
+    assert.equal(done.status, 'success')
+    assert.equal(done.delivered, true)
+    assert.ok(done.endedAt)
+    assert.deepEqual(sent, [['5511999990000', 'all done']])
+    assert.ok(sessions.calls.includes('command:/clear'), '/clear runs on a session about to be discarded')
+    assert.ok(sessions.calls.includes('pause'))
+    assert.ok(sessions.calls.includes('remove:true'))
+  } finally {
+    scheduler.stop()
+  }
+})
+
+test('a preserved schedule keeps its session and never runs /clear', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { hub } = await import('../src/server/core/hub.js')
+  const { repo } = makeRepo()
+  repo.saveSchedule(aSchedule({ preserveSession: true }))
+  const sessions = fakeSessions()
+  const scheduler = new Scheduler({ repo, sessions: sessions as never, settings: new SettingsService(repo), notify: async () => true })
+  scheduler.start()
+  try {
+    await scheduler.tick()
+    const run = repo.runsInFlight()[0]
+    hub.emit('turn_complete', { id: 'sess-1', scheduledRunId: run.id } as never, 'done')
+    await new Promise(r => setTimeout(r, 50))
+    assert.equal(repo.getRun(run.id)!.status, 'success')
+    assert.ok(!sessions.calls.includes('command:/clear'), 'the preserved conversation stays intact')
+    assert.ok(!sessions.calls.some(c => c.startsWith('remove')))
+  } finally {
+    scheduler.stop()
+  }
+})
+
+test('a schedule whose directory is gone records an error run and the tick survives', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { repo } = makeRepo()
+  repo.saveSchedule(aSchedule({ cwd: '/does/not/exist' }))
+  const sessions = fakeSessions({ create: async () => { throw new Error('Directory does not exist') } })
+  const sent: string[] = []
+  const scheduler = new Scheduler({ repo, sessions: sessions as never, settings: new SettingsService(repo), notify: async (_p, m) => { sent.push(m); return true } })
+  await scheduler.tick()
+  const run = repo.listRuns({ limit: 10 })[0]
+  assert.equal(run.status, 'error')
+  assert.match(run.error!, /Directory does not exist/)
+  assert.equal(run.sessionId, undefined)
+  assert.deepEqual(repo.runsInFlight(), [], 'a failed boot does not leave a run in flight')
+  assert.equal(sent.length, 1, 'the notify number hears about it')
+  await scheduler.tick() // must not throw
+})
+
+test('a run past its timeout is failed, the number is warned, and the session is kept', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { repo } = makeRepo()
+  repo.saveSchedule(aSchedule({ timeoutMinutes: 1, nextRun: undefined, enabled: false }))
+  const run = { id: 'run-1', scheduleId: 'sch-1', sessionId: 'sess-1', status: 'running' as const, startedAt: Date.now() - 2 * 60_000, waitedMs: 0, delivered: false }
+  repo.saveRun(run)
+  const sessions = fakeSessions()
+  const sent: string[] = []
+  const scheduler = new Scheduler({ repo, sessions: sessions as never, settings: new SettingsService(repo), notify: async (_p, m) => { sent.push(m); return true } })
+  await scheduler.tick()
+  assert.equal(repo.getRun('run-1')!.status, 'timeout')
+  assert.equal(sent.length, 1)
+  assert.ok(!sessions.calls.some(c => c.startsWith('remove')), 'a failed run keeps its session to inspect')
+})
+
+test('waiting on a human answer suspends the timeout clock', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { hub } = await import('../src/server/core/hub.js')
+  const { repo } = makeRepo()
+  repo.saveSchedule(aSchedule({ timeoutMinutes: 1, nextRun: undefined, enabled: false }))
+  repo.saveRun({ id: 'run-1', scheduleId: 'sch-1', sessionId: 'sess-1', status: 'running', startedAt: Date.now() - 30_000, waitedMs: 0, delivered: false })
+  const scheduler = new Scheduler({ repo, sessions: fakeSessions() as never, settings: new SettingsService(repo), notify: async () => true })
+  scheduler.start()
+  try {
+    hub.emit('question', { id: 'sess-1', scheduledRunId: 'run-1' } as never, { question: 'which one?', options: [], askedAt: Date.now() } as never)
+    await new Promise(r => setTimeout(r, 50))
+    assert.equal(repo.getRun('run-1')!.status, 'waiting')
+    await scheduler.tick()
+    assert.equal(repo.getRun('run-1')!.status, 'waiting', 'a waiting run is never timed out')
+
+    hub.emit('question_resolved', { id: 'sess-1', scheduledRunId: 'run-1' } as never)
+    await new Promise(r => setTimeout(r, 50))
+    const resumed = repo.getRun('run-1')!
+    assert.equal(resumed.status, 'running')
+    assert.ok(resumed.waitedMs > 0, 'the time spent waiting is credited back')
+  } finally {
+    scheduler.stop()
+  }
+})
+
+test('human input detaches the run instead of leaving it running forever', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { hub } = await import('../src/server/core/hub.js')
+  const { repo } = makeRepo()
+  repo.saveSchedule(aSchedule({ nextRun: undefined, enabled: false }))
+  repo.saveRun({ id: 'run-1', scheduleId: 'sch-1', sessionId: 'sess-1', status: 'running', startedAt: Date.now(), waitedMs: 0, delivered: false })
+  const sessions = fakeSessions()
+  const scheduler = new Scheduler({ repo, sessions: sessions as never, settings: new SettingsService(repo), notify: async () => true })
+  scheduler.start()
+  try {
+    hub.emit('human_input', { id: 'sess-1', scheduledRunId: 'run-1' } as never)
+    await new Promise(r => setTimeout(r, 50))
+    assert.equal(repo.getRun('run-1')!.status, 'taken_over')
+    assert.deepEqual(sessions.calls, ['clear'], 'the session is detached, never killed under the user\u2019s feet')
+  } finally {
+    scheduler.stop()
+  }
+})
+
+test('a session going offline mid-run fails the run', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { hub } = await import('../src/server/core/hub.js')
+  const { repo } = makeRepo()
+  repo.saveSchedule(aSchedule({ nextRun: undefined, enabled: false }))
+  repo.saveRun({ id: 'run-1', scheduleId: 'sch-1', sessionId: 'sess-1', status: 'running', startedAt: Date.now(), waitedMs: 0, delivered: false })
+  const scheduler = new Scheduler({ repo, sessions: fakeSessions() as never, settings: new SettingsService(repo), notify: async () => true })
+  scheduler.start()
+  try {
+    hub.emit('session', { id: 'sess-1', scheduledRunId: 'run-1', status: 'offline' } as never)
+    await new Promise(r => setTimeout(r, 50))
+    assert.equal(repo.getRun('run-1')!.status, 'error')
+  } finally {
+    scheduler.stop()
+  }
+})
+
+test('an undeliverable report still counts as a successful run', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { hub } = await import('../src/server/core/hub.js')
+  const { repo } = makeRepo()
+  repo.saveSchedule(aSchedule())
+  const scheduler = new Scheduler({ repo, sessions: fakeSessions() as never, settings: new SettingsService(repo), notify: async () => false })
+  scheduler.start()
+  try {
+    await scheduler.tick()
+    const run = repo.runsInFlight()[0]
+    hub.emit('turn_complete', { id: 'sess-1', scheduledRunId: run.id } as never, 'done')
+    await new Promise(r => setTimeout(r, 50))
+    const done = repo.getRun(run.id)!
+    assert.equal(done.status, 'success')
+    assert.equal(done.delivered, false, 'visible as undelivered rather than silently lost')
+  } finally {
+    scheduler.stop()
+  }
+})
+
+test('runNow refuses when a run of that schedule is in flight, and discardRun closes a run out', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { repo } = makeRepo()
+  repo.saveSchedule(aSchedule({ nextRun: undefined, enabled: false }))
+  const sessions = fakeSessions()
+  const scheduler = new Scheduler({ repo, sessions: sessions as never, settings: new SettingsService(repo), notify: async () => true })
+
+  const run = await scheduler.runNow('sch-1', 'dashboard')
+  assert.equal(run.status, 'running')
+  await assert.rejects(() => scheduler.runNow('sch-1', 'dashboard'), /already running/)
+
+  await scheduler.discardRun(run.id)
+  assert.equal(repo.getRun(run.id)!.status, 'discarded')
+  assert.equal(repo.getRun(run.id)!.sessionId, undefined)
+  assert.ok(sessions.calls.includes('remove:true'))
+  await scheduler.runNow('sch-1', 'dashboard') // the schedule is free again
+})
