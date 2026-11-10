@@ -124,6 +124,7 @@ async function main(): Promise<void> {
     log('Shutting down…')
     setTimeout(() => process.exit(0), 8000).unref() // never hang on a stuck poll
     sessions.stop()
+    scheduler.stop()
     await bot.stop().catch(() => {})
     for (const ws of clients) ws.close()
     server.close()
