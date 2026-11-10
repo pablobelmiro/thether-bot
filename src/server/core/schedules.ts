@@ -22,26 +22,12 @@ export function computeNextRun(s: ScheduleTiming, from: number): number {
   const timeOfDay = s.timeOfDay!
   const [hours, minutes] = timeOfDay.split(':').map(Number)
 
-  // Try the next 7 days
+  // Walk forward by calendar day — never by a fixed 24h, which shifts the
+  // wall-clock hour (and so the calendar day) across a DST transition.
+  const base = new Date(from)
   for (let day = 0; day <= 7; day++) {
-    // Build a local date day days from now
-    const candidate = new Date(from + day * 24 * 3600_000)
-    const candidateLocalDay = candidate.getDay()
-
-    // If this day is in the configured weekdays, try this time
-    if (weekdays.includes(candidateLocalDay)) {
-      // Create a fresh local Date with the target hour/minute
-      const y = candidate.getFullYear()
-      const m = candidate.getMonth()
-      const d = candidate.getDate()
-      const nextDate = new Date(y, m, d, hours, minutes, 0)
-      const nextTime = nextDate.getTime()
-
-      // Must be strictly after from
-      if (nextTime > from) {
-        return nextTime
-      }
-    }
+    const candidate = new Date(base.getFullYear(), base.getMonth(), base.getDate() + day, hours, minutes, 0)
+    if (weekdays.includes(candidate.getDay()) && candidate.getTime() > from) return candidate.getTime()
   }
 
   // Should never reach here if weekdays is non-empty
@@ -60,8 +46,8 @@ export function normalizeScheduleInput(body: unknown): ScheduleInput {
   const o = body as Record<string, unknown>
 
   // Extract required fields
-  const name = (typeof o.name === 'string' ? o.name.trim() : '').trim()
-  const prompt = (typeof o.prompt === 'string' ? o.prompt.trim() : '').trim()
+  const name = typeof o.name === 'string' ? o.name.trim() : ''
+  const prompt = typeof o.prompt === 'string' ? o.prompt.trim() : ''
   const cwd = typeof o.cwd === 'string' ? o.cwd : ''
   const kind = o.kind as unknown
   const notifyPhone = typeof o.notifyPhone === 'string' ? o.notifyPhone : ''
