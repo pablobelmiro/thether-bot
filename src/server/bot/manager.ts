@@ -11,6 +11,7 @@ import type { SessionManager } from '../core/sessions.js'
 import { hub } from '../core/hub.js'
 import { log } from '../env.js'
 import { createTelegramBot, type TelegramBot } from './bot.js'
+import type { SchedulerHandle } from './schedules.js'
 
 export class BotManager {
   private current: { tg: TelegramBot; detach: () => void; done: Promise<void> } | null = null
@@ -18,6 +19,7 @@ export class BotManager {
   private retryDelay = 5000
   private state: BotStatus = { state: 'stopped' }
   private busy: Promise<unknown> = Promise.resolve()
+  private _scheduler: SchedulerHandle | null = null
 
   constructor(
     private readonly repo: Repo,
@@ -78,6 +80,11 @@ export class BotManager {
     })
   }
 
+  attachScheduler(s: SchedulerHandle): void {
+    this._scheduler = s
+    this.current?.tg.attachScheduler(s)
+  }
+
   lockAll(): void {
     this.current?.tg.lockAll()
   }
@@ -130,6 +137,7 @@ export class BotManager {
         resolveStarted()
       })
     this.current = { tg, detach, done }
+    if (this._scheduler) tg.attachScheduler(this._scheduler)
     await started
     if (!this.current) return this.state
     log(`Telegram bot @${username} running`)

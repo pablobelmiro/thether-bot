@@ -37,6 +37,7 @@ async function main(): Promise<void> {
   hardenPermissions()
 
   const scheduler = new Scheduler({ repo, sessions, settings, notify: (phone, markdown, session) => bot.notifyPhone(phone, markdown, session) })
+  bot.attachScheduler(scheduler)
 
   const app = createApp({
     repo,

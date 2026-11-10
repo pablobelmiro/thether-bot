@@ -170,6 +170,18 @@ export function normalizeScheduleInput(body: unknown): ScheduleInput {
 }
 
 /**
+ * One-line human summary: "every 60 min" or "Mon, Wed at 09:00"
+ */
+export function describeSchedule(s: ScheduleTiming, weekdayNames: string[]): string {
+  if (s.kind === 'interval') {
+    return `every ${s.intervalMinutes} min`
+  }
+  // kind === 'weekly'
+  const days = (s.weekdays ?? []).map(d => weekdayNames[d]).join(', ')
+  return `${days} at ${s.timeOfDay}`
+}
+
+/**
  * Decide which schedules to dispatch, applying overlap policy and concurrency cap.
  * Pure function: no I/O, no side effects.
  *

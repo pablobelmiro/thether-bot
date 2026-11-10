@@ -114,7 +114,7 @@
   },
   "unknownCommand": "Comando desconocido. Mira /{{help}}.",
   "unsupported": "Aún no puedo manejar este tipo de mensaje. Envía texto, una foto o un archivo.",
-  "help": "<b>🤖 Claude en Telegram</b>\nCualquier texto va a la <b>sesión activa</b>. Las fotos y archivos se adjuntan a ella.\n\n<b>Acceso</b>\n/{{password}} &lt;contraseña&gt; — desbloquea el bot\n/{{lock}} — bloquéalo ahora\n\n<b>Sesiones</b>\n/{{change}} — elegir el directorio de trabajo (o <code>/{{change}} nombre</code>)\n/{{sessions}} — sesiones del directorio actual: cambiar, nueva aquí, pausar todas\n<i>  Las respuestas de otras sesiones se guardan (📬) y llegan cuando cambias.</i>\n/{{new}} &lt;ruta&gt; [nombre] — abre una sesión en cualquier directorio\n/{{repos}} — proyectos; abre una nueva sesión\n/{{resume}} — reanuda una conversación reciente de Claude\n/{{pause}} [nombre] — pausa una sesión inactiva (conserva la conversación)\n<code>/{{pause}} todas</code> — pausa todas las sesiones libres del directorio actual\n/{{status}} — sesión activa, modelo y contexto\n/{{screen}} — muestra la terminal ahora\n/{{cancel}} — interrumpe a Claude\n\n<b>Claude Code</b>\n/model — cambiar modelo (o <code>/model opus</code>)\n/effort — nivel de esfuerzo (o <code>/effort high</code>)\n/usage — uso del plan\n/clear — limpia el contexto de la sesión\n\n/{{lang}} — idioma\n\n<i>El bot se bloquea solo tras {{hours}} h sin uso y siempre que se reinicia.</i>",
+  "help": "<b>🤖 Claude en Telegram</b>\nCualquier texto va a la <b>sesión activa</b>. Las fotos y archivos se adjuntan a ella.\n\n<b>Acceso</b>\n/{{password}} &lt;contraseña&gt; — desbloquea el bot\n/{{lock}} — bloquéalo ahora\n\n<b>Sesiones</b>\n/{{change}} — elegir el directorio de trabajo (o <code>/{{change}} nombre</code>)\n/{{sessions}} — sesiones del directorio actual: cambiar, nueva aquí, pausar todas\n<i>  Las respuestas de otras sesiones se guardan (📬) y llegan cuando cambias.</i>\n/{{new}} &lt;ruta&gt; [nombre] — abre una sesión en cualquier directorio\n/{{repos}} — proyectos; abre una nueva sesión\n/{{resume}} — reanuda una conversación reciente de Claude\n/{{pause}} [nombre] — pausa una sesión inactiva (conserva la conversación)\n<code>/{{pause}} todas</code> — pausa todas las sesiones libres del directorio actual\n/{{status}} — sesión activa, modelo y contexto\n/{{screen}} — muestra la terminal ahora\n/{{cancel}} — interrumpe a Claude\n\n<b>Tareas programadas</b>\n/{{schedules}} — listar, ejecutar, pausar o eliminar tareas programadas\n\n<b>Claude Code</b>\n/model — cambiar modelo (o <code>/model opus</code>)\n/effort — nivel de esfuerzo (o <code>/effort high</code>)\n/usage — uso del plan\n/clear — limpia el contexto de la sesión\n\n/{{lang}} — idioma\n\n<i>El bot se bloquea solo tras {{hours}} h sin uso y siempre que se reinicia.</i>",
   "commands": {
     "help": "Muestra los comandos",
     "password": "Desbloquea el bot: /clave <contraseña>",
@@ -132,7 +132,8 @@
     "resume": "Reanudar una conversación reciente",
     "new": "Abrir una sesión en un directorio: /nueva <ruta>",
     "pause": "Pausar una sesión inactiva",
-    "sessions": "Sesiones del directorio actual"
+    "sessions": "Sesiones del directorio actual",
+    "schedules": "Gestionar tareas programadas"
   },
   "time": {
     "now": "ahora",
@@ -162,6 +163,55 @@
     "done": "⏸️ <b>{{name}}</b> pausada. La conversación se conserva; toca Reanudar (o usa /cambiar) para continuar.",
     "notIdle": "<b>{{name}}</b> está ocupada. Páusala cuando esté libre, o usa /cancelar antes.",
     "failed": "No se pudo pausar: {{error}}"
+  },
+  "schedules": {
+    "list": "⏱ Tareas programadas ({{count}}):",
+    "empty": "Aún no hay tareas programadas.",
+    "show": "Próxima ejecución: {{next}}",
+    "runs": "Ejecuciones recientes:",
+    "runStarted": "▶️ Ejecución iniciada ({{id}}…)",
+    "inFlight": "⚠️ Ya hay una ejecución en curso para esta tarea programada.",
+    "paused": "⏸️ <b>{{name}}</b> pausado.",
+    "resumed": "▶️ <b>{{name}}</b> habilitado.",
+    "deleted": "🗑️ <b>{{name}}</b> eliminado.",
+    "notFound": "Tarea programada no encontrada.",
+    "newButton": "➕ Nueva tarea programada",
+    "lockedNotice": "🔒 Una tarea programada finalizó. Desbloquea con /clave para ver el informe.",
+    "report": "✅ Tarea programada completada.",
+    "timedOut": "⏱ La tarea programada expiró.",
+    "failed": "❌ La tarea programada falló.",
+    "question": "Vuelve a ingresar {{field}}:",
+    "notReady": "El programador no está disponible.",
+    "status": {
+      "running": "🔵 ejecutando",
+      "waiting": "🟡 esperando",
+      "success": "✅ éxito",
+      "error": "❌ error",
+      "timeout": "⏱ tiempo agotado",
+      "skipped": "⏭ omitido",
+      "taken_over": "👤 tomado manualmente",
+      "discarded": "🗑️ descartado"
+    },
+    "new": {
+      "name": "¿Nombre de la tarea?",
+      "prompt": "¿Prompt para enviar a Claude?",
+      "cwd": "¿Directorio de trabajo (ruta absoluta)?",
+      "kind": "¿Frecuencia — interval o weekly?",
+      "interval": "¿Intervalo en minutos (1–10080)?",
+      "intervalMinutes": "¿Intervalo en minutos (1–10080)?",
+      "weekdays": "¿Días de la semana? (p. ej., lun,mié,vie o 1,3,5)",
+      "timeOfDay": "¿Hora? (HH:MM)",
+      "time": "¿Hora? (HH:MM)",
+      "notifyPhone": "¿Número para notificaciones (solo dígitos)?",
+      "notify": "¿Número para notificaciones (solo dígitos)?",
+      "timeoutMinutes": "¿Tiempo límite en minutos (1–1440)?",
+      "timeout": "¿Tiempo límite en minutos (1–1440)?",
+      "preserveSession": "¿Preservar la sesión tras la ejecución? (si/no)",
+      "preserve": "¿Preservar la sesión tras la ejecución? (si/no)",
+      "confirm": "¿Crear esta tarea programada?",
+      "created": "✅ Tarea <b>{{name}}</b> creada.",
+      "cancelled": "❌ Cancelado."
+    }
   },
   "workspace": {
     "choose": "Elige el directorio de trabajo (sesiones activas/total):",

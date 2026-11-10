@@ -990,3 +990,40 @@ test('schedule routes: CRUD, notify-phone validation, run-now conflict, overview
   assert.deepEqual(repo.listSchedules(), [])
   assert.equal((await post('/api/schedules/nope/run')).status, 404)
 })
+
+test('describeSchedule summarizes both kinds', async () => {
+  const { describeSchedule } = await import('../src/server/core/schedules.js')
+  const names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  assert.equal(describeSchedule({ kind: 'interval', intervalMinutes: 60 }, names), 'every 60 min')
+  assert.equal(describeSchedule({ kind: 'weekly', weekdays: [1, 3], timeOfDay: '09:00' }, names), 'Mon, Wed at 09:00')
+})
+
+test('the Telegram creation wizard walks the fields in order and validates each answer', async () => {
+  const { advanceWizard } = await import('../src/server/bot/schedules.js')
+  let draft: Record<string, unknown> = {}
+  const steps: string[] = []
+  let field = 'name'
+  for (const answer of ['Nightly', 'sweep tickets', '/tmp', 'weekly', 'mon,wed', '09:00', '5511999990000', '30', 'no']) {
+    const r = advanceWizard(draft, field, answer)
+    draft = r.draft
+    field = r.next
+    steps.push(field)
+  }
+  assert.deepEqual(steps, ['prompt', 'cwd', 'kind', 'weekdays', 'timeOfDay', 'notifyPhone', 'timeoutMinutes', 'preserveSession', 'confirm'])
+  assert.deepEqual(draft.weekdays, [1, 3])
+  assert.equal(draft.timeOfDay, '09:00')
+  assert.equal(draft.preserveSession, false)
+
+  assert.throws(
+    () => advanceWizard({}, 'kind', 'monthly'),
+    (err: unknown) => { assert.match((err as Error).message, /^Invalid /); return true },
+  )
+  assert.throws(
+    () => advanceWizard({ kind: 'weekly' }, 'weekdays', 'funday'),
+    (err: unknown) => { assert.match((err as Error).message, /^Invalid /); return true },
+  )
+  assert.throws(
+    () => advanceWizard({ kind: 'interval' }, 'intervalMinutes', '0'),
+    (err: unknown) => { assert.match((err as Error).message, /^Invalid /); return true },
+  )
+})

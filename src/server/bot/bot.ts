@@ -23,6 +23,7 @@ import { log } from '../env.js'
 import { escapeHtml, markdownToTelegramMessages, splitPlain, terminalToHtml } from './format.js'
 import { Lock } from './lock.js'
 import { usageReport } from '../core/usage-report.js'
+import { registerScheduleCommands, type SchedulerHandle } from './schedules.js'
 
 // ---------------------------------------------------------------------------
 // Commands and their localized aliases (all aliases always work)
@@ -46,6 +47,7 @@ const ALIASES = {
   effort: ['effort'],
   usage: ['usage'],
   clear: ['clear'],
+  schedules: ['schedules', 'agendamentos', 'programaciones'],
 } as const
 
 type Cmd = keyof typeof ALIASES
@@ -53,8 +55,8 @@ type Cmd = keyof typeof ALIASES
 /** Name shown in menus and help, per language */
 const PRIMARY: Record<string, Partial<Record<Cmd, string>>> = {
   en: {},
-  'pt-BR': { help: 'ajuda', password: 'senha', lock: 'travar', screen: 'tela', cancel: 'cancelar', lang: 'idioma', resume: 'retomar', new: 'nova', pause: 'pausar', sessions: 'sessoes' },
-  es: { help: 'ayuda', password: 'clave', lock: 'bloquear', change: 'cambiar', status: 'estado', screen: 'pantalla', cancel: 'cancelar', lang: 'idioma', resume: 'reanudar', new: 'nueva', pause: 'pausar', sessions: 'sesiones' },
+  'pt-BR': { help: 'ajuda', password: 'senha', lock: 'travar', screen: 'tela', cancel: 'cancelar', lang: 'idioma', resume: 'retomar', new: 'nova', pause: 'pausar', sessions: 'sessoes', schedules: 'agendamentos' },
+  es: { help: 'ayuda', password: 'clave', lock: 'bloquear', change: 'cambiar', status: 'estado', screen: 'pantalla', cancel: 'cancelar', lang: 'idioma', resume: 'reanudar', new: 'nueva', pause: 'pausar', sessions: 'sesiones', schedules: 'programaciones' },
 }
 
 function cmdName(lng: string, c: Cmd): string {
@@ -94,6 +96,8 @@ export interface TelegramBot {
    * false = nobody verified holds that phone (nothing was delivered).
    */
   notifyPhone(phone: string, markdown: string, session?: Session): Promise<boolean>
+  /** Call after the Scheduler is constructed to wire it into the schedule commands */
+  attachScheduler(s: SchedulerHandle): void
 }
 
 export function createTelegramBot(d: BotDeps): TelegramBot {
@@ -856,6 +860,9 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     }
   })
 
+  const schedulerRef = { current: null as SchedulerHandle | null }
+  registerScheduleCommands({ bot, repo: d.repo, scheduler: schedulerRef, me, tr })
+
   bot.on('message', ctx => ctx.reply(tr(ctx).t('unsupported')))
 
   bot.catch(err => log('Telegram handler error:', err.error instanceof Error ? err.error.message : err.error))
@@ -1011,7 +1018,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     // Command menus per language
     const menu = (lng: string) => {
       const t = translator(lng)
-      const order: Cmd[] = ['help', 'password', 'change', 'sessions', 'new', 'resume', 'repos', 'pause', 'status', 'screen', 'cancel', 'model', 'effort', 'usage', 'clear', 'lock', 'lang']
+      const order: Cmd[] = ['help', 'password', 'change', 'sessions', 'new', 'resume', 'repos', 'schedules', 'pause', 'status', 'screen', 'cancel', 'model', 'effort', 'usage', 'clear', 'lock', 'lang']
       return order.map(c => ({ command: cmdName(lng, c), description: t(`commands.${c}`) }))
     }
     await bot.api.setMyCommands(menu('en')).catch(() => {})
@@ -1048,6 +1055,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     attach,
     notifyOnline,
     notifyPhone,
+    attachScheduler: (s: SchedulerHandle) => { schedulerRef.current = s },
     lockAll: () => locks.forEach(l => l.lock()),
     lockUser: (id: number) => locks.get(id)?.lock(),
   }

@@ -114,7 +114,7 @@
   },
   "unknownCommand": "Comando desconhecido. Veja /{{help}}.",
   "unsupported": "Ainda não sei lidar com esse tipo de mensagem. Mande texto, foto ou arquivo.",
-  "help": "<b>🤖 Claude no Telegram</b>\nQualquer texto vai para a <b>sessão ativa</b>. Fotos e arquivos são anexados a ela.\n\n<b>Acesso</b>\n/{{password}} &lt;senha&gt; — destrava o bot\n/{{lock}} — trava na hora\n\n<b>Sessões</b>\n/{{change}} — escolher o diretório de trabalho (ou <code>/{{change}} nome</code>)\n/{{sessions}} — sessões do diretório atual: trocar, nova aqui, pausar todas\n<i>  Respostas das outras sessões ficam guardadas (📬) e chegam quando você troca.</i>\n/{{new}} &lt;caminho&gt; [nome] — abre uma sessão em qualquer diretório\n/{{repos}} — projetos; abre nova sessão\n/{{resume}} — retoma uma conversa recente do Claude\n/{{pause}} [nome] — pausa uma sessão ociosa (a conversa fica guardada)\n<code>/{{pause}} todas</code> — pausa todas as sessões livres do diretório atual\n/{{status}} — sessão ativa, modelo e contexto\n/{{screen}} — mostra o terminal agora\n/{{cancel}} — interrompe o Claude\n\n<b>Claude Code</b>\n/model — trocar modelo (ou <code>/model opus</code>)\n/effort — nível de esforço (ou <code>/effort high</code>)\n/usage — uso do plano\n/clear — limpa o contexto da sessão\n\n/{{lang}} — idioma\n\n<i>O bot trava sozinho após {{hours}} h sem uso e sempre que reinicia.</i>",
+  "help": "<b>🤖 Claude no Telegram</b>\nQualquer texto vai para a <b>sessão ativa</b>. Fotos e arquivos são anexados a ela.\n\n<b>Acesso</b>\n/{{password}} &lt;senha&gt; — destrava o bot\n/{{lock}} — trava na hora\n\n<b>Sessões</b>\n/{{change}} — escolher o diretório de trabalho (ou <code>/{{change}} nome</code>)\n/{{sessions}} — sessões do diretório atual: trocar, nova aqui, pausar todas\n<i>  Respostas das outras sessões ficam guardadas (📬) e chegam quando você troca.</i>\n/{{new}} &lt;caminho&gt; [nome] — abre uma sessão em qualquer diretório\n/{{repos}} — projetos; abre nova sessão\n/{{resume}} — retoma uma conversa recente do Claude\n/{{pause}} [nome] — pausa uma sessão ociosa (a conversa fica guardada)\n<code>/{{pause}} todas</code> — pausa todas as sessões livres do diretório atual\n/{{status}} — sessão ativa, modelo e contexto\n/{{screen}} — mostra o terminal agora\n/{{cancel}} — interrompe o Claude\n\n<b>Tarefas agendadas</b>\n/{{schedules}} — listar, executar, pausar ou excluir tarefas agendadas\n\n<b>Claude Code</b>\n/model — trocar modelo (ou <code>/model opus</code>)\n/effort — nível de esforço (ou <code>/effort high</code>)\n/usage — uso do plano\n/clear — limpa o contexto da sessão\n\n/{{lang}} — idioma\n\n<i>O bot trava sozinho após {{hours}} h sem uso e sempre que reinicia.</i>",
   "commands": {
     "help": "Lista os comandos",
     "password": "Destrava o bot: /senha <senha>",
@@ -132,7 +132,8 @@
     "resume": "Retomar uma conversa recente",
     "new": "Abrir sessão num diretório: /nova <caminho>",
     "pause": "Pausar uma sessão ociosa",
-    "sessions": "Sessões do diretório atual"
+    "sessions": "Sessões do diretório atual",
+    "schedules": "Gerenciar tarefas agendadas"
   },
   "time": {
     "now": "agora",
@@ -162,6 +163,55 @@
     "done": "⏸️ <b>{{name}}</b> pausada. A conversa fica guardada; toque em Retomar (ou use /change) para continuar.",
     "notIdle": "<b>{{name}}</b> está ocupada. Pause quando estiver livre, ou use /cancelar antes.",
     "failed": "Falha ao pausar: {{error}}"
+  },
+  "schedules": {
+    "list": "⏱ Tarefas agendadas ({{count}}):",
+    "empty": "Nenhuma tarefa agendada ainda.",
+    "show": "Próxima execução: {{next}}",
+    "runs": "Execuções recentes:",
+    "runStarted": "▶️ Execução iniciada ({{id}}…)",
+    "inFlight": "⚠️ Já existe uma execução em andamento para este agendamento.",
+    "paused": "⏸️ <b>{{name}}</b> pausado.",
+    "resumed": "▶️ <b>{{name}}</b> habilitado.",
+    "deleted": "🗑️ <b>{{name}}</b> excluído.",
+    "notFound": "Agendamento não encontrado.",
+    "newButton": "➕ Novo agendamento",
+    "lockedNotice": "🔒 Uma tarefa agendada terminou. Destrave com /senha para ver o relatório.",
+    "report": "✅ Tarefa agendada concluída.",
+    "timedOut": "⏱ Tarefa agendada expirou.",
+    "failed": "❌ Tarefa agendada falhou.",
+    "question": "Informe novamente {{field}}:",
+    "notReady": "Agendador não disponível.",
+    "status": {
+      "running": "🔵 rodando",
+      "waiting": "🟡 aguardando",
+      "success": "✅ sucesso",
+      "error": "❌ erro",
+      "timeout": "⏱ tempo esgotado",
+      "skipped": "⏭ ignorado",
+      "taken_over": "👤 assumido manualmente",
+      "discarded": "🗑️ descartado"
+    },
+    "new": {
+      "name": "Nome do agendamento?",
+      "prompt": "Prompt a enviar ao Claude?",
+      "cwd": "Diretório de trabalho (caminho absoluto)?",
+      "kind": "Frequência — interval ou weekly?",
+      "interval": "Intervalo em minutos (1–10080)?",
+      "intervalMinutes": "Intervalo em minutos (1–10080)?",
+      "weekdays": "Dias da semana? (ex.: seg,qua,sex ou 1,3,5)",
+      "timeOfDay": "Horário? (HH:MM)",
+      "time": "Horário? (HH:MM)",
+      "notifyPhone": "Número para notificação (somente dígitos)?",
+      "notify": "Número para notificação (somente dígitos)?",
+      "timeoutMinutes": "Tempo limite em minutos (1–1440)?",
+      "timeout": "Tempo limite em minutos (1–1440)?",
+      "preserveSession": "Preservar sessão após execução? (sim/não)",
+      "preserve": "Preservar sessão após execução? (sim/não)",
+      "confirm": "Criar este agendamento?",
+      "created": "✅ Agendamento <b>{{name}}</b> criado.",
+      "cancelled": "❌ Cancelado."
+    }
   },
   "workspace": {
     "choose": "Escolha o diretório de trabalho (sessões rodando/total):",
