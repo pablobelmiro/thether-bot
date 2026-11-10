@@ -15,6 +15,10 @@ import type { ConversationSummary,
   LoginRequest,
   Overview,
   PromptRequest,
+  Schedule,
+  ScheduleInput,
+  ScheduleOverview,
+  ScheduleRun,
   Session,
   Settings,
   SettingsPatch,
@@ -197,5 +201,15 @@ export const api = {
   // connection check
   doctor: () => request<DoctorCheck[]>('GET', '/doctor'),
   doctorE2E: () => request<ConnectionTestResult>('POST', '/doctor/e2e'),
+
+  // schedules
+  schedules: () => request<Schedule[]>('GET', '/schedules'),
+  scheduleOverview: () => request<ScheduleOverview>('GET', '/schedules/overview'),
+  createSchedule: (body: ScheduleInput) => request<Schedule>('POST', '/schedules', { body }),
+  updateSchedule: (id: string, body: ScheduleInput) => request<Schedule>('PATCH', `/schedules/${id}`, { body }),
+  deleteSchedule: (id: string) => request<{ ok: true }>('DELETE', `/schedules/${id}`),
+  runSchedule: (id: string) => request<ScheduleRun>('POST', `/schedules/${id}/run`),
+  scheduleRuns: (id: string, limit = 20) => request<ScheduleRun[]>('GET', `/schedules/${id}/runs`, { query: { limit } }),
+  discardScheduleRun: (runId: string) => request<{ ok: true }>('POST', `/schedule-runs/${runId}/discard`),
 }
 

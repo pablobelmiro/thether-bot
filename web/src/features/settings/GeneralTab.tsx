@@ -16,8 +16,9 @@ import { SectionTitle, SettingRow } from './Row'
 
 export function GeneralTab({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const { t } = useTranslation()
-  const ids = { lang: useId(), idle: useId() }
+  const ids = { lang: useId(), idle: useId(), concurrency: useId() }
   const [idle, setIdle] = useState(String(settings.idleLockHours))
+  const [concurrency, setConcurrency] = useState(String(settings.scheduleConcurrency))
 
   const [checks, setChecks] = useState<DoctorCheck[] | null>(null)
   const [e2eResult, setE2eResult] = useState<ConnectionTestResult | null>(null)
@@ -46,6 +47,7 @@ export function GeneralTab({ settings, patch }: { settings: Settings; patch: Pat
   }
 
   useEffect(() => setIdle(String(settings.idleLockHours)), [settings.idleLockHours])
+  useEffect(() => setConcurrency(String(settings.scheduleConcurrency)), [settings.scheduleConcurrency])
 
   const saveIdle = () => {
     const n = Number(idle)
@@ -55,6 +57,16 @@ export function GeneralTab({ settings, patch }: { settings: Settings; patch: Pat
     }
     const v = Math.round(n)
     if (v !== settings.idleLockHours) void patch({ idleLockHours: v })
+  }
+
+  const saveConcurrency = () => {
+    const n = Number(concurrency)
+    if (!Number.isFinite(n) || n < 1 || n > 10) {
+      setConcurrency(String(settings.scheduleConcurrency))
+      return
+    }
+    const v = Math.round(n)
+    if (v !== settings.scheduleConcurrency) void patch({ scheduleConcurrency: v })
   }
 
   return (
@@ -103,6 +115,23 @@ export function GeneralTab({ settings, patch }: { settings: Settings; patch: Pat
             className="w-24 text-right tabular-nums"
           />
           <span className="text-sm text-muted-foreground">{t('settings.general.hours')}</span>
+        </div>
+      </SettingRow>
+
+      <SettingRow title={t('settings.general.concurrency')} description={t('settings.general.concurrencyHint')} htmlFor={ids.concurrency}>
+        <div className="flex items-center gap-2 sm:justify-end">
+          <Input
+            id={ids.concurrency}
+            type="number"
+            min={1}
+            max={10}
+            step={1}
+            value={concurrency}
+            onChange={(e) => setConcurrency(e.target.value)}
+            onBlur={saveConcurrency}
+            onKeyDown={(e) => e.key === 'Enter' && saveConcurrency()}
+            className="w-24 text-right tabular-nums"
+          />
         </div>
       </SettingRow>
 

@@ -22,6 +22,7 @@
     "menu": "Menu",
     "overview": "Overview",
     "sessions": "Sessions",
+    "schedules": "Schedules",
     "settings": "Settings",
     "docs": "Documentation"
   },
@@ -392,7 +393,9 @@
       "runCheck": "Run check",
       "runTest": "Run test",
       "e2eOk": "Connection works",
-      "e2eFailed": "Connection test failed"
+      "e2eFailed": "Connection test failed",
+      "concurrency": "Schedule concurrency",
+      "concurrencyHint": "Maximum number of scheduled sessions running at the same time (1–10)."
     },
     "telegram": {
       "enabled": "Telegram bot",
@@ -461,5 +464,74 @@
     "pausedAll_other": "Paused {{count}} sessions",
     "skipped": "Busy, left running: {{names}}",
     "label": "Working directory"
+  },
+  "schedules": {
+    "title": "Schedules",
+    "subtitle": "Automated Claude sessions that run on a schedule.",
+    "create": "New schedule",
+    "empty": "No schedules yet",
+    "cards": {
+      "total": "Total",
+      "enabled": "Enabled",
+      "success": "Successful",
+      "failed": "Failed",
+      "discarded": "Discarded",
+      "window": "Last {{days}} days"
+    },
+    "upcoming": "Next runs",
+    "upcomingEmpty": "No upcoming runs",
+    "failures": "Failures",
+    "failuresEmpty": "No failures",
+    "actions": {
+      "runNow": "Run now",
+      "edit": "Edit",
+      "delete": "Delete",
+      "redispatch": "Re-dispatch",
+      "open": "Open session",
+      "discard": "Discard",
+      "pause": "Pause",
+      "resume": "Resume"
+    },
+    "kind": {
+      "interval": "Every {{minutes}} min",
+      "weekly": "Weekly"
+    },
+    "status": {
+      "running": "Running",
+      "waiting": "Waiting",
+      "success": "Success",
+      "error": "Error",
+      "timeout": "Timeout",
+      "skipped": "Skipped",
+      "taken_over": "Taken over",
+      "discarded": "Discarded"
+    },
+    "form": {
+      "name": "Name",
+      "prompt": "Prompt",
+      "promptHint": "The message sent to Claude when the schedule fires.",
+      "cwd": "Working directory",
+      "kind": "Schedule type",
+      "intervalMinutes": "Interval (minutes)",
+      "weekdays": "Days of week",
+      "timeOfDay": "Time of day",
+      "notify": "Notify",
+      "notifyHint": "Send a report to this Telegram number after each run.",
+      "notifyEmpty": "No verified numbers",
+      "timeout": "Timeout (minutes)",
+      "preserve": "Preserve session",
+      "preserveHint": "Keep the tmux session alive after the run so you can inspect it.",
+      "enabled": "Enabled",
+      "save": "Save",
+      "editTitle": "Edit schedule",
+      "createTitle": "New schedule"
+    },
+    "every": "every {{minutes}} min",
+    "nextRun": "Next: {{time}}",
+    "never": "Never",
+    "undelivered": "Undelivered",
+    "disabledPhoneRemoved": "Phone removed",
+    "confirmDelete": "Delete this schedule?",
+    "confirmDiscard": "Discard this run?"
   }
 }

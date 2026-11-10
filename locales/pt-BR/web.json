@@ -22,6 +22,7 @@
     "menu": "Menu",
     "overview": "Visão geral",
     "sessions": "Sessões",
+    "schedules": "Agendamentos",
     "settings": "Configurações",
     "docs": "Documentação"
   },
@@ -392,7 +393,9 @@
       "runCheck": "Executar verificação",
       "runTest": "Executar teste",
       "e2eOk": "Conexão funcionando",
-      "e2eFailed": "Teste de conexão falhou"
+      "e2eFailed": "Teste de conexão falhou",
+      "concurrency": "Concorrência de agendamentos",
+      "concurrencyHint": "Número máximo de sessões agendadas rodando ao mesmo tempo (1–10)."
     },
     "telegram": {
       "enabled": "Bot do Telegram",
@@ -461,5 +464,74 @@
     "pausedAll_other": "{{count}} sessões pausadas",
     "skipped": "Ocupadas, continuam rodando: {{names}}",
     "label": "Diretório de trabalho"
+  },
+  "schedules": {
+    "title": "Agendamentos",
+    "subtitle": "Sessões automáticas do Claude que rodam conforme uma programação.",
+    "create": "Novo agendamento",
+    "empty": "Nenhum agendamento",
+    "cards": {
+      "total": "Total",
+      "enabled": "Ativos",
+      "success": "Com sucesso",
+      "failed": "Com falha",
+      "discarded": "Descartados",
+      "window": "Últimos {{days}} dias"
+    },
+    "upcoming": "Próximas execuções",
+    "upcomingEmpty": "Nenhuma execução próxima",
+    "failures": "Falhas",
+    "failuresEmpty": "Nenhuma falha",
+    "actions": {
+      "runNow": "Executar agora",
+      "edit": "Editar",
+      "delete": "Excluir",
+      "redispatch": "Reenviar",
+      "open": "Abrir sessão",
+      "discard": "Descartar",
+      "pause": "Pausar",
+      "resume": "Retomar"
+    },
+    "kind": {
+      "interval": "A cada {{minutes}} min",
+      "weekly": "Semanal"
+    },
+    "status": {
+      "running": "Rodando",
+      "waiting": "Aguardando",
+      "success": "Sucesso",
+      "error": "Erro",
+      "timeout": "Tempo esgotado",
+      "skipped": "Pulado",
+      "taken_over": "Assumido",
+      "discarded": "Descartado"
+    },
+    "form": {
+      "name": "Nome",
+      "prompt": "Prompt",
+      "promptHint": "A mensagem enviada ao Claude quando o agendamento disparar.",
+      "cwd": "Diretório de trabalho",
+      "kind": "Tipo de agendamento",
+      "intervalMinutes": "Intervalo (minutos)",
+      "weekdays": "Dias da semana",
+      "timeOfDay": "Horário",
+      "notify": "Notificar",
+      "notifyHint": "Enviar um relatório para este número do Telegram após cada execução.",
+      "notifyEmpty": "Nenhum número verificado",
+      "timeout": "Tempo limite (minutos)",
+      "preserve": "Preservar sessão",
+      "preserveHint": "Manter a sessão tmux ativa após a execução para inspeção.",
+      "enabled": "Ativo",
+      "save": "Salvar",
+      "editTitle": "Editar agendamento",
+      "createTitle": "Novo agendamento"
+    },
+    "every": "a cada {{minutes}} min",
+    "nextRun": "Próximo: {{time}}",
+    "never": "Nunca",
+    "undelivered": "Não entregue",
+    "disabledPhoneRemoved": "Número removido",
+    "confirmDelete": "Excluir este agendamento?",
+    "confirmDiscard": "Descartar esta execução?"
   }
 }

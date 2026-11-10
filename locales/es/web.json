@@ -22,6 +22,7 @@
     "menu": "Menú",
     "overview": "Resumen",
     "sessions": "Sesiones",
+    "schedules": "Programaciones",
     "settings": "Ajustes",
     "docs": "Documentación"
   },
@@ -392,7 +393,9 @@
       "runCheck": "Ejecutar verificación",
       "runTest": "Ejecutar prueba",
       "e2eOk": "La conexión funciona",
-      "e2eFailed": "Falló la prueba de conexión"
+      "e2eFailed": "Falló la prueba de conexión",
+      "concurrency": "Concurrencia de programaciones",
+      "concurrencyHint": "Número máximo de sesiones programadas en ejecución simultánea (1–10)."
     },
     "telegram": {
       "enabled": "Bot de Telegram",
@@ -461,5 +464,74 @@
     "pausedAll_other": "{{count}} sesiones pausadas",
     "skipped": "Ocupadas, siguen ejecutándose: {{names}}",
     "label": "Directorio de trabajo"
+  },
+  "schedules": {
+    "title": "Programaciones",
+    "subtitle": "Sesiones automáticas de Claude que se ejecutan según una programación.",
+    "create": "Nueva programación",
+    "empty": "No hay programaciones",
+    "cards": {
+      "total": "Total",
+      "enabled": "Activas",
+      "success": "Exitosas",
+      "failed": "Fallidas",
+      "discarded": "Descartadas",
+      "window": "Últimos {{days}} días"
+    },
+    "upcoming": "Próximas ejecuciones",
+    "upcomingEmpty": "No hay ejecuciones próximas",
+    "failures": "Fallos",
+    "failuresEmpty": "No hay fallos",
+    "actions": {
+      "runNow": "Ejecutar ahora",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "redispatch": "Reenviar",
+      "open": "Abrir sesión",
+      "discard": "Descartar",
+      "pause": "Pausar",
+      "resume": "Reanudar"
+    },
+    "kind": {
+      "interval": "Cada {{minutes}} min",
+      "weekly": "Semanal"
+    },
+    "status": {
+      "running": "Ejecutando",
+      "waiting": "Esperando",
+      "success": "Éxito",
+      "error": "Error",
+      "timeout": "Tiempo agotado",
+      "skipped": "Omitido",
+      "taken_over": "Tomado",
+      "discarded": "Descartado"
+    },
+    "form": {
+      "name": "Nombre",
+      "prompt": "Prompt",
+      "promptHint": "El mensaje enviado a Claude cuando se dispare la programación.",
+      "cwd": "Directorio de trabajo",
+      "kind": "Tipo de programación",
+      "intervalMinutes": "Intervalo (minutos)",
+      "weekdays": "Días de la semana",
+      "timeOfDay": "Hora del día",
+      "notify": "Notificar",
+      "notifyHint": "Enviar un informe a este número de Telegram tras cada ejecución.",
+      "notifyEmpty": "No hay números verificados",
+      "timeout": "Tiempo límite (minutos)",
+      "preserve": "Preservar sesión",
+      "preserveHint": "Mantener la sesión tmux activa tras la ejecución para inspeccionarla.",
+      "enabled": "Activa",
+      "save": "Guardar",
+      "editTitle": "Editar programación",
+      "createTitle": "Nueva programación"
+    },
+    "every": "cada {{minutes}} min",
+    "nextRun": "Próxima: {{time}}",
+    "never": "Nunca",
+    "undelivered": "No entregado",
+    "disabledPhoneRemoved": "Número eliminado",
+    "confirmDelete": "¿Eliminar esta programación?",
+    "confirmDiscard": "¿Descartar esta ejecución?"
   }
 }

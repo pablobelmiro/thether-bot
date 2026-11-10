@@ -1,4 +1,4 @@
-import { BookOpen, ChevronDown, Folder, FolderGit2, History, LayoutDashboard, Pause, Plus, Settings, Unplug } from 'lucide-react'
+import { BookOpen, ChevronDown, Clock, Folder, FolderGit2, History, LayoutDashboard, Pause, Plus, Settings, Unplug } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router-dom'
@@ -180,6 +180,10 @@ export function Sidebar() {
       </div>
 
       <div className="border-t border-border p-3">
+        <NavLink to="/schedules" className={({ isActive }) => cn(navItem, isActive && 'bg-accent font-medium')}>
+          <Clock className="size-4 text-muted-foreground" />
+          {t('nav.schedules')}
+        </NavLink>
         <NavLink to="/settings" className={({ isActive }) => cn(navItem, isActive && 'bg-accent font-medium')}>
           <Settings className="size-4 text-muted-foreground" />
           {t('nav.settings')}

@@ -7,6 +7,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { SetupPage } from '@/features/auth/SetupPage'
 import { OverviewPage } from '@/features/overview/OverviewPage'
+import { SchedulesPage } from '@/features/schedules/SchedulesPage'
 import { SessionPage } from '@/features/sessions/SessionPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { api, setUnauthorizedHandler } from '@/lib/api'
@@ -61,6 +62,7 @@ export function App() {
         <Route element={<ProtectedLayout />}>
           <Route index element={<OverviewPage />} />
           <Route path="sessions/:id" element={<SessionPage />} />
+          <Route path="schedules" element={<SchedulesPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
