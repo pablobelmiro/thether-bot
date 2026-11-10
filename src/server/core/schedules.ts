@@ -169,16 +169,25 @@ export function normalizeScheduleInput(body: unknown): ScheduleInput {
   }
 }
 
+/** What `describeSchedule` needs from the caller's language: stays pure, no i18n import */
+export interface ScheduleDescription {
+  /** Short weekday names, index 0 = Sunday (matches Date.getDay) */
+  weekdayNames: string[]
+  /** The bot translator, for `schedules.summary.*` */
+  t: (key: string, vars: Record<string, string | number>) => string
+}
+
 /**
- * One-line human summary: "every 60 min" or "Mon, Wed at 09:00"
+ * One-line human summary, localized by the caller:
+ * "every 60 min" / "a cada 60 min", "Mon, Wed at 09:00" / "seg, qua às 09:00"
  */
-export function describeSchedule(s: ScheduleTiming, weekdayNames: string[]): string {
+export function describeSchedule(s: ScheduleTiming, d: ScheduleDescription): string {
   if (s.kind === 'interval') {
-    return `every ${s.intervalMinutes} min`
+    return d.t('schedules.summary.interval', { minutes: s.intervalMinutes ?? 0 })
   }
   // kind === 'weekly'
-  const days = (s.weekdays ?? []).map(d => weekdayNames[d]).join(', ')
-  return `${days} at ${s.timeOfDay}`
+  const days = (s.weekdays ?? []).map(n => d.weekdayNames[n] ?? String(n)).join(', ')
+  return d.t('schedules.summary.weekly', { days, time: s.timeOfDay ?? '' })
 }
 
 /**

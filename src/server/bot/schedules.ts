@@ -8,6 +8,7 @@ import type { ScheduleInput, ScheduleRun } from '../../shared/api.js'
 import type { Repo } from '../db/repo.js'
 import { normalizePhone } from '../db/repo.js'
 import { computeNextRun, describeSchedule, normalizeScheduleInput } from '../core/schedules.js'
+import type { ScheduleDescription, ScheduleTiming } from '../core/schedules.js'
 import { escapeHtml } from './format.js'
 
 // ---------------------------------------------------------------------------
@@ -152,7 +153,16 @@ export function advanceWizard(
 // Command registration
 // ---------------------------------------------------------------------------
 
-const WEEKDAY_NAMES_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+/** Short weekday names in the user's language, index 0 = Sunday (2024-01-07 was a Sunday) */
+function weekdayNames(lng: string): string[] {
+  const fmt = new Intl.DateTimeFormat(lng, { weekday: 'short', timeZone: 'UTC' })
+  return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(Date.UTC(2024, 0, 7 + i))))
+}
+
+/** Localized one-liner for a schedule, for lists and detail views */
+function describe(s: ScheduleTiming, lng: string, t: TFunction): string {
+  return describeSchedule(s, { weekdayNames: weekdayNames(lng), t: t as ScheduleDescription['t'] })
+}
 
 export function registerScheduleCommands(d: ScheduleCommandDeps): void {
   const { bot, repo } = d
@@ -171,7 +181,7 @@ export function registerScheduleCommands(d: ScheduleCommandDeps): void {
 
   // /schedules — list all schedules
   bot.command(['schedules', 'agendamentos', 'programaciones'], async ctx => {
-    const { t } = d.tr(ctx)
+    const { lng, t } = d.tr(ctx)
     const list = repo.listSchedules()
     if (!list.length) {
       await ctx.reply(t('schedules.empty'), {
@@ -182,7 +192,7 @@ export function registerScheduleCommands(d: ScheduleCommandDeps): void {
     const kb = new InlineKeyboard()
     for (const s of list) {
       const icon = s.enabled ? '▶️' : '⏸️'
-      const desc = describeSchedule(s, WEEKDAY_NAMES_EN)
+      const desc = describe(s, lng, t)
       kb.text(`${icon} ${s.name} · ${desc}`.slice(0, 60), `sch:${s.id}`).row()
     }
     kb.text(t('schedules.newButton'), 'schnew:')
@@ -192,12 +202,12 @@ export function registerScheduleCommands(d: ScheduleCommandDeps): void {
   // sch:<id> — show one schedule
   bot.callbackQuery(/^sch:(.+)$/, async ctx => {
     await ctx.answerCallbackQuery()
-    const { t } = d.tr(ctx)
+    const { lng, t } = d.tr(ctx)
     const s = repo.getSchedule(ctx.match[1])
     if (!s) return void (await ctx.reply(t('schedules.notFound')))
     await ctx.editMessageReplyMarkup().catch(() => {})
 
-    const desc = describeSchedule(s, WEEKDAY_NAMES_EN)
+    const desc = describe(s, lng, t)
     const nextRunStr = s.nextRun ? new Date(s.nextRun).toLocaleString() : '—'
     const runs = repo.listRuns({ scheduleId: s.id, limit: 5 })
 
@@ -229,7 +239,7 @@ export function registerScheduleCommands(d: ScheduleCommandDeps): void {
   bot.callbackQuery('schlist:', async ctx => {
     await ctx.answerCallbackQuery()
     await ctx.editMessageReplyMarkup().catch(() => {})
-    const { t } = d.tr(ctx)
+    const { lng, t } = d.tr(ctx)
     const list = repo.listSchedules()
     if (!list.length) {
       await ctx.reply(t('schedules.empty'), {
@@ -240,7 +250,7 @@ export function registerScheduleCommands(d: ScheduleCommandDeps): void {
     const kb = new InlineKeyboard()
     for (const s of list) {
       const icon = s.enabled ? '▶️' : '⏸️'
-      const desc = describeSchedule(s, WEEKDAY_NAMES_EN)
+      const desc = describe(s, lng, t)
       kb.text(`${icon} ${s.name} · ${desc}`.slice(0, 60), `sch:${s.id}`).row()
     }
     kb.text(t('schedules.newButton'), 'schnew:')

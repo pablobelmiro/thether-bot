@@ -777,7 +777,9 @@ test('turn_complete makes the run a success, notifies only the schedule\u2019s n
     assert.equal(done.status, 'success')
     assert.equal(done.delivered, true)
     assert.ok(done.endedAt)
-    assert.deepEqual(sent, [['5511999990000', 'all done']])
+    assert.equal(sent.length, 1, 'only the schedule\u2019s own number hears about it')
+    assert.equal(sent[0][0], '5511999990000')
+    assert.match(sent[0][1], /^✅ Scheduled task finished\.\n\nall done$/, 'a localized header plus the answer')
     assert.ok(sessions.calls.includes('command:/clear'), '/clear runs on a session about to be discarded')
     assert.ok(sessions.calls.includes('pause'))
     assert.ok(sessions.calls.includes('remove:true'))
@@ -1141,11 +1143,27 @@ test('schedule routes: CRUD, notify-phone validation, run-now conflict, overview
   assert.equal((await post('/api/schedules/nope/run')).status, 404)
 })
 
-test('describeSchedule summarizes both kinds', async () => {
+test('describeSchedule summarizes both kinds, in the caller\u2019s language', async () => {
   const { describeSchedule } = await import('../src/server/core/schedules.js')
-  const names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  assert.equal(describeSchedule({ kind: 'interval', intervalMinutes: 60 }, names), 'every 60 min')
-  assert.equal(describeSchedule({ kind: 'weekly', weekdays: [1, 3], timeOfDay: '09:00' }, names), 'Mon, Wed at 09:00')
+  const { translator } = await import('../src/server/i18n.js')
+  const en = { weekdayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], t: translator('en') as never }
+  assert.equal(describeSchedule({ kind: 'interval', intervalMinutes: 60 }, en), 'every 60 min')
+  assert.equal(describeSchedule({ kind: 'weekly', weekdays: [1, 3], timeOfDay: '09:00' }, en), 'Mon, Wed at 09:00')
+
+  const pt = { weekdayNames: ['dom.', 'seg.', 'ter.', 'qua.', 'qui.', 'sex.', 'sáb.'], t: translator('pt-BR') as never }
+  assert.equal(describeSchedule({ kind: 'interval', intervalMinutes: 60 }, pt), 'a cada 60 min')
+  assert.equal(describeSchedule({ kind: 'weekly', weekdays: [1, 3], timeOfDay: '09:00' }, pt), 'seg., qua. às 09:00')
+})
+
+test('weekday names come from Intl, with Sunday first', async () => {
+  // Same table the bot's schedule views use: index 0 = Sunday (2024-01-07 was a Sunday)
+  const names = (lng: string) => {
+    const fmt = new Intl.DateTimeFormat(lng, { weekday: 'short', timeZone: 'UTC' })
+    return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(Date.UTC(2024, 0, 7 + i))))
+  }
+  assert.deepEqual(names('en'), ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'])
+  assert.equal(names('pt-BR')[1], 'seg.')
+  assert.equal(names('es')[1], 'lun')
 })
 
 test('the Telegram creation wizard walks the fields in order and validates each answer', async () => {

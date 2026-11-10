@@ -10,6 +10,7 @@ import type { SettingsService } from '../settings.js'
 import { computeNextRun, planDispatch } from './schedules.js'
 import { hub } from './hub.js'
 import { HttpError } from './sessions.js'
+import { translator } from '../i18n.js'
 
 export interface SchedulerSessions {
   create(req: CreateSessionRequest, defaultMode: PermissionMode, scheduledRunId?: string): Promise<Session>
@@ -50,6 +51,11 @@ export class Scheduler {
     this.tickMs = d.tickMs ?? 15_000
   }
 
+  /** Everything the scheduler says to Telegram is written in the configured language */
+  private get t() {
+    return translator(this.settings.get().locale)
+  }
+
   /** The run of this session, but only while it can still change state */
   private inFlightRunForSession(sessionId: string): ScheduleRun | undefined {
     const run = this.repo.runForSession(sessionId)
@@ -65,7 +71,7 @@ export class Scheduler {
   private reconcile(): void {
     for (const run of this.repo.runsInFlight()) {
       if (run.sessionId && this.sessions.get(run.sessionId)) continue
-      void this.finish(run, 'error', 'Run interrupted: the session is gone (the server restarted)')
+      void this.finish(run, 'error', this.t('schedules.interrupted'))
     }
   }
 
@@ -78,7 +84,7 @@ export class Scheduler {
       if (!s.scheduledRunId) return
       const run = this.inFlightRunForSession(s.id)
       if (!run) return
-      void this.finish(run, 'success', response)
+      void this.finish(run, 'success', response ? `${this.t('schedules.report')}\n\n${response}` : this.t('schedules.report'))
     }
 
     const onQuestion = (s: Session, q: { question: string }) => {
@@ -114,7 +120,7 @@ export class Scheduler {
       if (s.status !== 'offline') return
       const run = this.inFlightRunForSession(s.id)
       if (!run) return
-      void this.finish(run, 'error', 'Session went offline during the run')
+      void this.finish(run, 'error', this.t('schedules.offline'))
     }
 
     const onSessionRemoved = (sessionId: string) => {
@@ -213,7 +219,7 @@ export class Scheduler {
       if (!schedule) continue
       const elapsed = now - run.startedAt - run.waitedMs
       if (elapsed > schedule.timeoutMinutes * 60_000) {
-        await this.finish(run, 'timeout', `Run timed out after ${schedule.timeoutMinutes} minutes`)
+        await this.finish(run, 'timeout', this.t('schedules.timedOut', { minutes: schedule.timeoutMinutes }))
       }
     }
   }
@@ -248,14 +254,14 @@ export class Scheduler {
       sessionId = session.id
       this.repo.saveRun({ ...run, sessionId })
 
-      if (!(await this.sessions.waitBooted(sessionId))) throw new Error('Session never finished booting')
+      if (!(await this.sessions.waitBooted(sessionId))) throw new Error(this.t('schedules.notBooted'))
       await this.sessions.prompt(sessionId, schedule.prompt, '')
 
       return { ...run, sessionId }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       this.repo.saveRun({ ...run, ...(sessionId && { sessionId }), status: 'error', endedAt: Date.now(), error: msg })
-      await this.notifyForSchedule(schedule.id, `Scheduled run failed: ${msg}`)
+      await this.notifyForSchedule(schedule.id, this.t('schedules.failed', { error: msg }))
       // A session created before the failure would otherwise stay alive, with everything
       // it says suppressed because it still carries a scheduled run id.
       if (sessionId && !schedule.preserveSession) await this.disposeSession(sessionId, false)
