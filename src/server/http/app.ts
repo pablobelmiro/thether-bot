@@ -433,6 +433,7 @@ export function createApp(d: AppDeps): Hono {
   const telegramUsers = (): TelegramUser[] =>
     d.repo.listTelegramUsers().map(u => ({
       userId: u.userId,
+      phone: u.phone,
       phoneMasked: maskPhone(u.phone),
       locale: u.locale,
       verifiedAt: u.verifiedAt,

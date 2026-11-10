@@ -307,11 +307,14 @@ export function ScheduleDialog({ open, onOpenChange, schedule, onSaved }: Props)
                 <SelectValue placeholder={telegramUsers.length === 0 ? t('schedules.form.notifyEmpty') : undefined} />
               </SelectTrigger>
               <SelectContent>
-                {allowedPhones.map((p) => (
-                  <SelectItem key={p.phone} value={p.phone}>
-                    {p.label ? `${p.phone} (${p.label})` : p.phone}
-                  </SelectItem>
-                ))}
+                {telegramUsers.map((u) => {
+                  const label = allowedPhones.find((p) => p.phone === u.phone)?.label
+                  return (
+                    <SelectItem key={u.phone} value={u.phone}>
+                      {label ? `${u.phone} (${label})` : u.phone}
+                    </SelectItem>
+                  )
+                })}
               </SelectContent>
             </Select>
           </Field>

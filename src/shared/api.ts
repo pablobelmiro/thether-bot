@@ -285,6 +285,8 @@ export interface BotStatus {
 
 export interface TelegramUser {
   userId: number
+  /** Digits only */
+  phone: string
   /** Masked, e.g. "+55 •••• 9089" */
   phoneMasked: string
   locale?: string
