@@ -894,6 +894,41 @@ test('a schedule whose directory is gone records an error run and the tick survi
   await scheduler.tick() // must not throw
 })
 
+test('a failure after create() keeps the session link and leaves no live session behind', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { repo } = makeRepo()
+  repo.saveSchedule(aSchedule())
+  const sessions = fakeSessions({ prompt: async () => { throw new Error('tmux paste failed') } })
+  const sent: string[] = []
+  const scheduler = new Scheduler({ repo, sessions: sessions as never, settings: new SettingsService(repo), notify: async (_p, m) => { sent.push(m); return true } })
+  scheduler.start()
+  try {
+    await scheduler.tick()
+    const run = repo.listRuns({ limit: 10 })[0]
+    assert.equal(run.status, 'error')
+    assert.equal(run.sessionId, 'sess-1', 'the error row keeps the session link, so the session is reachable')
+    assert.match(run.error!, /tmux paste failed/)
+    assert.deepEqual(repo.runsInFlight(), [])
+    assert.ok(sessions.calls.includes('remove:true'), 'the orphaned session is cleaned up')
+    assert.equal(sessions.state.live, false)
+    assert.equal(sent.length, 1, 'the notify number hears about it once')
+  } finally {
+    scheduler.stop()
+  }
+})
+
+test('a session that never boots fails the run instead of being prompted', async () => {
+  const { Scheduler } = await import('../src/server/core/scheduler.js')
+  const { repo } = makeRepo()
+  repo.saveSchedule(aSchedule())
+  const sessions = fakeSessions({ waitBooted: async () => false })
+  const scheduler = new Scheduler({ repo, sessions: sessions as never, settings: new SettingsService(repo), notify: async () => true })
+  await scheduler.tick()
+  const run = repo.listRuns({ limit: 10 })[0]
+  assert.equal(run.status, 'error')
+  assert.ok(!sessions.calls.some(c => c.startsWith('prompt:')), 'nothing is pasted into a session that never booted')
+})
+
 test('a run past its timeout is failed, the number is warned, and the session is kept', async () => {
   const { Scheduler } = await import('../src/server/core/scheduler.js')
   const { repo } = makeRepo()

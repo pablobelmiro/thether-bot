@@ -224,22 +224,28 @@ export class Scheduler {
     const updated: Schedule = { ...schedule, nextRun: computeNextRun(schedule, now), updatedAt: now }
     this.repo.saveSchedule(updated)
 
+    // Tracked outside the try so a later failure still records which session was created
+    let sessionId: string | undefined
     try {
       const session = await this.sessions.create(
         { cwd: schedule.cwd, name: schedule.name, permissionMode: 'bypass' } as CreateSessionRequest,
         'bypass',
         runId,
       )
-      this.repo.saveRun({ ...run, sessionId: session.id })
+      sessionId = session.id
+      this.repo.saveRun({ ...run, sessionId })
 
-      await this.sessions.waitBooted(session.id)
-      await this.sessions.prompt(session.id, schedule.prompt, '')
+      if (!(await this.sessions.waitBooted(sessionId))) throw new Error('Session never finished booting')
+      await this.sessions.prompt(sessionId, schedule.prompt, '')
 
-      return { ...run, sessionId: session.id }
+      return { ...run, sessionId }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      this.repo.saveRun({ ...run, status: 'error', endedAt: Date.now(), error: msg })
+      this.repo.saveRun({ ...run, ...(sessionId && { sessionId }), status: 'error', endedAt: Date.now(), error: msg })
       await this.notifyForSchedule(schedule.id, `Scheduled run failed: ${msg}`)
+      // A session created before the failure would otherwise stay alive, with everything
+      // it says suppressed because it still carries a scheduled run id.
+      if (sessionId && !schedule.preserveSession) await this.disposeSession(sessionId, false)
       throw err
     }
   }
