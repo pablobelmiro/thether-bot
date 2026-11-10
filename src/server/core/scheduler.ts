@@ -81,6 +81,7 @@ export class Scheduler {
       if (!s.scheduledRunId) return
       const run = this.repo.runForSession(s.id)
       if (!run) return
+      this.waitingSince.delete(s.id)
       this.repo.saveRun({ ...run, status: 'taken_over', endedAt: Date.now() })
       try { this.sessions.clearScheduledRun(s.id) } catch { /* session may be gone */ }
     }
@@ -94,6 +95,7 @@ export class Scheduler {
     }
 
     const onSessionRemoved = (sessionId: string) => {
+      this.waitingSince.delete(sessionId)
       const run = this.repo.runForSession(sessionId)
       if (!run) return
       this.repo.saveRun({ ...run, status: 'discarded', endedAt: Date.now(), sessionId: undefined })
@@ -236,6 +238,7 @@ export class Scheduler {
   }
 
   private async finish(run: ScheduleRun, status: 'success' | 'error' | 'timeout', text: string): Promise<void> {
+    if (run.sessionId) this.waitingSince.delete(run.sessionId)
     const schedule = this.repo.getSchedule(run.scheduleId)
     const phone = schedule?.notifyPhone
     const delivered = phone ? await this.notify(phone, text) : false
