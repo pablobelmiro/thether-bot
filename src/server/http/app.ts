@@ -551,7 +551,10 @@ export function createApp(d: AppDeps): Hono {
   })
 
   app.post('/api/schedule-runs/:runId/discard', async c => {
-    await d.scheduler.discardRun(c.req.param('runId'))
+    const run = d.repo.getRun(c.req.param('runId'))
+    if (!run) throw new HttpError(404, 'Run not found')
+    await d.scheduler.discardRun(run.id)
+    d.repo.audit('dashboard', 'schedule.discard', d.repo.getSchedule(run.scheduleId)?.name ?? run.scheduleId)
     return c.json({ ok: true })
   })
 
