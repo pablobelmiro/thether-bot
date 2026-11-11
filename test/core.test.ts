@@ -468,6 +468,34 @@ test('multiSelectMenu reads rows, checkmarks and the cursor', async () => {
   assert.equal(multiSelectMenu(MS_MENU.replace('❯ 1.', '  1.').replace('     Next', '❯    Next'))!.cursor, 'next')
 })
 
+test('multiSelectMenu finds the commit row when a lone question labels it "Submit"', async () => {
+  const { multiSelectMenu } = await import('../src/server/core/sessions.js')
+  const lone = MS_MENU.replace('     Next', '     Submit')
+  assert.equal(multiSelectMenu(lone)!.hasNext, true)
+  assert.equal(multiSelectMenu(lone.replace('❯ 1.', '  1.').replace('     Submit', '❯    Submit'))!.cursor, 'next')
+})
+
+test('reviewScreenCursor finds the "Submit answers" entry, including after a lone multi-select', async () => {
+  const { reviewScreenCursor } = await import('../src/server/core/sessions.js')
+  // Measured on Claude Code v2.1.322: a single multi-select question also ends on this screen
+  const review = [
+    '←  ☒ Fruits  ✔ Submit  →',
+    '',
+    'Review your answers',
+    '',
+    ' ● Which fruits should I buy?',
+    '   → Banana, Cherry',
+    '',
+    'Ready to submit your answers?',
+    '',
+    '❯ 1. Submit answers',
+    '  2. Cancel',
+  ].join('\n')
+  assert.equal(reviewScreenCursor(review), '1')
+  assert.equal(reviewScreenCursor(review.replace('❯ 1.', '  1.')), null, 'cursor elsewhere: do not press blindly')
+  assert.equal(reviewScreenCursor(MS_MENU), null, 'a live option menu is not the review screen')
+})
+
 test('multiSelectMenu returns null without a live checkbox menu', async () => {
   const { multiSelectMenu } = await import('../src/server/core/sessions.js')
   const single = ['Which bag size?', '❯ 1. Small', '  2. Large', '  3. Type something.', 'Enter to select · Esc to cancel'].join('\n')

@@ -339,7 +339,11 @@ export function createApp(d: AppDeps): Hono {
   app.post('/api/sessions/:id/answer', async c => {
     const body = (await c.req.json()) as AnswerRequest
     const s = d.sessions.require(c.req.param('id'))
-    await d.sessions.answerQuestion(s.id, { option: body.option === undefined ? undefined : Number(body.option), text: body.text })
+    await d.sessions.answerQuestion(s.id, {
+      option: body.option === undefined ? undefined : Number(body.option),
+      options: Array.isArray(body.options) ? body.options.map(Number) : undefined,
+      text: body.text,
+    })
     return c.json({ ok: true })
   })
 

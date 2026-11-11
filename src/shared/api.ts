@@ -71,7 +71,7 @@ export interface PendingQuestion {
   /** Position when Claude asks several questions at once (0-based) */
   index?: number
   total?: number
-  /** Multi-select questions can only be answered with free text here */
+  /** Several options can be ticked: the answer is an option set, not a single choice */
   multiSelect?: boolean
   /** Unix ms */
   askedAt: number
@@ -396,9 +396,11 @@ export interface PermissionResponseRequest {
   promptId: string
 }
 
-/** POST /api/sessions/:id/answer — answer pendingQuestion: option is 1-based; or free text ("Other") */
+/** POST /api/sessions/:id/answer — answer pendingQuestion: option(s) are 1-based; or free text ("Other") */
 export interface AnswerRequest {
   option?: number
+  /** Multi-select answers only: every option number to tick */
+  options?: number[]
   text?: string
 }
 

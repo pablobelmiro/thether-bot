@@ -528,8 +528,50 @@ export class SessionManager {
     }
   }
 
-  /** Answer an AskUserQuestion menu: option number (1-based) or free text */
-  async answerQuestion(id: string, answer: { option?: number; text?: string }): Promise<void> {
+  /** True once the terminal has left `question` — the only proof an answer landed */
+  private async questionLeftScreen(s: StoredSession, question: string): Promise<boolean> {
+    for (let i = 0; i < 8; i++) {
+      if (i) await new Promise(r => setTimeout(r, 400))
+      if (!questionOnScreen(await tmux.capture(s.tmuxSession, 60), question)) return true
+    }
+    return false
+  }
+
+  private async readMultiSelect(s: StoredSession): Promise<MultiSelectMenu> {
+    const menu = multiSelectMenu(await tmux.capture(s.tmuxSession))
+    if (!menu?.hasNext) throw new HttpError(409, 'Multi-select menu not recognized on screen; answer it in the terminal')
+    return menu
+  }
+
+  /** Walk the cursor down to the unnumbered commit row and press Enter */
+  private async commitOnNext(s: StoredSession, menu: MultiSelectMenu): Promise<void> {
+    let state = menu
+    for (let i = 0; i <= state.rows.length + 2 && state.cursor !== 'next'; i++) {
+      await tmux.keys(s.tmuxSession, 'Down')
+      await new Promise(r => setTimeout(r, 150))
+      state = await this.readMultiSelect(s)
+    }
+    if (state.cursor !== 'next') throw new HttpError(409, 'Could not reach the confirm row; answer it in the terminal')
+    await tmux.keys(s.tmuxSession, 'Enter')
+  }
+
+  /** Press the digits that toggle `wanted` on, confirm them on screen, then commit */
+  private async commitMultiSelect(s: StoredSession, wanted: number[]): Promise<void> {
+    const menu = await this.readMultiSelect(s)
+    for (const digit of multiSelectToggles(menu, wanted)) {
+      await tmux.keys(s.tmuxSession, String(digit))
+      await new Promise(r => setTimeout(r, 200))
+    }
+    // A cursor parked in the "Type something" field types digits instead of toggling: verify (fail closed)
+    const after = await this.readMultiSelect(s)
+    const ticked = after.rows.filter(r => r.checked).map(r => r.number)
+    if (ticked.join(',') !== [...wanted].sort((a, b) => a - b).join(','))
+      throw new HttpError(409, 'Could not select those options; answer it in the terminal')
+    await this.commitOnNext(s, after)
+  }
+
+  /** Answer an AskUserQuestion menu: option number(s) (1-based) or free text */
+  async answerQuestion(id: string, answer: { option?: number; options?: number[]; text?: string }): Promise<void> {
     const s = this.require(id)
     const l = this.liveOf(id)
     const q = l.pendingQuestion
@@ -542,17 +584,33 @@ export class SessionManager {
       visible = questionOnScreen(await tmux.capture(s.tmuxSession, 60), q.question)
     }
     if (!visible) throw new HttpError(409, 'This question is not on screen; answer it in the terminal')
-    if (answer.option !== undefined) {
-      if (q.multiSelect) throw new HttpError(400, 'Multi-select questions take a typed answer here')
+    if (answer.options?.length) {
+      if (!q.multiSelect) throw new HttpError(400, 'This question takes a single option')
+      const wanted = [...new Set(answer.options)]
+      for (const n of wanted) if (!Number.isInteger(n) || n < 1 || n > q.options.length) throw new HttpError(400, 'Invalid option')
+      await this.commitMultiSelect(s, wanted)
+    } else if (answer.option !== undefined) {
+      if (q.multiSelect) throw new HttpError(400, 'Multi-select questions take an option set')
       if (!Number.isInteger(answer.option) || answer.option < 1 || answer.option > q.options.length) throw new HttpError(400, 'Invalid option')
       // Number keys select a menu entry immediately (and move to the next question)
       await tmux.keys(s.tmuxSession, String(answer.option))
     } else if (answer.text?.trim()) {
-      // Typing on the menu fills the "Type something" entry; Enter confirms it
-      await tmux.paste(s.tmuxSession, answer.text.trim())
+      if (q.multiSelect) {
+        // The paste alone ticks the "Type something" row; Enter there would untick it
+        await tmux.paste(s.tmuxSession, answer.text.trim(), false)
+        await this.commitOnNext(s, await this.readMultiSelect(s))
+      } else {
+        // Typing on the menu fills the "Type something" entry; Enter confirms it
+        await tmux.paste(s.tmuxSession, answer.text.trim())
+      }
     } else {
       throw new HttpError(400, 'Answer is empty')
     }
+
+    // Fail closed: nothing is recorded until the question is off the screen, so a
+    // rejected answer leaves pendingQuestion and the queue intact for a retry
+    if (!(await this.questionLeftScreen(s, q.question)))
+      throw new HttpError(409, 'The terminal did not accept that answer; answer it in the terminal')
 
     hub.emit('human_input', this.toApi(s))
     const next = l.questionQueue?.[(q.index ?? 0) + 1]
@@ -565,11 +623,17 @@ export class SessionManager {
       hub.emit('question', this.toApi(s), next)
       return
     }
-    if ((q.total ?? 1) > 1) {
-      // Last of several: Claude Code shows a review screen; confirm it
-      await new Promise(r => setTimeout(r, 600))
-      const screen = await tmux.capture(s.tmuxSession, 30)
-      if (/Ready to submit your answers\?/i.test(screen) && /❯\s*1\.\s*Submit answers/i.test(screen)) await tmux.keys(s.tmuxSession, '1')
+    // Last question answered: Claude Code shows a review screen when several were
+    // asked, and also after a lone multi-select one. Confirm it when it shows.
+    if ((q.total ?? 1) > 1 || (l.questionQueue ?? [q]).some(x => x.multiSelect)) {
+      for (let i = 0; i < 4; i++) {
+        await new Promise(r => setTimeout(r, 600))
+        const digit = reviewScreenCursor(await tmux.capture(s.tmuxSession, 30))
+        if (digit) {
+          await tmux.keys(s.tmuxSession, digit)
+          break
+        }
+      }
     }
     l.questionQueue = undefined
     this.clearQuestion(s)
@@ -988,18 +1052,20 @@ export interface MultiSelectMenu {
   rows: MenuRow[]
   /** Row number carrying the ❯ cursor, 'next' when it sits on the commit row */
   cursor: number | 'next' | null
-  /** Whether the menu shows the "Next" row that commits the question */
+  /** Whether the menu shows the unnumbered row that commits the question */
   hasNext: boolean
 }
 
 const MS_ROW = /^(\s*)(❯?)\s*(\d+)\.\s+\[([ ✔x])\]\s+(.*)$/
-const MS_NEXT = /^\s*(❯?)\s+Next\s*$/
+// "Submit" when this is the only question, "Next" when more follow
+const MS_NEXT = /^\s*(❯?)\s+(?:Next|Submit)\s*$/
 
 /**
  * Parse Claude Code's multi-select AskUserQuestion menu. A digit toggles a row's
- * checkbox and Enter on the unnumbered "Next" row commits the question, so the
- * ticks and the cursor have to be read before any key is sent. The checkbox is
- * also what separates an option from the trailing "Chat about this" entry.
+ * checkbox and Enter on the unnumbered commit row ("Submit", or "Next" when more
+ * questions follow) commits the question, so the ticks and the cursor have to be
+ * read before any key is sent. The checkbox is also what separates an option from
+ * the trailing "Chat about this" entry.
  */
 export function multiSelectMenu(screen: string): MultiSelectMenu | null {
   const lines = screen.split('\n')
@@ -1022,6 +1088,17 @@ export function multiSelectMenu(screen: string): MultiSelectMenu | null {
     }
   }
   return rows.length ? { rows, cursor, hasNext } : null
+}
+
+/**
+ * Claude Code's "Ready to submit your answers?" screen, shown after the last
+ * question whenever any of them was multi-select. Returns the digit that submits
+ * when the cursor is already on it, else null (the screen is not up, or the
+ * cursor sits elsewhere and a blind key could cancel).
+ */
+export function reviewScreenCursor(screen: string): string | null {
+  if (!/Ready to submit your answers\?/i.test(screen)) return null
+  return /❯\s*(\d+)\.\s*Submit answers/i.exec(screen)?.[1] ?? null
 }
 
 /** Digits to press so that exactly `wanted` (1-based row numbers) end up ticked */
