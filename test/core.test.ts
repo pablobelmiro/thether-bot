@@ -431,6 +431,61 @@ test('questionOnScreen matches wrapped question text and rejects others', async 
   assert.equal(questionOnScreen(menu, ''), false)
 })
 
+const MS_MENU = [
+  '←  ☐ Fruits  ☐ Size  ✔ Submit  →',
+  '',
+  'Which fruits should I buy?',
+  '',
+  '❯ 1. [ ] Apple',
+  '         Apple',
+  '  2. [✔] Banana',
+  '         Banana',
+  '  3. [ ] Cherry',
+  '         Cherry',
+  '  4. [ ] Type something',
+  '     Next',
+  '────────────────────────────',
+  '  5. Chat about this',
+  '',
+  'Enter to select · Tab/Arrow keys to navigate · Esc to cancel',
+].join('\n')
+
+test('multiSelectMenu reads rows, checkmarks and the cursor', async () => {
+  const { multiSelectMenu } = await import('../src/server/core/sessions.js')
+  const m = multiSelectMenu(MS_MENU)!
+  assert.deepEqual(
+    m.rows,
+    [
+      { number: 1, label: 'Apple', checked: false },
+      { number: 2, label: 'Banana', checked: true },
+      { number: 3, label: 'Cherry', checked: false },
+      { number: 4, label: 'Type something', checked: false },
+    ],
+    'the unchecked "Chat about this" row below the rule is not an option',
+  )
+  assert.equal(m.cursor, 1)
+  assert.equal(m.hasNext, true)
+  assert.equal(multiSelectMenu(MS_MENU.replace('❯ 1.', '  1.').replace('     Next', '❯    Next'))!.cursor, 'next')
+})
+
+test('multiSelectMenu returns null without a live checkbox menu', async () => {
+  const { multiSelectMenu } = await import('../src/server/core/sessions.js')
+  const single = ['Which bag size?', '❯ 1. Small', '  2. Large', '  3. Type something.', 'Enter to select · Esc to cancel'].join('\n')
+  assert.equal(multiSelectMenu(single), null, 'single choice has no checkboxes')
+  assert.equal(multiSelectMenu(MS_MENU.replace(/Enter to select.*/, '')), null, 'no footer means no live menu')
+})
+
+test('multiSelectToggles presses only what changes state', async () => {
+  const { multiSelectMenu, multiSelectToggles } = await import('../src/server/core/sessions.js')
+  const m = multiSelectMenu(MS_MENU)!
+  assert.deepEqual(multiSelectToggles(m, [1, 3]), [1, 2, 3], 'checks 1 and 3, unchecks the stale 2')
+  assert.deepEqual(multiSelectToggles(m, [2]), [], 'already exactly right')
+  assert.throws(() => multiSelectToggles(m, []), /at least one/i)
+  assert.throws(() => multiSelectToggles(m, [9]), /Invalid option/)
+  const big = { ...m, rows: [...m.rows, { number: 10, label: 'Tenth', checked: false }] }
+  assert.throws(() => multiSelectToggles(big, [1]), /answer it in the terminal/)
+})
+
 test('pause: refuses busy sessions and sessions whose conversation is unknown', async () => {
   const { SessionManager } = await import('../src/server/core/sessions.js')
   const { repo } = makeRepo()

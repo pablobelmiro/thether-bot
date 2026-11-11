@@ -977,6 +977,63 @@ export function questionOnScreen(screen: string, question: string): boolean {
   return flat(block.join(' ')).includes(probe)
 }
 
+/** One numbered checkbox entry of a multi-select menu */
+export interface MenuRow {
+  number: number
+  label: string
+  checked: boolean
+}
+
+export interface MultiSelectMenu {
+  rows: MenuRow[]
+  /** Row number carrying the ❯ cursor, 'next' when it sits on the commit row */
+  cursor: number | 'next' | null
+  /** Whether the menu shows the "Next" row that commits the question */
+  hasNext: boolean
+}
+
+const MS_ROW = /^(\s*)(❯?)\s*(\d+)\.\s+\[([ ✔x])\]\s+(.*)$/
+const MS_NEXT = /^\s*(❯?)\s+Next\s*$/
+
+/**
+ * Parse Claude Code's multi-select AskUserQuestion menu. A digit toggles a row's
+ * checkbox and Enter on the unnumbered "Next" row commits the question, so the
+ * ticks and the cursor have to be read before any key is sent. The checkbox is
+ * also what separates an option from the trailing "Chat about this" entry.
+ */
+export function multiSelectMenu(screen: string): MultiSelectMenu | null {
+  const lines = screen.split('\n')
+  const footer = lines.map(l => /Enter to select|Esc to cancel/i.test(l)).lastIndexOf(true)
+  if (footer === -1) return null
+  const rows: MenuRow[] = []
+  let cursor: number | 'next' | null = null
+  let hasNext = false
+  for (const line of lines.slice(Math.max(0, footer - 40), footer)) {
+    const row = MS_ROW.exec(line)
+    if (row) {
+      rows.push({ number: Number(row[3]), label: row[5].trim(), checked: row[4] !== ' ' })
+      if (row[2]) cursor = Number(row[3])
+      continue
+    }
+    const next = MS_NEXT.exec(line)
+    if (next) {
+      hasNext = true
+      if (next[1]) cursor = 'next'
+    }
+  }
+  return rows.length ? { rows, cursor, hasNext } : null
+}
+
+/** Digits to press so that exactly `wanted` (1-based row numbers) end up ticked */
+export function multiSelectToggles(menu: MultiSelectMenu, wanted: number[]): number[] {
+  if (!wanted.length) throw new HttpError(400, 'Pick at least one option')
+  // A two-digit choice cannot be sent as one key, and typing "1" then "0" would toggle row 1
+  if (menu.rows.some(r => r.number > 9)) throw new HttpError(409, 'Too many options to answer here; answer it in the terminal')
+  for (const n of wanted) if (!menu.rows.some(r => r.number === n)) throw new HttpError(400, 'Invalid option')
+  const want = new Set(wanted)
+  return menu.rows.filter(r => r.checked !== want.has(r.number)).map(r => r.number)
+}
+
 /** Older sessions had no workspace: use the git repository root of their directory, else the directory */
 export function guessWorkspace(dir: string): string {
   try {
