@@ -88,8 +88,12 @@ export const tmux = {
     await run('tmux', ['send-keys', '-t', target(name), ...keys], OPTS)
   },
 
-  /** Paste arbitrary text (multi-line safe) and press Enter */
-  async paste(name: string, text: string): Promise<void> {
+  /**
+   * Paste arbitrary text (multi-line safe) and press Enter.
+   * Pass `enter: false` on a multi-select AskUserQuestion menu: pasting already
+   * ticks the "Type something" row there, and Enter would toggle it back off.
+   */
+  async paste(name: string, text: string, enter = true): Promise<void> {
     const file = join(tmpdir(), `tether-${randomBytes(12).toString('hex')}.txt`)
     writeFileSync(file, text, { mode: 0o600 })
     const buffer = `tether-${randomBytes(6).toString('hex')}`
@@ -97,7 +101,7 @@ export const tmux = {
       await run('tmux', ['load-buffer', '-b', buffer, file], OPTS)
       await run('tmux', ['paste-buffer', '-d', '-p', '-b', buffer, '-t', target(name)], OPTS)
       await new Promise(r => setTimeout(r, 150))
-      await run('tmux', ['send-keys', '-t', target(name), 'Enter'], OPTS)
+      if (enter) await run('tmux', ['send-keys', '-t', target(name), 'Enter'], OPTS)
     } finally {
       try {
         unlinkSync(file)
