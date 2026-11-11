@@ -1,5 +1,5 @@
 import type { PendingQuestion } from '@shared/api'
-import { MessageCircleQuestion, SendHorizontal } from 'lucide-react'
+import { Check, MessageCircleQuestion, SendHorizontal } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -16,17 +16,19 @@ export function QuestionBanner({ sessionId, question }: { sessionId: string; que
   const fmt = useFormat()
   const now = useNow(15000)
   const otherId = useId()
-  const [sending, setSending] = useState<number | 'text' | null>(null)
+  const [sending, setSending] = useState<number | 'text' | 'confirm' | null>(null)
   const [other, setOther] = useState('')
+  const [picked, setPicked] = useState<Set<number>>(new Set())
 
   // A new question (different askedAt) resets the banner.
   useEffect(() => {
     setSending(null)
     setOther('')
+    setPicked(new Set())
   }, [question.askedAt])
 
-  const answer = async (body: { option?: number; text?: string }) => {
-    setSending(body.option ?? 'text')
+  const answer = async (body: { option?: number; options?: number[]; text?: string }) => {
+    setSending(body.options ? 'confirm' : (body.option ?? 'text'))
     try {
       await api.answer(sessionId, body)
     } catch (err) {
@@ -44,6 +46,7 @@ export function QuestionBanner({ sessionId, question }: { sessionId: string; que
         <span className="ml-auto shrink-0 text-xs text-muted-foreground">{fmt.relative(question.askedAt, now)}</span>
       </div>
       <p className="whitespace-pre-wrap break-words px-4 py-3 text-sm leading-relaxed">{question.question}</p>
+      {question.multiSelect && <p className="px-4 pb-2 text-xs text-muted-foreground">{t('question.multiSelect')}</p>}
       {question.options.length > 0 && (
         <div className="grid gap-2 px-4 pb-3 sm:grid-cols-2">
           {question.options.map((o, i) => (
@@ -51,11 +54,22 @@ export function QuestionBanner({ sessionId, question }: { sessionId: string; que
               key={i}
               type="button"
               disabled={sending !== null}
-              onClick={() => answer({ option: i + 1 })}
-              className="flex items-start gap-2.5 border border-border bg-card px-3 py-2 text-left transition-colors duration-150 hover:border-primary hover:bg-accent/60 focus-visible:border-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+              aria-pressed={question.multiSelect ? picked.has(i + 1) : undefined}
+              onClick={() =>
+                question.multiSelect
+                  ? setPicked((prev) => {
+                      const next = new Set(prev)
+                      if (!next.delete(i + 1)) next.add(i + 1)
+                      return next
+                    })
+                  : void answer({ option: i + 1 })
+              }
+              className={`flex items-start gap-2.5 border bg-card px-3 py-2 text-left transition-colors duration-150 hover:border-primary hover:bg-accent/60 focus-visible:border-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 ${
+                question.multiSelect && picked.has(i + 1) ? 'border-primary' : 'border-border'
+              }`}
             >
               <span className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                {sending === i + 1 ? <Spinner className="size-3" /> : i + 1}
+                {sending === i + 1 ? <Spinner className="size-3" /> : question.multiSelect ? (picked.has(i + 1) ? '☑' : '☐') : i + 1}
               </span>
               <span className="min-w-0 space-y-0.5">
                 <span className="block text-sm font-medium">{o.label}</span>
@@ -63,6 +77,19 @@ export function QuestionBanner({ sessionId, question }: { sessionId: string; que
               </span>
             </button>
           ))}
+        </div>
+      )}
+      {question.multiSelect && (
+        <div className="px-4 pb-3">
+          <Button
+            type="button"
+            size="sm"
+            disabled={sending !== null || picked.size === 0}
+            onClick={() => void answer({ options: [...picked].sort((a, b) => a - b) })}
+          >
+            {sending === 'confirm' ? <Spinner /> : <Check />}
+            {t('question.confirm')}
+          </Button>
         </div>
       )}
       <form

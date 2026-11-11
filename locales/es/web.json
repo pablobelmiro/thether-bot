@@ -308,7 +308,9 @@
     "title": "Claude pregunta",
     "other": "Otra respuesta",
     "otherPlaceholder": "Otra respuesta…",
-    "send": "Responder"
+    "send": "Responder",
+    "confirm": "Confirmar",
+    "multiSelect": "Opción múltiple: selecciona las opciones y confirma."
   },
   "panel": {
     "details": "Detalles",

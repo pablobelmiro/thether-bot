@@ -308,7 +308,9 @@
     "title": "Claude is asking",
     "other": "Other answer",
     "otherPlaceholder": "Other answer…",
-    "send": "Answer"
+    "send": "Answer",
+    "confirm": "Confirm",
+    "multiSelect": "Multiple choice: pick the options, then confirm."
   },
   "panel": {
     "details": "Details",
