@@ -19,6 +19,7 @@ import { hub } from '../core/hub.js'
 import { TELEGRAM_PREFIX } from '../core/transcript.js'
 import { saveUpload } from '../http/app.js'
 import { translator } from '../i18n.js'
+import type { TFunction } from 'i18next'
 import { log } from '../env.js'
 import { escapeHtml, markdownToTelegramMessages, splitPlain, terminalToHtml } from './format.js'
 import { Lock } from './lock.js'
@@ -103,7 +104,7 @@ export interface TelegramBot {
 export function createTelegramBot(d: BotDeps): TelegramBot {
   const bot = new Bot(d.token)
   const locks = new Map<number, Lock>()
-  const pendingQuestions = new Map<string, { sessionId: string; labels: string[] }>()
+  const pendingQuestions = new Map<string, { sessionId: string; labels: string[]; multiSelect: boolean; picked: Set<number> }>()
   const pendingOther = new Map<number, string>() // userId → sessionId awaiting free-text answer
   const permissionMessages = new Map<string, Array<{ chatId: number; messageId: number; lng: string }>>()
   const questionMessages = new Map<string, Array<{ chatId: number; messageId: number }>>() // sessionId → sent prompts
@@ -761,19 +762,44 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
 
   // --- questions & permissions -------------------------------------------------
 
-  bot.callbackQuery(/^q:(\w+):(\d+|o)$/, async ctx => {
+  bot.callbackQuery(/^q:(\w+):(\d+|t\d+|c|o)$/, async ctx => {
     const { t } = tr(ctx)
     const q = pendingQuestions.get(ctx.match[1])
+    const live = q && d.sessions.get(q.sessionId)?.pendingQuestion
     // Answered elsewhere already? Then never send a key to the terminal.
-    if (!q || !d.sessions.get(q.sessionId)?.pendingQuestion) {
+    if (!q || !live) {
       if (q) pendingQuestions.delete(ctx.match[1])
       await ctx.editMessageReplyMarkup().catch(() => {})
       return void (await ctx.answerCallbackQuery({ text: t('question.gone') }))
     }
+    const action = ctx.match[2]
+    if (action.startsWith('t')) {
+      // Ticking a box leaves the question open: keep the key and redraw the keyboard
+      const i = Number(action.slice(1))
+      if (q.picked.has(i)) q.picked.delete(i)
+      else q.picked.add(i)
+      await ctx.answerCallbackQuery()
+      await ctx.editMessageReplyMarkup({ reply_markup: questionKeyboard(t, ctx.match[1], live, q.picked) }).catch(() => {})
+      return
+    }
+    if (action === 'c') {
+      if (!q.picked.size) return void (await ctx.answerCallbackQuery({ text: t('question.pickOne'), show_alert: true }))
+      const picks = [...q.picked].sort((a, b) => a - b)
+      await ctx.answerCallbackQuery()
+      await ctx.editMessageReplyMarkup().catch(() => {})
+      pendingQuestions.delete(ctx.match[1])
+      try {
+        await d.sessions.answerQuestion(q.sessionId, { options: picks.map(i => i + 1) })
+        await ctx.reply(t('question.answered', { answer: picks.map(i => q.labels[i]).join(', ') }))
+      } catch (e) {
+        await ctx.reply(t('question.failed', { error: (e as Error).message }))
+      }
+      return
+    }
     await ctx.answerCallbackQuery()
     await ctx.editMessageReplyMarkup().catch(() => {})
     pendingQuestions.delete(ctx.match[1])
-    if (ctx.match[2] === 'o') {
+    if (action === 'o') {
       // The typed answer selects "Type something" and pastes the text
       pendingOther.set(ctx.from.id, q.sessionId)
       await ctx.reply(t('question.write'))
@@ -875,12 +901,25 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
   const isOpen = (u: StoredTelegramUser) => lockFor(u.userId).isUnlocked()
   const questionKeys = new Map<string, string>() // sessionId → callback key of its open question
 
+  /** Multi-select shows every option as a checkbox plus a confirm button; single choice answers on tap */
+  function questionKeyboard(t: TFunction<'bot'>, key: string, q: PendingQuestion, picked: Set<number>): InlineKeyboard {
+    const kb = new InlineKeyboard()
+    if (q.multiSelect) {
+      q.options.forEach((o, i) => kb.text(`${picked.has(i) ? '☑️' : '☐'} ${o.label}`.slice(0, 60), `q:${key}:t${i}`).row())
+      kb.text(t('question.confirm'), `q:${key}:c`).row()
+    } else {
+      q.options.forEach((o, i) => kb.text(o.label.slice(0, 60), `q:${key}:${i}`).row())
+    }
+    kb.text(t('question.other'), `q:${key}:o`)
+    return kb
+  }
+
   async function deliverQuestion(u: StoredTelegramUser, s: Session, q: PendingQuestion): Promise<void> {
     let key = questionKeys.get(s.id)
     if (!key) {
       key = randomBytes(4).toString('hex')
       questionKeys.set(s.id, key)
-      pendingQuestions.set(key, { sessionId: s.id, labels: q.options.map(o => o.label) })
+      pendingQuestions.set(key, { sessionId: s.id, labels: q.options.map(o => o.label), multiSelect: !!q.multiSelect, picked: new Set() })
     }
     const lng = localeOf(u)
     const t = translator(lng)
@@ -890,9 +929,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     for (const o of q.options) lines.push(`• <b>${escapeHtml(o.label)}</b>${o.description ? ` — ${escapeHtml(o.description)}` : ''}`)
     if (q.multiSelect) lines.push('', t('question.multiSelect'))
     lines.push('', `<i>${t('question.typeHint')}</i>`)
-    const kb = new InlineKeyboard()
-    if (!q.multiSelect) q.options.forEach((o, i) => kb.text(o.label.slice(0, 60), `q:${key}:${i}`).row())
-    kb.text(t('question.other'), `q:${key}:o`)
+    const kb = questionKeyboard(t, key, q, pendingQuestions.get(key)?.picked ?? new Set())
     const id = await send(u.chatId, lines.join('\n'), { reply_markup: kb })
     if (id) questionMessages.set(s.id, [...(questionMessages.get(s.id) ?? []), { chatId: u.chatId, messageId: id }])
     log(`Telegram → ${u.userId}: question from ${s.name}${id ? '' : ' (failed)'}`)
@@ -977,10 +1014,13 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
       for (const [key, q] of pendingQuestions) if (q.sessionId === s.id) pendingQuestions.delete(key)
       questionKeys.delete(s.id)
       for (const [userId, sessionId] of pendingOther) if (sessionId === s.id) pendingOther.delete(userId)
-      for (const m of questionMessages.get(s.id) ?? []) {
+      // Take the records before awaiting Telegram: a question delivered during these
+      // awaits registers its own message, and deleting afterwards would strand its keyboard
+      const msgs = questionMessages.get(s.id) ?? []
+      questionMessages.delete(s.id)
+      for (const m of msgs) {
         await bot.api.editMessageReplyMarkup(m.chatId, m.messageId).catch(() => {})
       }
-      questionMessages.delete(s.id)
     }
 
     const onPermission = async (s: Session, p: PermissionPrompt | null) => {

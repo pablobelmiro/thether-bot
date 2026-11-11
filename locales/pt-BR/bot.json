@@ -94,7 +94,9 @@
     "gone": "Essa pergunta já foi respondida.",
     "failed": "Falha ao responder: {{error}}",
     "answeredByText": "→ Respondi a pergunta pendente com: <i>{{answer}}</i>",
-    "multiSelect": "☑️ Múltipla escolha: escreva suas opções (ex.: “A e C”).",
+    "multiSelect": "☑️ Múltipla escolha: toque nas opções e confirme.",
+    "confirm": "✅ Confirmar",
+    "pickOne": "Escolha pelo menos uma opção.",
     "typeHint": "Dica: o que você escrever agora responde esta pergunta."
   },
   "permission": {

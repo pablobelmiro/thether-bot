@@ -94,7 +94,9 @@
     "gone": "This question was already answered.",
     "failed": "Couldn't answer: {{error}}",
     "answeredByText": "→ Answered the pending question with: <i>{{answer}}</i>",
-    "multiSelect": "☑️ Multiple choice: type your choices (e.g. “A and C”).",
+    "multiSelect": "☑️ Multiple choice: tap the options, then confirm.",
+    "confirm": "✅ Confirm",
+    "pickOne": "Pick at least one option.",
     "typeHint": "Tip: anything you type now answers this question."
   },
   "permission": {
