@@ -785,31 +785,41 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     if (action === 'c') {
       if (!q.picked.size) return void (await ctx.answerCallbackQuery({ text: t('question.pickOne'), show_alert: true }))
       const picks = [...q.picked].sort((a, b) => a - b)
+      // Claim the question before any await: two taps inside a Telegram round trip
+      // would otherwise both reach the terminal and interleave their keys
+      pendingQuestions.delete(ctx.match[1])
       await ctx.answerCallbackQuery()
       await ctx.editMessageReplyMarkup().catch(() => {})
-      pendingQuestions.delete(ctx.match[1])
       try {
         await d.sessions.answerQuestion(q.sessionId, { options: picks.map(i => i + 1) })
         await ctx.reply(t('question.answered', { answer: picks.map(i => q.labels[i]).join(', ') }))
       } catch (e) {
+        // The server kept the question open on purpose: give the buttons back for a retry
+        pendingQuestions.set(ctx.match[1], q)
+        const open = d.sessions.get(q.sessionId)?.pendingQuestion
+        if (open) await ctx.editMessageReplyMarkup({ reply_markup: questionKeyboard(t, ctx.match[1], open, q.picked) }).catch(() => {})
         await ctx.reply(t('question.failed', { error: (e as Error).message }))
       }
       return
     }
+    pendingQuestions.delete(ctx.match[1])
     await ctx.answerCallbackQuery()
     await ctx.editMessageReplyMarkup().catch(() => {})
-    pendingQuestions.delete(ctx.match[1])
     if (action === 'o') {
       // The typed answer selects "Type something" and pastes the text
       pendingOther.set(ctx.from.id, q.sessionId)
       await ctx.reply(t('question.write'))
       return
     }
-    const idx = Number(ctx.match[2])
+    const idx = Number(action)
     try {
       await d.sessions.answerQuestion(q.sessionId, { option: idx + 1 })
       await ctx.reply(t('question.answered', { answer: q.labels[idx] }))
     } catch (e) {
+      // Refused: the question is still open, so put the buttons back
+      pendingQuestions.set(ctx.match[1], q)
+      const open = d.sessions.get(q.sessionId)?.pendingQuestion
+      if (open) await ctx.editMessageReplyMarkup({ reply_markup: questionKeyboard(t, ctx.match[1], open, q.picked) }).catch(() => {})
       await ctx.reply(t('question.failed', { error: (e as Error).message }))
     }
   })

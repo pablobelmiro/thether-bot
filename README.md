@@ -236,7 +236,7 @@ tether uninstall-hooks     # remove Tether from ~/.claude/settings.json
 
 ## Known limitations
 
-- **Multiple questions or multi-select.** When Claude asks several questions at once, or a multi-select question, only the first question is shown with buttons. Answer the rest in the dashboard terminal view or with `/screen` plus a free-text answer.
+- **Multiple questions.** When Claude asks several at once, they arrive one after the other, each with its own buttons. A multi-select question shows checkboxes plus a confirm button; if Tether cannot read the menu on screen it refuses the answer and asks you to answer it in the terminal instead of guessing.
 - **One Tether per bot token.** Telegram only lets one program read updates for a bot at a time.
 
 ## Uninstall

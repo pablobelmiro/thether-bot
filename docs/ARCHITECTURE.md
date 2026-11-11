@@ -28,7 +28,8 @@
 
 - **Prompts** are pasted through a tmux buffer (multi-line safe), followed by Enter. They get a `[telegram] ` or `[dashboard] ` prefix, so the chat can show where they came from and Claude can adapt its formatting.
 - **Slash commands** are typed literally (`send-keys -l`) and validated with a regex.
-- **Permission answers and question choices** send the option number key.
+- **Permission answers and single-choice question answers** send the option number key.
+- **Multi-select answers** read the checkbox menu off the screen, press only the digits that change a box, read it back to confirm the exact set, then walk to the commit row and press Enter — and confirm the review screen that follows. Any step that does not match the screen refuses the answer and leaves the question pending.
 - **Interrupt** sends `Escape`, Claude Code's interrupt key.
 
 ## Session states

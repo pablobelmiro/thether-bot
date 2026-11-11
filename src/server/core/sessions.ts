@@ -532,7 +532,9 @@ export class SessionManager {
   private async questionLeftScreen(s: StoredSession, question: string): Promise<boolean> {
     for (let i = 0; i < 8; i++) {
       if (i) await new Promise(r => setTimeout(r, 400))
-      if (!questionOnScreen(await tmux.capture(s.tmuxSession, 60), question)) return true
+      const screen = await tmux.capture(s.tmuxSession, 60)
+      // The review screen repeats the question text, and reaching it means the answer landed
+      if (reviewSubmitDigit(screen) || !questionOnScreen(screen, question)) return true
     }
     return false
   }
@@ -562,7 +564,7 @@ export class SessionManager {
       await tmux.keys(s.tmuxSession, String(digit))
       await new Promise(r => setTimeout(r, 200))
     }
-    // A cursor parked in the "Type something" field types digits instead of toggling: verify (fail closed)
+    // Never commit a set we did not see on screen (fail closed)
     const after = await this.readMultiSelect(s)
     const ticked = after.rows.filter(r => r.checked).map(r => r.number)
     if (ticked.join(',') !== [...wanted].sort((a, b) => a - b).join(','))
@@ -626,13 +628,21 @@ export class SessionManager {
     // Last question answered: Claude Code shows a review screen when several were
     // asked, and also after a lone multi-select one. Confirm it when it shows.
     if ((q.total ?? 1) > 1 || (l.questionQueue ?? [q]).some(x => x.multiSelect)) {
-      for (let i = 0; i < 4; i++) {
+      let submitted = false
+      for (let i = 0; i < 8 && !submitted; i++) {
         await new Promise(r => setTimeout(r, 600))
-        const digit = reviewScreenCursor(await tmux.capture(s.tmuxSession, 30))
+        const digit = reviewSubmitDigit(await tmux.capture(s.tmuxSession, 30))
         if (digit) {
           await tmux.keys(s.tmuxSession, digit)
-          break
+          await new Promise(r => setTimeout(r, 400))
+          submitted = !reviewSubmitDigit(await tmux.capture(s.tmuxSession, 30))
         }
+      }
+      // Claude stays blocked on that screen until someone presses the key: say so
+      // instead of reporting an answer that never reached it
+      if (!submitted) {
+        log(`Session ${s.name}: answers left on Claude Code's review screen; needs a keypress in the terminal`)
+        this.activity(s, 'notification', 'Answers are waiting on the review screen in the terminal')
       }
     }
     l.questionQueue = undefined
@@ -1056,9 +1066,15 @@ export interface MultiSelectMenu {
   hasNext: boolean
 }
 
-const MS_ROW = /^(\s*)(❯?)\s*(\d+)\.\s+\[([ ✔x])\]\s+(.*)$/
+// Any non-space between the brackets means ticked: an unfamiliar glyph must never
+// drop the row, or a stale tick would be invisible to the read-back check
+const MS_ROW = /^\s*(❯?)\s*(\d+)\.\s+\[(.)\]\s+(.*)$/
 // "Submit" when this is the only question, "Next" when more follow
 const MS_NEXT = /^\s*(❯?)\s+(?:Next|Submit)\s*$/
+/** Numbered entry without a checkbox ("Chat about this"), the rule above it, or a row's description */
+const MS_FILLER = /^\s*(?:❯?\s*\d+\.\s+\S|─{3,}|\s*$|\s\s+\S)/
+/** The free-text row: digits typed there are characters, not toggles */
+const MS_TEXT_ROW = /^Type something/i
 
 /**
  * Parse Claude Code's multi-select AskUserQuestion menu. A digit toggles a row's
@@ -1066,6 +1082,10 @@ const MS_NEXT = /^\s*(❯?)\s+(?:Next|Submit)\s*$/
  * questions follow) commits the question, so the ticks and the cursor have to be
  * read before any key is sent. The checkbox is also what separates an option from
  * the trailing "Chat about this" entry.
+ *
+ * Only the block of lines immediately above the footer counts: Claude's own output
+ * can contain lines that look like checkbox rows, and a menu read with phantom rows
+ * can never pass the read-back check, leaving the question unanswerable.
  */
 export function multiSelectMenu(screen: string): MultiSelectMenu | null {
   const lines = screen.split('\n')
@@ -1074,31 +1094,36 @@ export function multiSelectMenu(screen: string): MultiSelectMenu | null {
   const rows: MenuRow[] = []
   let cursor: number | 'next' | null = null
   let hasNext = false
-  for (const line of lines.slice(Math.max(0, footer - 40), footer)) {
+  for (let i = footer - 1; i >= 0 && i >= footer - 40; i--) {
+    const line = lines[i]
     const row = MS_ROW.exec(line)
     if (row) {
-      rows.push({ number: Number(row[3]), label: row[5].trim(), checked: row[4] !== ' ' })
-      if (row[2]) cursor = Number(row[3])
+      rows.unshift({ number: Number(row[2]), label: row[4].trim(), checked: row[3] !== ' ' })
+      if (row[1]) cursor = Number(row[2])
       continue
     }
     const next = MS_NEXT.exec(line)
     if (next) {
       hasNext = true
       if (next[1]) cursor = 'next'
+      continue
     }
+    if (!MS_FILLER.test(line)) break // the question text (or anything else): the menu ends here
   }
-  return rows.length ? { rows, cursor, hasNext } : null
+  // A partial read — scrolled off, or interleaved with look-alike output — is not answerable
+  if (!rows.length || rows.some((r, i) => r.number !== i + 1)) return null
+  return { rows, cursor, hasNext }
 }
 
 /**
  * Claude Code's "Ready to submit your answers?" screen, shown after the last
- * question whenever any of them was multi-select. Returns the digit that submits
- * when the cursor is already on it, else null (the screen is not up, or the
- * cursor sits elsewhere and a blind key could cancel).
+ * question whenever any of them was multi-select. Returns the digit that selects
+ * "Submit answers" (numbered rows answer to their digit wherever the cursor is),
+ * or null when that screen is not up.
  */
-export function reviewScreenCursor(screen: string): string | null {
+export function reviewSubmitDigit(screen: string): string | null {
   if (!/Ready to submit your answers\?/i.test(screen)) return null
-  return /❯\s*(\d+)\.\s*Submit answers/i.exec(screen)?.[1] ?? null
+  return /(\d+)\.\s*Submit answers/i.exec(screen)?.[1] ?? null
 }
 
 /** Digits to press so that exactly `wanted` (1-based row numbers) end up ticked */
@@ -1106,6 +1131,9 @@ export function multiSelectToggles(menu: MultiSelectMenu, wanted: number[]): num
   if (!wanted.length) throw new HttpError(400, 'Pick at least one option')
   // A two-digit choice cannot be sent as one key, and typing "1" then "0" would toggle row 1
   if (menu.rows.some(r => r.number > 9)) throw new HttpError(409, 'Too many options to answer here; answer it in the terminal')
+  // With the cursor in (or off) the free-text row, digits are typed into it instead of toggling
+  const onText = menu.cursor === null || menu.rows.some(r => r.number === menu.cursor && MS_TEXT_ROW.test(r.label))
+  if (onText) throw new HttpError(409, 'The menu is in its text field; answer it in the terminal')
   for (const n of wanted) if (!menu.rows.some(r => r.number === n)) throw new HttpError(400, 'Invalid option')
   const want = new Set(wanted)
   return menu.rows.filter(r => r.checked !== want.has(r.number)).map(r => r.number)

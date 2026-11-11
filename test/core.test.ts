@@ -475,8 +475,31 @@ test('multiSelectMenu finds the commit row when a lone question labels it "Submi
   assert.equal(multiSelectMenu(lone.replace('❯ 1.', '  1.').replace('     Submit', '❯    Submit'))!.cursor, 'next')
 })
 
-test('reviewScreenCursor finds the "Submit answers" entry, including after a lone multi-select', async () => {
-  const { reviewScreenCursor } = await import('../src/server/core/sessions.js')
+test('multiSelectMenu ignores numbered lines from Claude output above the menu', async () => {
+  const { multiSelectMenu } = await import('../src/server/core/sessions.js')
+  const noise = ['  1. [x] read the file', '  2. [ ] write it', '', ...MS_MENU.split('\n')].join('\n')
+  assert.equal(multiSelectMenu(noise)!.rows.length, 4, 'only the contiguous block above the footer is the menu')
+  const scrolled = MS_MENU.replace('❯ 1. [ ] Apple\n         Apple\n', '')
+  assert.equal(multiSelectMenu(scrolled), null, 'numbering that does not start at 1 is a partial read: refuse')
+})
+
+test('multiSelectMenu reads any non-space tick glyph', async () => {
+  const { multiSelectMenu } = await import('../src/server/core/sessions.js')
+  const m = multiSelectMenu(MS_MENU.replace('2. [✔] Banana', '2. [X] Banana'))!
+  assert.equal(m.rows[1].checked, true, 'an unfamiliar glyph still means checked, never a dropped row')
+})
+
+test('multiSelectToggles refuses while the cursor sits in the text field', async () => {
+  const { multiSelectMenu, multiSelectToggles } = await import('../src/server/core/sessions.js')
+  // Digits typed there become characters instead of toggling, polluting the free-text row
+  const inField = multiSelectMenu(MS_MENU.replace('❯ 1.', '  1.').replace('  4. [ ] Type', '❯ 4. [ ] Type'))!
+  assert.throws(() => multiSelectToggles(inField, [1]), /answer it in the terminal/)
+  const noCursor = multiSelectMenu(MS_MENU.replace('❯ 1.', '  1.'))!
+  assert.throws(() => multiSelectToggles(noCursor, [1]), /answer it in the terminal/)
+})
+
+test('reviewSubmitDigit finds the "Submit answers" entry wherever the cursor sits', async () => {
+  const { reviewSubmitDigit } = await import('../src/server/core/sessions.js')
   // Measured on Claude Code v2.1.322: a single multi-select question also ends on this screen
   const review = [
     '←  ☒ Fruits  ✔ Submit  →',
@@ -491,9 +514,13 @@ test('reviewScreenCursor finds the "Submit answers" entry, including after a lon
     '❯ 1. Submit answers',
     '  2. Cancel',
   ].join('\n')
-  assert.equal(reviewScreenCursor(review), '1')
-  assert.equal(reviewScreenCursor(review.replace('❯ 1.', '  1.')), null, 'cursor elsewhere: do not press blindly')
-  assert.equal(reviewScreenCursor(MS_MENU), null, 'a live option menu is not the review screen')
+  assert.equal(reviewSubmitDigit(review), '1')
+  // The cursor can sit on Cancel; the digit of a numbered row selects it regardless
+  assert.equal(reviewSubmitDigit(review.replace('❯ 1.', '  1.').replace('  2.', '❯ 2.')), '1')
+  // Claude Code may grow a footer here: the digit must still be found, since this screen
+  // is also what tells the server the answer landed
+  assert.equal(reviewSubmitDigit(`${review}\n\nEnter to select · Esc to cancel`), '1')
+  assert.equal(reviewSubmitDigit(MS_MENU), null, 'a live option menu is not the review screen')
 })
 
 test('multiSelectMenu returns null without a live checkbox menu', async () => {
