@@ -449,6 +449,10 @@ export class SessionManager {
       body = `${body}\n\nAttached files (read them from disk):\n${list}`.trim()
     }
     if (!body) throw new HttpError(400, 'Message is empty')
+    // Fail closed: a menu we don't track (e.g. asked before a restart) would swallow the
+    // paste, and the Enter after it could toggle or pick an entry the user never chose
+    if (menuOnScreen(await tmux.capture(s.tmuxSession)))
+      throw new HttpError(409, 'Claude is waiting on a menu in the terminal; answer it there (see /screen)')
     await tmux.paste(s.tmuxSession, prefix + body)
     s.lastActivity = Date.now()
     this.changed(s)
@@ -1008,13 +1012,23 @@ function toolSummary(e: HookEvent): string {
 export function trustMenuState(screen: string): { order: Array<'yes' | 'no'>; cursor: 'yes' | 'no' } | null {
   const order: Array<'yes' | 'no'> = []
   let cursor: 'yes' | 'no' | null = null
-  for (const line of screen.split('\n').slice(-20)) {
+  // tmux returns every row of the pane, so the short dialog can sit above dozens of blank rows
+  for (const line of screen.split('\n').filter(l => l.trim()).slice(-20)) {
     const kind = /Yes, (I trust|proceed)/i.test(line) ? 'yes' : /No, exit/i.test(line) ? 'no' : null
     if (!kind) continue
     order.push(kind)
     if (/^\s*❯/.test(line)) cursor = kind
   }
   return order.length === 2 && cursor ? { order, cursor } : null
+}
+
+/**
+ * Is an interactive selection menu (question, trust dialog, picker) live at the bottom
+ * of the terminal? Text pasted there lands in the menu instead of reaching Claude.
+ */
+export function menuOnScreen(screen: string): boolean {
+  const tail = screen.split('\n').filter(l => l.trim()).slice(-6)
+  return tail.some(l => /Enter to (select|confirm)|↑\/↓ to navigate/i.test(l))
 }
 
 function isUnder(path: string, dir: string): boolean {

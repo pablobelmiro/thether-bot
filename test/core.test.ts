@@ -283,6 +283,24 @@ test('trust menu: finds the cursor and refuses unknown layouts', async () => {
   assert.equal(trustMenuState('something else'), null)
 })
 
+test('trust menu: a full-height screen with the dialog near the top is still read', async () => {
+  const { trustMenuState } = await import('../src/server/core/sessions.js')
+  // tmux capture-pane returns every row of the pane: a short dialog sits above ~30 blank rows
+  const screen = [' Accessing workspace:', ' /proj', '', ' ❯ No, exit', '   Yes, I trust this folder', '', ' Enter to confirm · Esc to cancel', ...Array(33).fill('')].join('\n')
+  assert.deepEqual(trustMenuState(screen), { order: ['no', 'yes'], cursor: 'no' })
+})
+
+test('menu on screen: detects live selection menus, not the idle prompt', async () => {
+  const { menuOnScreen } = await import('../src/server/core/sessions.js')
+  const multi = ['  4. [ ] Só 1', '❯ 5. [ ] Type something', '     Submit', '  6. Chat about this', 'Enter to select · ↑/↓ to navigate · Esc to cancel', '', '', ''].join('\n')
+  assert.equal(menuOnScreen(multi), true)
+  assert.equal(menuOnScreen(' ❯ No, exit\n   Yes, I trust this folder\n Enter to confirm · Esc to cancel\n\n\n'), true)
+  const idle = ['● Done.', '─────', '❯ ', '─────', '  [Opus] 📁 x', '  ⏵⏵ bypass permissions on (shift+tab to cycle)', '', ''].join('\n')
+  assert.equal(menuOnScreen(idle), false)
+  // The footer text quoted far up in the conversation is not a live menu
+  assert.equal(menuOnScreen(['Enter to select · ↑/↓ to navigate', ...Array(12).fill('● some output line'), '❯ ', '  ⏵⏵ bypass permissions on'].join('\n')), false)
+})
+
 test('conversations: summarizes transcripts, newest first, skips metadata-only files', async () => {
   const { listConversations } = await import('../src/server/core/conversations.js')
   const { utimesSync, mkdirSync } = await import('node:fs')
