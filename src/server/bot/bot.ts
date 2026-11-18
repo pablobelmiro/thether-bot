@@ -101,8 +101,18 @@ export interface TelegramBot {
   attachScheduler(s: SchedulerHandle): void
 }
 
+/**
+ * Lowercase a leading bot command (not its arguments). Phones capitalize the first
+ * letter ("/Senha"), and grammY matches command names exactly.
+ */
+export function normalizeCommand(text: string): string {
+  return text.replace(/^\/(\w+)/, (_, c: string) => `/${c.toLowerCase()}`)
+}
+
 export function createTelegramBot(d: BotDeps): TelegramBot {
-  const bot = new Bot(d.token)
+  // grammY waits 500 s per request by default: a connection that dies silently would leave
+  // the bot deaf for minutes. Long polling holds a request for 30 s, so 60 s is enough.
+  const bot = new Bot(d.token, { client: { timeoutSeconds: 60 } })
   const locks = new Map<number, Lock>()
   const pendingQuestions = new Map<string, { sessionId: string; labels: string[]; multiSelect: boolean; picked: Set<number> }>()
   const pendingOther = new Map<number, string>() // userId → sessionId awaiting free-text answer
@@ -220,6 +230,11 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
   const commandOf = (ctx: Context) => ctx.message?.text?.match(/^\/(\w+)(@\w+)?/)?.[1]?.toLowerCase() ?? ''
   const isCmd = (name: string, c: Cmd) => (ALIASES[c] as readonly string[]).includes(name)
 
+  bot.use((ctx, next) => {
+    if (ctx.message?.text?.startsWith('/')) ctx.message.text = normalizeCommand(ctx.message.text)
+    return next()
+  })
+
   bot.use(async (ctx, next) => {
     if (ctx.chat?.type !== 'private' || !ctx.from || ctx.from.is_bot) return
     const uid = ctx.from.id
@@ -334,6 +349,7 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     const lock = lockFor(ctx.from!.id)
     const result = lock.tryUnlock(() => d.repo.checkPassword(attempt))
     d.repo.audit('telegram', result === 'ok' ? 'unlock' : 'unlock.failed', String(ctx.from!.id))
+    log(`Telegram ← ${ctx.from!.id}: unlock ${result}`)
     if (result === 'ok') {
       const s = activeOf(me(ctx))
       await ctx.reply(s ? t('lock.unlocked', { name: escapeHtml(s.name), status: statusText(lng, s) }) : t('lock.unlockedNoSession', n), { parse_mode: 'HTML' })

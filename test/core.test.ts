@@ -1399,3 +1399,32 @@ test('the Telegram creation wizard walks the fields in order and validates each 
     (err: unknown) => { assert.match((err as Error).message, /^Invalid /); return true },
   )
 })
+
+test('telegram commands: phone autocapitalization still matches the command', async () => {
+  const { normalizeCommand } = await import('../src/server/bot/bot.js')
+  assert.equal(normalizeCommand('/Senha MinhaSenha'), '/senha MinhaSenha', 'arguments keep their case')
+  assert.equal(normalizeCommand('/TROCAR@Pablo_bot'), '/trocar@Pablo_bot')
+  assert.equal(normalizeCommand('/tela'), '/tela')
+  assert.equal(normalizeCommand('Olá /Senha'), 'Olá /Senha', 'only a leading command')
+})
+
+test('question on screen: a side preview column does not hide the question', async () => {
+  const { questionOnScreen } = await import('../src/server/core/sessions.js')
+  const L = (left: string, right = '') => (right ? left.padEnd(60) + right : left)
+  const screen = [
+    L(' ☐ Aprovados'),
+    L('', '───────────────────'),
+    L('│ Pares já aprovados dependem de código fiscal fora da', 'docs/notes.md'),
+    L('│ pergunta. O que fazemos com eles?', '───────────────────'),
+    L('', '120    (spec por índice);'),
+    L('❯ 1. Corrigir e revisar de novo (Recommended)', '121  - o índice unificado'),
+    L('     Ponho o código no enunciado.', '122 +  mesmo: toda folha'),
+    L('  2. Só daqui para frente'),
+    L('  3. Type something.'),
+    L('─────────────────────────────', '+ por topologia'),
+    L('  4. Chat about this'),
+    L('Enter to select · ↑/↓ to navigate · Esc to cancel', '+junto.jsonl'),
+  ].join('\n')
+  assert.equal(questionOnScreen(screen, 'Pares já aprovados dependem de código fiscal fora da pergunta. O que fazemos com eles?'), true)
+  assert.equal(questionOnScreen(screen, 'Outra pergunta qualquer que não está na tela'), false)
+})

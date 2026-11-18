@@ -1037,6 +1037,20 @@ function isUnder(path: string, dir: string): boolean {
 }
 
 /**
+ * Claude Code can draw a preview pane (e.g. a file diff) to the right of a question menu.
+ * Its rules and text would break parsing of the menu, so keep only the left column: it
+ * starts where rows that hold nothing but deeply indented right-pane content begin.
+ */
+export function leftColumn(lines: string[]): string[] {
+  let col = Infinity
+  for (const l of lines) {
+    const m = /^( {30,})\S/.exec(l)
+    if (m) col = Math.min(col, m[1].length)
+  }
+  return col === Infinity ? lines : lines.map(l => l.slice(0, col))
+}
+
+/**
  * Is this question the active menu at the bottom of the terminal?
  * The text must sit right above the option list of a live menu (footer visible) —
  * not just anywhere on screen, e.g. inside the prompt that asked for it.
@@ -1045,7 +1059,7 @@ export function questionOnScreen(screen: string, question: string): boolean {
   const flat = (t: string) => t.replace(/[│\s]+/g, ' ').trim().toLowerCase()
   const probe = flat(question).slice(0, 40)
   if (!probe) return false
-  const lines = screen.split('\n')
+  const lines = leftColumn(screen.split('\n'))
   const footer = lines.map(l => /Enter to select|Esc to cancel/i.test(l)).lastIndexOf(true)
   if (footer === -1) return false
   let first = -1
@@ -1102,7 +1116,7 @@ const MS_TEXT_ROW = /^Type something/i
  * can never pass the read-back check, leaving the question unanswerable.
  */
 export function multiSelectMenu(screen: string): MultiSelectMenu | null {
-  const lines = screen.split('\n')
+  const lines = leftColumn(screen.split('\n'))
   const footer = lines.map(l => /Enter to select|Esc to cancel/i.test(l)).lastIndexOf(true)
   if (footer === -1) return null
   const rows: MenuRow[] = []
