@@ -387,12 +387,11 @@ export class SessionManager {
     const s = this.require(id)
     s.paused = false
     await tmux.kill(s.tmuxSession)
-    // Resume this session's own conversation; -c (latest in the folder) only as a fallback
+    // Resume this session's own conversation. Without a known id, start fresh: `claude -c`
+    // exits with status 1 when the folder has no conversation it can continue (none yet, or
+    // only ones from other clients), which left the session offline right after restart.
     const resumeId = s.claudeSessionId && CONVERSATION_ID.test(s.claudeSessionId) ? s.claudeSessionId : undefined
-    // `claude -c` exits ("No conversation found to continue") when the folder has none yet,
-    // e.g. the first run never got past the trust dialog: start fresh instead
-    const canContinue = !resumeId && listConversations(env.claudeHome, 50, s.cwd).some(c => resolve(c.cwd) === resolve(s.cwd))
-    await tmux.newSession(s.tmuxSession, s.cwd, claudeCommand(s.permissionMode, canContinue, undefined, resumeId), tmuxEnv())
+    await tmux.newSession(s.tmuxSession, s.cwd, claudeCommand(s.permissionMode, false, undefined, resumeId), tmuxEnv())
     if (!resumeId) {
       s.claudeSessionId = undefined
       s.transcriptPath = undefined
