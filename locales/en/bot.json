@@ -115,8 +115,8 @@
     "set": "✅ Language set to English."
   },
   "unknownCommand": "Unknown command. See /{{help}}.",
-  "unsupported": "I can't handle this kind of message yet. Send text, a photo or a file.",
-  "help": "<b>🤖 Claude on Telegram</b>\nAny text goes to the <b>active session</b>. Photos and files are attached to it.\n\n<b>Access</b>\n/{{password}} &lt;password&gt; — unlock the bot\n/{{lock}} — lock it now\n\n<b>Sessions</b>\n/{{change}} — choose the working directory (or <code>/{{change}} name</code>)\n/{{sessions}} — sessions in the current directory: switch, new here, pause all\n<i>  Answers from other sessions are kept (📬) and delivered when you switch.</i>\n/{{new}} &lt;path&gt; [name] — open a session in any directory\n/{{repos}} — projects; open a new session\n/{{resume}} — resume a recent Claude conversation\n/{{pause}} [name] — pause an idle session (keeps the conversation)\n<code>/{{pause}} all</code> — pause every idle session in the current directory\n/{{status}} — active session, model and context\n/{{screen}} — show the terminal now\n/{{cancel}} — interrupt Claude\n\n<b>Scheduled tasks</b>\n/{{schedules}} — list, run, pause or delete scheduled tasks\n\n<b>Claude Code</b>\n/model — change model (or <code>/model opus</code>)\n/effort — effort level (or <code>/effort high</code>)\n/usage — plan usage\n/clear — clear the session context\n\n/{{lang}} — language\n\n<i>The bot locks itself after {{hours}} h without use and whenever it restarts.</i>",
+  "unsupported": "I can't handle this kind of message yet. Send text, a voice note, a photo or a file.",
+  "help": "<b>🤖 Claude on Telegram</b>\nAny text goes to the <b>active session</b>. Photos and files are attached to it. Voice notes are transcribed and sent as text.\n\n<b>Access</b>\n/{{password}} &lt;password&gt; — unlock the bot\n/{{lock}} — lock it now\n\n<b>Sessions</b>\n/{{change}} — choose the working directory (or <code>/{{change}} name</code>)\n/{{sessions}} — sessions in the current directory: switch, new here, pause all\n<i>  Answers from other sessions are kept (📬) and delivered when you switch.</i>\n/{{new}} &lt;path&gt; [name] — open a session in any directory\n/{{repos}} — projects; open a new session\n/{{resume}} — resume a recent Claude conversation\n/{{pause}} [name] — pause an idle session (keeps the conversation)\n<code>/{{pause}} all</code> — pause every idle session in the current directory\n/{{status}} — active session, model and context\n/{{screen}} — show the terminal now\n/{{cancel}} — interrupt Claude\n\n<b>Scheduled tasks</b>\n/{{schedules}} — list, run, pause or delete scheduled tasks\n\n<b>Claude Code</b>\n/model — change model (or <code>/model opus</code>)\n/effort — effort level (or <code>/effort high</code>)\n/usage — plan usage\n/clear — clear the session context\n\n/{{lang}} — language\n\n<i>The bot locks itself after {{hours}} h without use and whenever it restarts.</i>",
   "commands": {
     "help": "Show the commands",
     "password": "Unlock the bot: /password <password>",
@@ -243,5 +243,20 @@
     "pausedAll_one": "⏸️ Paused 1 session in <b>{{name}}</b>.",
     "pausedAll_other": "⏸️ Paused {{count}} sessions in <b>{{name}}</b>.",
     "skipped": "Busy, left running: {{names}}"
+  },
+  "voice": {
+    "heard": "🎙️ <b>Heard:</b> <i>{{text}}</i>\n\nIs that right?",
+    "tooLong": "Audio too long (max {{minutes}} min).",
+    "noSpeech": "I couldn't find any speech in that audio.",
+    "unavailable": "Voice transcription isn't installed on this machine. Run <code>npm run setup:voice</code> in Tether.",
+    "failed": "Couldn't transcribe the audio: {{error}}",
+    "send": "✅ Send",
+    "edit": "✏️ Edit",
+    "discard": "❌ Redo",
+    "sent": "📨 Sent to <b>{{name}}</b>.",
+    "discarded": "Discarded. Send a new voice note or type the text.",
+    "editPrompt": "✏️ Send the corrected text. Your next message goes to Claude instead of the transcript.\n\n<code>{{text}}</code>",
+    "copy": "📋 Copy transcript",
+    "expired": "That transcript is no longer pending."
   }
 }

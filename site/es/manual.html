@@ -180,6 +180,8 @@
           <dl>
             <dt>Texto</dt>
             <dd>Se envía a la sesión activa como prompt. Los mensajes largos y de varias líneas no son problema.</dd>
+            <dt>Mensajes de voz</dt>
+            <dd>Se transcriben localmente con faster-whisper (el audio no sale de tu equipo). El bot muestra lo que entendió con los botones <strong>✅ Enviar</strong>, <strong>✏️ Editar</strong> y <strong>❌ Rehacer</strong>; nada llega a Claude hasta que eliges. Instalación única: <code>npm run setup:voice</code>.</dd>
             <dt>Fotos y archivos</dt>
             <dd>Se guardan en tu equipo y se adjuntan al prompt. El pie de foto se convierte en el mensaje. Telegram limita los bots a 20 MB por archivo.</dd>
             <dt>Preguntas</dt>

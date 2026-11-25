@@ -88,6 +88,7 @@ Then just type. Your message goes to the active session, and Claude's answer com
 |---|---|
 | *any text* | Send it to the active session |
 | *photo / file* | Attach it (the caption becomes the message) |
+| *voice note / audio* | Transcribed on this machine and sent as text. The bot first replies with what it heard (see [Voice messages](#voice-messages)). |
 | `/change [name]` | Choose a **working directory** (📬 shows answers you haven't read yet). Opens its sessions, or switches directly if there's only one. With a name: that session, or that directory. |
 | `/sessions` | Sessions in the current directory: switch, **➕ new session here**, **⏸️ pause all** |
 | `/new <path> [name]` | Open a new session in any directory, e.g. `/new ~/projects/my-app` (quote paths with spaces) |
@@ -107,6 +108,27 @@ Then just type. Your message goes to the active session, and Claude's answer com
 | `/help` | Show everything |
 
 Localized aliases also work, e.g. `/senha`, `/ajuda`, `/tela` in Portuguese and `/clave`, `/ayuda`, `/pantalla` in Spanish.
+
+### Voice messages
+
+Claude can't take audio, so Tether turns voice notes into text before sending them. Transcription runs **locally** with [faster-whisper](https://github.com/SYSTRAN/faster-whisper) on the CPU: the audio never leaves the machine and there is no API cost.
+
+It works for Telegram voice notes (Ogg/Opus), audio files (mp3, m4a, ogg…) and round video notes. The bot reacts ✍ while transcribing, replies with `🎙️ Heard: …` and three buttons. Nothing reaches Claude until you choose:
+
+- **✅ Send**: the transcript goes to the active session, like typed text (if a question is open, it answers it).
+- **✏️ Edit**: the bot shows the transcript with a copy button; your next text message is sent instead.
+- **❌ Redo**: the transcript is dropped; send a new voice note or type the text.
+
+A new voice note replaces a transcript still waiting for a choice.
+
+One-time setup (needs Python 3 and `ffmpeg`):
+
+```bash
+sudo apt install ffmpeg python3-venv   # if missing
+npm run setup:voice                    # creates ~/.tether/whisper and installs faster-whisper
+```
+
+The first voice note downloads the model (`small` ≈ 500 MB, cached under `~/.cache/huggingface`). On a modern CPU, a 30-second note takes a few seconds. Only one transcription runs at a time. Options are in [Configuration](#configuration).
 
 **Working directories.** Sessions are grouped by the folder they were created in, and one folder can run several Claude sessions (named `app`, `app 2`, …). `/change` picks the folder, and `/sessions` picks the session inside it. The dashboard sidebar shows the same grouping, with *new session here* and *pause all* on each folder.
 
@@ -207,6 +229,11 @@ Everything user-facing lives in the dashboard (stored in `~/.tether/tether.db`).
 | `TETHER_CLAUDE_BIN` | `claude` | Claude Code executable |
 | `CLAUDE_CONFIG_DIR` | `~/.claude` | Claude Code settings and transcripts |
 | `TETHER_DEBUG` | | `1` for verbose logs |
+| `TETHER_VOICE` | `1` | `0` turns voice transcription off |
+| `TETHER_WHISPER_PYTHON` | `~/.tether/whisper/bin/python` | Python with faster-whisper installed |
+| `TETHER_WHISPER_MODEL` | `small` | `tiny`, `base`, `small`, `medium`, `large-v3`: bigger is more accurate and slower |
+| `TETHER_WHISPER_LANG` | `auto` | Spoken language (`pt`, `en`, `es`…). Setting it is faster and more accurate than `auto`. |
+| `TETHER_VOICE_MAX_SECONDS` | `600` | Longer audio is refused |
 | `TETHER_DEV_ORIGINS` | | Extra browser origins allowed to call the API, comma-separated. Development only (`npm run dev` sets it). |
 
 ### CLI
@@ -232,6 +259,7 @@ tether uninstall-hooks     # remove Tether from ~/.claude/settings.json
 | A session I started myself isn't listed | Start it inside tmux, then use **Adopt** in the dashboard. Or use **Resume** to reopen its conversation. |
 | Answers don't arrive after `/clear` | They should. If not, check that the hooks are installed (`tether doctor`). |
 | Forgot the password | Run `tether passwd` on the machine. |
+| A voice note gets "Voice transcription isn't installed" | Run `npm run setup:voice`, then restart Tether. |
 | Logs | `journalctl --user -u telegram-claude-tether -f` (service), or the terminal running `tether`. |
 
 ## Known limitations

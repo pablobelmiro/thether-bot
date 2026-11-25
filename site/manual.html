@@ -180,6 +180,8 @@
           <dl>
             <dt>Text</dt>
             <dd>Sent to the active session as a prompt. Long and multi-line messages are fine.</dd>
+            <dt>Voice notes</dt>
+            <dd>Transcribed locally with faster-whisper (the audio never leaves your machine). The bot shows what it heard with <strong>✅ Send</strong>, <strong>✏️ Edit</strong> and <strong>❌ Redo</strong> buttons; nothing reaches Claude until you choose. One-time setup: <code>npm run setup:voice</code>.</dd>
             <dt>Photos and files</dt>
             <dd>Saved on your machine and attached to the prompt. The caption becomes the message. Telegram limits bots to 20 MB per file.</dd>
             <dt>Questions</dt>

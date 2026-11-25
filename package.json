@@ -14,6 +14,7 @@
     "bin",
     "dist",
     "hooks",
+    "tools",
     "locales",
     "docs/TELEGRAM_AGENT.md",
     "docs/assets",
@@ -31,6 +32,7 @@
     "build:web": "vite build --config web/vite.config.ts",
     "start": "node bin/tether.mjs",
     "test": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx --test test/*.test.ts",
+    "setup:voice": "python3 -m venv ${TETHER_HOME:-$HOME/.tether}/whisper && ${TETHER_HOME:-$HOME/.tether}/whisper/bin/pip install -r tools/requirements-voice.txt",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p web/tsconfig.json --noEmit",
     "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },

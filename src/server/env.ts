@@ -38,6 +38,18 @@ export const env = {
   debug: process.env.TETHER_DEBUG === '1',
 }
 
+/** Voice messages: local speech-to-text with faster-whisper (see tools/transcribe.py) */
+export const voice = {
+  enabled: process.env.TETHER_VOICE !== '0',
+  python: expand(process.env.TETHER_WHISPER_PYTHON ?? join(env.home, 'whisper', 'bin', 'python')),
+  model: process.env.TETHER_WHISPER_MODEL ?? 'small',
+  /** ISO code ("pt", "en"…) or "auto" */
+  language: process.env.TETHER_WHISPER_LANG ?? 'auto',
+  /** Longer voice notes are refused before transcribing */
+  maxSeconds: parseInt(process.env.TETHER_VOICE_MAX_SECONDS ?? '600', 10),
+  timeoutMs: 5 * 60_000,
+}
+
 export const paths = {
   db: join(env.home, 'tether.db'),
   secretKey: join(env.home, 'secret.key'),

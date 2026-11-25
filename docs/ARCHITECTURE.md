@@ -53,6 +53,10 @@
 
 Locks are per user and in memory, so they are lost on restart, by design.
 
+### Voice messages
+
+`message:voice`, `message:audio` and `message:video_note` are handled in `bot/bot.ts`. The file is downloaded and saved with `saveUpload`, like photos, then passed to `core/transcribe.ts`. It runs `tools/transcribe.py` with `execFile` (Python in isolated mode `-I`, 5-minute timeout) through a single-slot queue, so only one transcription uses the CPU at a time. The script decodes the audio with `ffmpeg` into 16 kHz mono samples and transcribes them with faster-whisper (`int8` on CPU, VAD on). Exit code 3 means no speech. The transcript is echoed back with Send / Edit / Redo buttons (`vc:<key>:a|e|r`) and kept in memory in `pendingVoice` until the user chooses; nothing reaches the session before that. Edit stores the user in `pendingVoiceEdit`, and the next `message:text` is sent in place of the transcript (checked before any other free-text handling). Send goes through `SessionManager.prompt` exactly like typed text, so it can also answer an open question. Pending transcripts live in memory only: a server restart drops them. Settings come from `voice` in `env.ts` (`TETHER_WHISPER_*`, `TETHER_VOICE*`).
+
 ## Scheduler
 
 `Scheduler` (`core/scheduler.ts`) runs on a 15-second tick. On each tick it calls `planDispatch` from `core/schedules.ts` — which is pure: no I/O, just time math — to get a list of schedule ids to run and ids to record as `skipped` (previous run still in flight). For each id to run, `Scheduler` creates a session via `SessionManager` in bypass mode, injects the prompt through the same tmux buffer path as the bot, and listens to hub events (`turn_complete`, `question`, `human_input`, `session`) to advance the run to a terminal status. Timeout enforcement runs on the same tick: elapsed wall-clock time minus time spent waiting is compared to the schedule's `timeoutMinutes`. Finished runs notify the schedule's `notifyPhone` via `BotManager`.

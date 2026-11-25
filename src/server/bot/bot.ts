@@ -20,7 +20,8 @@ import { TELEGRAM_PREFIX } from '../core/transcript.js'
 import { saveUpload } from '../http/app.js'
 import { translator } from '../i18n.js'
 import type { TFunction } from 'i18next'
-import { log } from '../env.js'
+import { log, voice } from '../env.js'
+import { transcribe, TranscribeError } from '../core/transcribe.js'
 import { escapeHtml, markdownToTelegramMessages, splitPlain, terminalToHtml } from './format.js'
 import { Lock } from './lock.js'
 import { usageReport } from '../core/usage-report.js'
@@ -116,6 +117,8 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
   const locks = new Map<number, Lock>()
   const pendingQuestions = new Map<string, { sessionId: string; labels: string[]; multiSelect: boolean; picked: Set<number> }>()
   const pendingOther = new Map<number, string>() // userId → sessionId awaiting free-text answer
+  const pendingVoice = new Map<string, { sessionId: string; text: string; userId: number }>() // key → transcript awaiting confirmation
+  const pendingVoiceEdit = new Map<number, string>() // userId → sessionId awaiting the corrected transcript
   const permissionMessages = new Map<string, Array<{ chatId: number; messageId: number; lng: string }>>()
   const questionMessages = new Map<string, Array<{ chatId: number; messageId: number }>>() // sessionId → sent prompts
   const typing = new Map<number, NodeJS.Timeout>()
@@ -873,6 +876,12 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     const text = ctx.message.text
     if (text.startsWith('/')) return void (await ctx.reply(t('unknownCommand', n)))
 
+    const editFor = pendingVoiceEdit.get(ctx.from.id)
+    if (editFor) {
+      pendingVoiceEdit.delete(ctx.from.id)
+      return void (await sendVoiceText(ctx, editFor, text))
+    }
+
     const otherFor = pendingOther.get(ctx.from.id)
     if (otherFor) {
       pendingOther.delete(ctx.from.id)
@@ -894,6 +903,71 @@ export function createTelegramBot(d: BotDeps): TelegramBot {
     } catch (e) {
       await ctx.reply(t('session.sendFailed', { name: s.name, error: (e as Error).message }))
     }
+  })
+
+  // Voice notes (Ogg/Opus), audio files and round videos: transcribed locally, sent as text
+  bot.on(['message:voice', 'message:audio', 'message:video_note'], async ctx => {
+    const { t } = tr(ctx)
+    const s = await requireActive(ctx)
+    if (!s) return
+    const msg = ctx.message
+    const media = msg.voice ?? msg.audio ?? msg.video_note
+    if (!media) return
+    if ((media.file_size ?? 0) > TG_FILE_LIMIT) return void (await ctx.reply(t('attachment.tooBig')))
+    if (media.duration > voice.maxSeconds) return void (await ctx.reply(t('voice.tooLong', { minutes: Math.floor(voice.maxSeconds / 60) })))
+    pendingVoiceEdit.delete(ctx.from.id) // a new voice note replaces an edit in progress
+    await ctx.react('✍').catch(() => {})
+    let text: string
+    try {
+      const file = await ctx.getFile()
+      const res = await fetch(`https://api.telegram.org/file/bot${d.token}/${file.file_path}`, { signal: AbortSignal.timeout(60000) })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const ext = (file.file_path?.match(/\.[a-z0-9]+$/i)?.[0] ?? (msg.voice ? '.oga' : '.bin')).toLowerCase()
+      const upload = saveUpload(s.id, `voice-${Date.now()}${ext}`, Buffer.from(await res.arrayBuffer()), (media as { mime_type?: string }).mime_type ?? 'audio/ogg')
+      text = await transcribe(upload.path)
+    } catch (e) {
+      const code = e instanceof TranscribeError ? e.code : 'failed'
+      if (code === 'unavailable') return void (await ctx.reply(t('voice.unavailable')))
+      if (code === 'no_speech') return void (await ctx.reply(t('voice.noSpeech')))
+      return void (await ctx.reply(t('voice.failed', { error: (e as Error).message })))
+    }
+    const full = msg.caption ? `${msg.caption}\n\n${text}` : text
+    // Nothing goes to Claude until the user confirms: send, edit or discard
+    const key = randomBytes(4).toString('hex')
+    pendingVoice.set(key, { sessionId: s.id, text: full, userId: ctx.from.id })
+    for (const [k, v] of pendingVoice) if (k !== key && v.userId === ctx.from.id) pendingVoice.delete(k)
+    const kb = new InlineKeyboard().text(t('voice.send'), `vc:${key}:a`).text(t('voice.edit'), `vc:${key}:e`).text(t('voice.discard'), `vc:${key}:r`)
+    await ctx.reply(t('voice.heard', { text: escapeHtml(full.slice(0, 3500)) }), { parse_mode: 'HTML', reply_markup: kb })
+  })
+
+  /** Sends confirmed (or corrected) voice text to the session, like typed text */
+  async function sendVoiceText(ctx: Context, sessionId: string, text: string): Promise<void> {
+    const { t } = tr(ctx)
+    const s = d.sessions.get(sessionId)
+    if (!s) return void (await ctx.reply(t('voice.expired')))
+    try {
+      const result = await d.sessions.prompt(s.id, text, TELEGRAM_PREFIX)
+      if (result === 'answered') await ctx.reply(t('question.answeredByText', { answer: escapeHtml(text.slice(0, 100)) }), { parse_mode: 'HTML' })
+      else await ctx.reply(t('voice.sent', { name: escapeHtml(s.name) }), { parse_mode: 'HTML' })
+    } catch (e) {
+      await ctx.reply(t('session.sendFailed', { name: s.name, error: (e as Error).message }))
+    }
+  }
+
+  bot.callbackQuery(/^vc:(\w+):([aer])$/, async ctx => {
+    const { t } = tr(ctx)
+    const v = pendingVoice.get(ctx.match[1])
+    await ctx.editMessageReplyMarkup().catch(() => {})
+    if (!v || v.userId !== ctx.from.id) return void (await ctx.answerCallbackQuery({ text: t('voice.expired') }))
+    pendingVoice.delete(ctx.match[1])
+    await ctx.answerCallbackQuery()
+    const action = ctx.match[2]
+    if (action === 'a') return void (await sendVoiceText(ctx, v.sessionId, v.text))
+    if (action === 'r') return void (await ctx.reply(t('voice.discarded')))
+    // Edit: the next text message replaces the transcript. A copy button puts it in the clipboard.
+    pendingVoiceEdit.set(ctx.from.id, v.sessionId)
+    const kb = v.text.length <= 256 ? new InlineKeyboard().copyText(t('voice.copy'), v.text) : undefined
+    await ctx.reply(t('voice.editPrompt', { text: escapeHtml(v.text.slice(0, 3500)) }), { parse_mode: 'HTML', reply_markup: kb })
   })
 
   bot.on(['message:photo', 'message:document'], async ctx => {

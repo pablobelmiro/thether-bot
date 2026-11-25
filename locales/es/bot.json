@@ -115,8 +115,8 @@
     "set": "✅ Idioma configurado en español."
   },
   "unknownCommand": "Comando desconocido. Mira /{{help}}.",
-  "unsupported": "Aún no puedo manejar este tipo de mensaje. Envía texto, una foto o un archivo.",
-  "help": "<b>🤖 Claude en Telegram</b>\nCualquier texto va a la <b>sesión activa</b>. Las fotos y archivos se adjuntan a ella.\n\n<b>Acceso</b>\n/{{password}} &lt;contraseña&gt; — desbloquea el bot\n/{{lock}} — bloquéalo ahora\n\n<b>Sesiones</b>\n/{{change}} — elegir el directorio de trabajo (o <code>/{{change}} nombre</code>)\n/{{sessions}} — sesiones del directorio actual: cambiar, nueva aquí, pausar todas\n<i>  Las respuestas de otras sesiones se guardan (📬) y llegan cuando cambias.</i>\n/{{new}} &lt;ruta&gt; [nombre] — abre una sesión en cualquier directorio\n/{{repos}} — proyectos; abre una nueva sesión\n/{{resume}} — reanuda una conversación reciente de Claude\n/{{pause}} [nombre] — pausa una sesión inactiva (conserva la conversación)\n<code>/{{pause}} todas</code> — pausa todas las sesiones libres del directorio actual\n/{{status}} — sesión activa, modelo y contexto\n/{{screen}} — muestra la terminal ahora\n/{{cancel}} — interrumpe a Claude\n\n<b>Tareas programadas</b>\n/{{schedules}} — listar, ejecutar, pausar o eliminar tareas programadas\n\n<b>Claude Code</b>\n/model — cambiar modelo (o <code>/model opus</code>)\n/effort — nivel de esfuerzo (o <code>/effort high</code>)\n/usage — uso del plan\n/clear — limpia el contexto de la sesión\n\n/{{lang}} — idioma\n\n<i>El bot se bloquea solo tras {{hours}} h sin uso y siempre que se reinicia.</i>",
+  "unsupported": "Aún no puedo manejar este tipo de mensaje. Envía texto, un audio, una foto o un archivo.",
+  "help": "<b>🤖 Claude en Telegram</b>\nCualquier texto va a la <b>sesión activa</b>. Las fotos y archivos se adjuntan a ella. Los audios se transcriben y se envían como texto.\n\n<b>Acceso</b>\n/{{password}} &lt;contraseña&gt; — desbloquea el bot\n/{{lock}} — bloquéalo ahora\n\n<b>Sesiones</b>\n/{{change}} — elegir el directorio de trabajo (o <code>/{{change}} nombre</code>)\n/{{sessions}} — sesiones del directorio actual: cambiar, nueva aquí, pausar todas\n<i>  Las respuestas de otras sesiones se guardan (📬) y llegan cuando cambias.</i>\n/{{new}} &lt;ruta&gt; [nombre] — abre una sesión en cualquier directorio\n/{{repos}} — proyectos; abre una nueva sesión\n/{{resume}} — reanuda una conversación reciente de Claude\n/{{pause}} [nombre] — pausa una sesión inactiva (conserva la conversación)\n<code>/{{pause}} todas</code> — pausa todas las sesiones libres del directorio actual\n/{{status}} — sesión activa, modelo y contexto\n/{{screen}} — muestra la terminal ahora\n/{{cancel}} — interrumpe a Claude\n\n<b>Tareas programadas</b>\n/{{schedules}} — listar, ejecutar, pausar o eliminar tareas programadas\n\n<b>Claude Code</b>\n/model — cambiar modelo (o <code>/model opus</code>)\n/effort — nivel de esfuerzo (o <code>/effort high</code>)\n/usage — uso del plan\n/clear — limpia el contexto de la sesión\n\n/{{lang}} — idioma\n\n<i>El bot se bloquea solo tras {{hours}} h sin uso y siempre que se reinicia.</i>",
   "commands": {
     "help": "Muestra los comandos",
     "password": "Desbloquea el bot: /clave <contraseña>",
@@ -243,5 +243,20 @@
     "pausedAll_one": "⏸️ 1 sesión pausada en <b>{{name}}</b>.",
     "pausedAll_other": "⏸️ {{count}} sesiones pausadas en <b>{{name}}</b>.",
     "skipped": "Ocupadas, siguen ejecutándose: {{names}}"
+  },
+  "voice": {
+    "heard": "🎙️ <b>Entendí:</b> <i>{{text}}</i>\n\n¿Es correcto?",
+    "tooLong": "Audio demasiado largo (máximo {{minutes}} min).",
+    "noSpeech": "No encontré voz en ese audio.",
+    "unavailable": "La transcripción de audio no está instalada en esta máquina. Ejecuta <code>npm run setup:voice</code> en Tether.",
+    "failed": "No pude transcribir el audio: {{error}}",
+    "send": "✅ Enviar",
+    "edit": "✏️ Editar",
+    "discard": "❌ Rehacer",
+    "sent": "📨 Enviado a <b>{{name}}</b>.",
+    "discarded": "Descartado. Envía un nuevo audio o escribe el texto.",
+    "editPrompt": "✏️ Envía el texto corregido. Tu próximo mensaje va a Claude en lugar de la transcripción.\n\n<code>{{text}}</code>",
+    "copy": "📋 Copiar transcripción",
+    "expired": "Esa transcripción ya no está pendiente."
   }
 }
